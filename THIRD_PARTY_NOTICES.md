@@ -9,7 +9,7 @@ Clyvora Convert depends on open-source packages whose licenses remain with their
 - `@ffmpeg/core` 0.12.10 — GPL-2.0-or-later
 - `@ffmpeg/core-mt` 0.12.10 — GPL-2.0-or-later
 
-The single- and multithreaded core files used by the application are generated from the installed npm packages by `npm run prepare:ffmpeg`. They are not original Clyvora Convert source code and are not covered by the repository's MIT license.
+The single- and multithreaded core files used by the application are generated from the installed npm packages by `npm run prepare:ffmpeg`. They are not original Clyvora Convert source code and are not covered by the repository's PolyForm Shield license.
 
 Anyone distributing a built application containing these FFmpeg artifacts is responsible for satisfying the applicable GPL requirements, including providing the license notices and corresponding source as required. Review the installed package metadata and the upstream [ffmpeg.wasm repository](https://github.com/ffmpegwasm/ffmpeg.wasm) before distribution.
 

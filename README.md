@@ -2,7 +2,7 @@
 
 > Convert media locally. No uploads, waiting, or accounts.
 
-Clyvora Convert is an open-source image, audio, and video converter that runs entirely in the browser. Selected files are processed on the user's device and are never sent to a conversion server.
+Clyvora Convert is a source-available image, audio, and video converter that runs entirely in the browser. Selected files are processed on the user's device and are never sent to a conversion server.
 
 **Use it online:** [www.convert.clyvora.tech](https://www.convert.clyvora.tech/)
 
@@ -145,6 +145,6 @@ For sensitive vulnerability reports, follow [SECURITY.md](SECURITY.md).
 
 ## License
 
-The original Clyvora Convert source code is available under the [MIT License](LICENSE).
+The original Clyvora Convert source code is source-available under the [PolyForm Shield License 1.0.0](LICENSE). Use, modification, and distribution are permitted except for providing a product that competes with Clyvora Convert or another product Clyvora provides using this software. This is not an OSI-approved open-source license. Versions previously published under MIT remain available under the MIT terms that accompanied those versions.
 
 FFmpeg and the generated `@ffmpeg/core` / `@ffmpeg/core-mt` runtime assets are separate third-party works licensed under **GPL-2.0-or-later**. A deployed build that includes those assets must satisfy the applicable GPL obligations. See [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) and [public/ffmpeg/README.md](public/ffmpeg/README.md). This section is a project-maintenance note, not legal advice.
