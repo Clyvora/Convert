@@ -86,13 +86,6 @@ function triggerDownload(url: string, name: string): void {
   anchor.remove()
 }
 
-function downloadBlob(blob: Blob, name: string): void {
-  const url = URL.createObjectURL(blob)
-  triggerDownload(url, name)
-  // Keep the object URL alive long enough for browsers that start downloads asynchronously.
-  setTimeout(() => URL.revokeObjectURL(url), 60_000)
-}
-
 async function readImageDimensions(blob: Blob): Promise<{ width?: number; height?: number }> {
   if (!('createImageBitmap' in globalThis)) return {}
   try {
@@ -336,8 +329,7 @@ function App() {
     try {
       const result = await importMediaLink(linkUrl, controller.signal, ({ loaded, total }) => setLinkState({ status: 'loading', loaded, total }))
       await addFiles([result.file])
-      downloadBlob(result.file, result.file.name)
-      setNotice({ message: `Download started for ${result.file.name}. It was also added to the converter.`, tone: 'success' })
+      setNotice({ message: `${result.file.name} is ready to convert.`, tone: 'success' })
       setLinkOpen(false)
     } catch (error) {
       if (controller.signal.aborted) return
@@ -417,12 +409,19 @@ function App() {
       const current = itemsRef.current.find((item) => item.id === id)
       if (current?.status === 'failed' || current?.status === 'cancelled') patchItem(id, { status: 'ready' })
       const result = await runOne(id, usedNames)
-      if (result) results.push(result)
+      if (result) {
+        results.push(result)
+        triggerDownload(result.url, result.name)
+      }
     }
     setBusy(false)
-    if (ids.length === 1 && results.length === 1) {
-      triggerDownload(results[0].url, results[0].name)
-      setNotice({ message: `Automatic download started for ${results[0].name}.`, tone: 'success' })
+    if (results.length) {
+      setNotice({
+        message: results.length === 1
+          ? `Converted and downloaded ${results[0].name}.`
+          : `Converted and downloaded ${results.length} files. Your browser may ask to allow multiple downloads.`,
+        tone: 'success',
+      })
     }
   }
 
@@ -483,6 +482,11 @@ function App() {
       <div ref={backgroundRef} inert={hasOpenDialog ? true : undefined} aria-hidden={hasOpenDialog || undefined}>
       <header className="site-header">
         <button type="button" className="brand" aria-label="Clyvora Convert home" disabled={busy} onClick={returnHome}><img src="/favicon.png" alt="" width="32" height="32" /><span>Clyvora <strong>Convert</strong></span></button>
+        <nav className="site-nav" aria-label="Clyvora sites">
+          <a href="https://www.clyvora.tech/about/">About Clyvora</a>
+          <a href="https://www.lens.clyvora.tech/">Clyvora Lens</a>
+          <a href="https://github.com/ClyvoraTech/Convert" target="_blank" rel="noreferrer">GitHub</a>
+        </nav>
       </header>
 
       {items.length === 0 ? (
@@ -496,6 +500,47 @@ function App() {
             <div><h2>Select files to convert</h2><p>or drop multiple files here</p></div>
             <div className="file-source-actions"><button className="button button--primary button--select" type="button" onClick={() => inputRef.current?.click()}><Icon name="upload" />Choose files</button><button className="button button--link" type="button" onClick={openLinkDialog}><Icon name="link" />Paste link</button></div>
             <div className="local-note"><span>◆</span> File contents and names stay on this device.</div>
+          </section>
+          <section className="product-details" aria-labelledby="convert-details-title">
+            <div className="product-details-intro">
+              <p className="eyebrow">Private media tools</p>
+              <h2 id="convert-details-title">One local converter for images, audio, and video.</h2>
+              <p>Clyvora Convert combines batch conversion, format-specific controls, previews, and offline support while keeping selected file contents inside the browser.</p>
+            </div>
+            <div className="product-details-grid">
+              <article>
+                <h3>Image converter</h3>
+                <p>Convert PNG, JPG, and WebP files with resize, quality, aspect-ratio, no-upscale, and transparency controls.</p>
+              </article>
+              <article>
+                <h3>Audio converter</h3>
+                <p>Convert MP3, WAV, OGG, and Opus files with bitrate, channel, and sample-rate options.</p>
+              </article>
+              <article>
+                <h3>Video converter</h3>
+                <p>Convert MP4 and WebM video, extract audio, and control output quality, maximum resolution, codec, and audio bitrate.</p>
+              </article>
+            </div>
+            <p className="product-formats"><strong>Supported formats:</strong> PNG, JPG/JPEG, WebP, MP3, WAV, OGG, Opus, MP4, and WebM.</p>
+            <div className="product-faq" aria-labelledby="convert-faq-title">
+              <h3 id="convert-faq-title">Questions about Clyvora Convert</h3>
+              <details>
+                <summary>Are selected media files uploaded?</summary>
+                <p>No. Local files are converted on your device. Direct-link imports contact the original media host; optional SoundCloud resolution sends the pasted URL to the configured resolver, not the media bytes.</p>
+              </details>
+              <details>
+                <summary>Can the converter work offline?</summary>
+                <p>Yes, after the interface and required conversion assets have been loaded and cached once. Clearing browser site data removes that cache.</p>
+              </details>
+              <details>
+                <summary>Are there browser conversion limits?</summary>
+                <p>Yes. Large audio and video jobs can be CPU- and memory-intensive, especially on mobile devices. Codec support and maximum workable file size depend on the browser and device.</p>
+              </details>
+              <details>
+                <summary>Does conversion preserve metadata?</summary>
+                <p>No. Converted files do not retain source metadata. Keep the original file whenever its embedded metadata is important.</p>
+              </details>
+            </div>
           </section>
         </div>
       ) : (
@@ -531,8 +576,8 @@ function App() {
             <div className="link-body">
               <form onSubmit={(event) => { event.preventDefault(); void submitLink() }}>
                 <label htmlFor="media-link">Media link</label>
-                <div className="link-field"><input id="media-link" type="url" inputMode="url" autoComplete="url" required placeholder="https://…" value={linkUrl} disabled={linkState.status === 'loading'} onChange={(event) => { setLinkUrl(event.target.value); if (linkState.status !== 'idle') setLinkState({ status: 'idle' }) }} /><button className="button button--primary" type="submit" disabled={linkState.status === 'loading' || !linkUrl.trim()}>{linkState.status === 'loading' ? <><span className="button-spinner" />Working…</> : <><Icon name="download" />Download</>}</button></div>
-                <p id="link-description">Paste a direct HTTPS media link, public SoundCloud track, share link, or unlisted track link. The original downloads automatically and stays available for conversion.</p>
+                <div className="link-field"><input id="media-link" type="url" inputMode="url" autoComplete="url" required placeholder="https://…" value={linkUrl} disabled={linkState.status === 'loading'} onChange={(event) => { setLinkUrl(event.target.value); if (linkState.status !== 'idle') setLinkState({ status: 'idle' }) }} /><button className="button button--primary" type="submit" disabled={linkState.status === 'loading' || !linkUrl.trim()}>{linkState.status === 'loading' ? <><span className="button-spinner" />Importing…</> : <><Icon name="link" />Add link</>}</button></div>
+                <p id="link-description">Paste a direct HTTPS media link, public SoundCloud track, share link, or unlisted track link. Convert it locally and the converted result downloads automatically.</p>
               </form>
               {linkState.status === 'loading' && <div className="link-progress" role="status"><span>{linkState.loaded ? 'Downloading media' : 'Resolving link'}{linkState.total ? ` · ${Math.round(linkState.loaded / linkState.total * 100)}%` : linkState.loaded ? ` · ${formatBytes(linkState.loaded)}` : '…'}</span>{linkState.total && <progress max={linkState.total} value={linkState.loaded} aria-label="Link download progress" />}</div>}
               {linkState.status === 'error' && <p className="link-error" role="alert">{linkState.message}</p>}

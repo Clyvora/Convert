@@ -4,6 +4,22 @@
   "version": "1.0.0",
   "description": "A private, local-first image, audio, and video converter for the browser.",
   "license": "MIT",
+  "homepage": "https://convert.clyvora.tech/",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ClyvoraTech/Convert.git"
+  },
+  "bugs": {
+    "url": "https://github.com/ClyvoraTech/Convert/issues"
+  },
+  "keywords": [
+    "image-converter",
+    "audio-converter",
+    "video-converter",
+    "local-first",
+    "privacy",
+    "webassembly"
+  ],
   "type": "module",
   "engines": {
     "node": ">=20"

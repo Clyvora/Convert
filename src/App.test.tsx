@@ -2,9 +2,15 @@
 import '@testing-library/jest-dom/vitest'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { beforeEach, describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import App from './App'
+
+vi.mock('./engines/image', () => ({
+  ImageConversionEngine: class {
+    async convert() { return new Blob([new Uint8Array([0xff, 0xd8, 0xff, 0xd9])], { type: 'image/jpeg' }) }
+  },
+}))
 
 function pngFile(name = 'sample.png'): File {
   const header = new ArrayBuffer(8)
@@ -13,7 +19,11 @@ function pngFile(name = 'sample.png'): File {
 }
 
 describe('Clyvora Convert interface', () => {
-  beforeEach(() => localStorage.clear())
+  beforeEach(() => {
+    localStorage.clear()
+    Object.defineProperty(URL, 'createObjectURL', { configurable: true, value: vi.fn(() => 'blob:clyvora-result') })
+    Object.defineProperty(URL, 'revokeObjectURL', { configurable: true, value: vi.fn() })
+  })
 
   it('keeps the initial UI focused on the product promise and file picker', () => {
     render(<App />)
@@ -44,6 +54,25 @@ describe('Clyvora Convert interface', () => {
     expect(screen.getByRole('button', { name: /^options$/i })).toBeEnabled()
     expect(screen.getByRole('button', { name: /^convert/i })).toBeEnabled()
     expect(screen.queryByRole('heading', { name: /convert media without uploading/i })).not.toBeInTheDocument()
+  })
+
+  it('automatically downloads the converted result when conversion finishes', async () => {
+    const user = userEvent.setup()
+    const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => undefined)
+    const { container } = render(<App />)
+    await user.upload(container.querySelector<HTMLInputElement>('input[type="file"]')!, pngFile())
+    await user.click(await screen.findByRole('button', { name: /^convert/i }))
+    await screen.findByText(/^complete$/i)
+    expect(click).toHaveBeenCalledOnce()
+    expect((click.mock.instances[0] as HTMLAnchorElement).download).toBe('sample.jpg')
+  })
+
+  it('describes link imports as conversion sources rather than original-file downloads', async () => {
+    const user = userEvent.setup()
+    render(<App />)
+    await user.click(screen.getByRole('button', { name: /paste link/i }))
+    expect(screen.getByRole('button', { name: /add link/i })).toBeDisabled()
+    expect(screen.getByText(/converted result downloads automatically/i)).toBeVisible()
   })
 
   it('opens contextual image options without duplicating the output selector', async () => {

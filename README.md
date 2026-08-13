@@ -4,6 +4,8 @@
 
 Clyvora Convert is an open-source image, audio, and video converter that runs entirely in the browser. Selected files are processed on the user's device and are never sent to a conversion server.
 
+**Use it online:** [convert.clyvora.tech](https://convert.clyvora.tech/)
+
 ![Clyvora Convert interface](public/clyvora-convert-card.webp)
 
 ## Why Clyvora Convert?
@@ -44,7 +46,7 @@ File signatures are inspected instead of trusting extensions alone. Renamed, dam
 - Remembered local preferences and "apply to compatible files."
 - Result dimensions, elapsed time, size change, and device-memory guidance.
 - Lazy media-engine loading with separate loading and conversion states.
-- Automatic single-file downloads, individual re-downloads, and lazy "Download all as ZIP."
+- Automatic downloads as each conversion finishes, individual re-downloads, and lazy "Download all as ZIP."
 
 ## Quick start
 
