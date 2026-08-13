@@ -1,19 +1,29 @@
-export { AudioFfmpegEngine } from './AudioFfmpegEngine'
-export { AudioConversionEngine } from './AudioConversionEngine'
+export { AudioFfmpegEngine, LocalMediaFfmpegEngine } from './AudioFfmpegEngine'
+export { AudioConversionEngine, MediaConversionEngine } from './AudioConversionEngine'
 export {
+  buildMediaArguments,
   DEFAULT_MP3_BITRATE,
   getAudioMimeType,
+  getMediaMimeType,
   isAudioFormat,
+  isAudioBitrate,
+  isLocalMediaFormat,
   isMp3Bitrate,
+  isVideoFormat,
 } from './options'
-export { AudioConversionError, MP3_BITRATE_PRESETS } from './types'
+export { AUDIO_BITRATE_PRESETS, AudioConversionError, MP3_BITRATE_PRESETS } from './types'
 export type {
   AudioConversionErrorCode,
   AudioConversionOptions,
   AudioConversionResult,
   AudioEngineMode,
-  AudioFormat,
   AudioProgress,
   AudioProgressPhase,
   Mp3Bitrate,
+  LocalMediaConversionOptions,
+  LocalMediaConversionResult,
+  LocalMediaEngineMode,
+  LocalMediaFormat,
+  LocalMediaProgress,
 } from './types'
+export type { AudioFormat, VideoFormat } from '../../core/types'

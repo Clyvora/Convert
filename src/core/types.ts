@@ -1,7 +1,14 @@
 export type ImageFormat = 'png' | 'jpg' | 'webp'
-export type AudioFormat = 'mp3' | 'wav'
-export type MediaFormat = ImageFormat | AudioFormat
-export type MediaKind = 'image' | 'audio'
+export type AudioFormat = 'mp3' | 'wav' | 'ogg' | 'opus'
+export type VideoFormat = 'mp4' | 'webm'
+export type MediaFormat = ImageFormat | AudioFormat | VideoFormat
+export type MediaKind = 'image' | 'audio' | 'video'
+export type AudioBitrate = 96 | 128 | 192 | 256 | 320
+export type AudioChannels = 'source' | 1 | 2
+export type AudioSampleRate = 'source' | 44_100 | 48_000
+export type VideoQuality = 'smaller' | 'balanced' | 'high'
+export type VideoResolution = 'original' | 1080 | 720 | 480
+export type VideoCodec = 'auto' | 'h264' | 'vp9'
 
 export type QueueStatus =
   | 'ready'
@@ -26,7 +33,12 @@ export interface ConversionOptions {
   lockAspectRatio: boolean
   preventUpscale: boolean
   jpgBackgroundColor: string
-  mp3Bitrate: 128 | 192 | 256 | 320
+  audioBitrate: AudioBitrate
+  audioChannels: AudioChannels
+  audioSampleRate: AudioSampleRate
+  videoQuality: VideoQuality
+  videoResolution: VideoResolution
+  videoCodec: VideoCodec
 }
 
 export interface QueueItem {
@@ -46,12 +58,14 @@ export interface QueueItem {
   sourceHeight?: number
   resultWidth?: number
   resultHeight?: number
+  sourceDurationSeconds?: number
   durationMs?: number
 }
 
 export interface ConversionEngine {
   convert(
     file: File,
+    detected: DetectedFile,
     options: ConversionOptions,
     signal: AbortSignal,
     onProgress: (progress: number | null, label?: string) => void,

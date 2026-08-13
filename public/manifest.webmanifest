@@ -1,7 +1,7 @@
 {
   "name": "Clyvora Convert",
   "short_name": "Convert",
-  "description": "Private, local-first image and audio conversion.",
+  "description": "Private, local-first image, audio, and video conversion.",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#090a0a",

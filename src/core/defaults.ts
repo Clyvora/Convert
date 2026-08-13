@@ -8,6 +8,11 @@ export function defaultOptions(input: MediaFormat): ConversionOptions {
     lockAspectRatio: true,
     preventUpscale: true,
     jpgBackgroundColor: '#ffffff',
-    mp3Bitrate: 192,
+    audioBitrate: 192,
+    audioChannels: 'source',
+    audioSampleRate: 'source',
+    videoQuality: 'balanced',
+    videoResolution: 'original',
+    videoCodec: 'auto',
   }
 }

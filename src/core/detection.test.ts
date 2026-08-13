@@ -44,6 +44,26 @@ describe('file signature detection', () => {
       value: bytes(0xff, 0xfb, 0x90, 0x64),
       expected: { format: 'mp3', kind: 'audio', mimeType: 'audio/mpeg', extension: 'mp3' },
     },
+    {
+      label: 'Ogg Vorbis',
+      value: bytes(0x4f, 0x67, 0x67, 0x53, 0, 0, 0, 0),
+      expected: { format: 'ogg', kind: 'audio', mimeType: 'audio/ogg', extension: 'ogg' },
+    },
+    {
+      label: 'Ogg Opus',
+      value: bytes(0x4f, 0x67, 0x67, 0x53, 0, 0, 0, 0, 0x4f, 0x70, 0x75, 0x73, 0x48, 0x65, 0x61, 0x64),
+      expected: { format: 'opus', kind: 'audio', mimeType: 'audio/ogg; codecs=opus', extension: 'opus' },
+    },
+    {
+      label: 'MP4',
+      value: bytes(0, 0, 0, 24, 0x66, 0x74, 0x79, 0x70, 0x69, 0x73, 0x6f, 0x6d),
+      expected: { format: 'mp4', kind: 'video', mimeType: 'video/mp4', extension: 'mp4' },
+    },
+    {
+      label: 'WebM',
+      value: bytes(0x1a, 0x45, 0xdf, 0xa3, 0, 0, 0, 0, 0x77, 0x65, 0x62, 0x6d),
+      expected: { format: 'webm', kind: 'video', mimeType: 'video/webm', extension: 'webm' },
+    },
   ])('detects $label from content', ({ value, expected }) => {
     expect(detectSignature(value)).toEqual(expected)
   })

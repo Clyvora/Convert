@@ -1,10 +1,11 @@
-import type { ConversionEngine, ConversionOptions } from '../../core/types'
+import type { ConversionEngine, ConversionOptions, DetectedFile } from '../../core/types'
 import { convertImage } from './convert'
 
 /** Shared engine adapter for the browser-native image pipeline. */
 export class ImageConversionEngine implements ConversionEngine {
   async convert(
     file: File,
+    _detected: DetectedFile,
     options: ConversionOptions,
     signal: AbortSignal,
     onProgress: (progress: number | null, label?: string) => void,

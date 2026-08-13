@@ -6,6 +6,10 @@ const MIME_BY_FORMAT = {
   webp: 'image/webp',
   mp3: 'audio/mpeg',
   wav: 'audio/wav',
+  ogg: 'audio/ogg',
+  opus: 'audio/ogg; codecs=opus',
+  mp4: 'video/mp4',
+  webm: 'video/webm',
 } as const
 
 export class FileDetectionError extends Error {
@@ -17,6 +21,11 @@ export class FileDetectionError extends Error {
 
 function startsWith(bytes: Uint8Array, signature: readonly number[], offset = 0): boolean {
   return signature.every((byte, index) => bytes[offset + index] === byte)
+}
+
+function containsAscii(bytes: Uint8Array, value: string): boolean {
+  const signature = Array.from(value, (character) => character.charCodeAt(0))
+  return bytes.some((_, offset) => startsWith(bytes, signature, offset))
 }
 
 export function detectSignature(bytes: Uint8Array): DetectedFile | null {
@@ -31,6 +40,17 @@ export function detectSignature(bytes: Uint8Array): DetectedFile | null {
   }
   if (startsWith(bytes, [0x52, 0x49, 0x46, 0x46]) && startsWith(bytes, [0x57, 0x41, 0x56, 0x45], 8)) {
     return { format: 'wav', kind: 'audio', mimeType: MIME_BY_FORMAT.wav, extension: 'wav' }
+  }
+  if (startsWith(bytes, [0x4f, 0x67, 0x67, 0x53])) {
+    return containsAscii(bytes, 'OpusHead')
+      ? { format: 'opus', kind: 'audio', mimeType: MIME_BY_FORMAT.opus, extension: 'opus' }
+      : { format: 'ogg', kind: 'audio', mimeType: MIME_BY_FORMAT.ogg, extension: 'ogg' }
+  }
+  if (bytes.length >= 12 && startsWith(bytes, [0x66, 0x74, 0x79, 0x70], 4)) {
+    return { format: 'mp4', kind: 'video', mimeType: MIME_BY_FORMAT.mp4, extension: 'mp4' }
+  }
+  if (startsWith(bytes, [0x1a, 0x45, 0xdf, 0xa3]) && containsAscii(bytes, 'webm')) {
+    return { format: 'webm', kind: 'video', mimeType: MIME_BY_FORMAT.webm, extension: 'webm' }
   }
   const hasMp3Frame = bytes.length >= 4
     && bytes[0] === 0xff
@@ -47,10 +67,10 @@ export function detectSignature(bytes: Uint8Array): DetectedFile | null {
 }
 
 export async function detectFile(file: File): Promise<DetectedFile> {
-  const bytes = new Uint8Array(await file.slice(0, 64).arrayBuffer())
+  const bytes = new Uint8Array(await file.slice(0, 512).arrayBuffer())
   const detected = detectSignature(bytes)
   if (!detected) {
-    throw new FileDetectionError('This file’s contents do not match PNG, JPG, WebP, MP3, or WAV.')
+    throw new FileDetectionError('This file’s contents do not match a supported image, audio, or video format.')
   }
 
   const extension = file.name.split('.').pop()?.toLowerCase()

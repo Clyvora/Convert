@@ -18,7 +18,12 @@ export function preferenceSubset(options: ConversionOptions): Partial<Conversion
     lockAspectRatio: options.lockAspectRatio,
     preventUpscale: options.preventUpscale,
     jpgBackgroundColor: options.jpgBackgroundColor,
-    mp3Bitrate: options.mp3Bitrate,
+    audioBitrate: options.audioBitrate,
+    audioChannels: options.audioChannels,
+    audioSampleRate: options.audioSampleRate,
+    videoQuality: options.videoQuality,
+    videoResolution: options.videoResolution,
+    videoCodec: options.videoCodec,
   }
 }
 
@@ -27,9 +32,11 @@ export function applyCompatibleSettings(
   input: MediaFormat,
   target: ConversionOptions,
 ): ConversionOptions {
-  const isImage = input === 'png' || input === 'jpg' || input === 'webp'
+  const kind = input === 'png' || input === 'jpg' || input === 'webp'
+    ? 'image'
+    : input === 'mp4' || input === 'webm' ? 'video' : 'audio'
   const outputFormat = isSupportedPair(input, source.outputFormat) ? source.outputFormat : target.outputFormat
-  return isImage
+  return kind === 'image'
     ? {
         ...target,
         outputFormat,
@@ -40,5 +47,22 @@ export function applyCompatibleSettings(
         preventUpscale: source.preventUpscale,
         jpgBackgroundColor: source.jpgBackgroundColor,
       }
-    : { ...target, outputFormat, mp3Bitrate: source.mp3Bitrate }
+    : kind === 'video'
+      ? {
+          ...target,
+          outputFormat,
+          audioBitrate: source.audioBitrate,
+          audioChannels: source.audioChannels,
+          audioSampleRate: source.audioSampleRate,
+          videoQuality: source.videoQuality,
+          videoResolution: source.videoResolution,
+          videoCodec: source.videoCodec,
+        }
+      : {
+          ...target,
+          outputFormat,
+          audioBitrate: source.audioBitrate,
+          audioChannels: source.audioChannels,
+          audioSampleRate: source.audioSampleRate,
+        }
 }

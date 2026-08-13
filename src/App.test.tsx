@@ -16,8 +16,8 @@ describe('Clyvora Convert interface', () => {
   it('puts the product, local-processing promise, file picker, and formats in the initial UI', () => {
     render(<App />)
 
-    expect(screen.getByRole('heading', { level: 1, name: /private image and audio conversion/i })).toBeVisible()
-    expect(screen.getByText(/file contents and names are never sent anywhere/i)).toBeVisible()
+    expect(screen.getByRole('heading', { level: 1, name: /convert media without uploading it/i })).toBeVisible()
+    expect(screen.getByText(/file contents and names stay on this device/i)).toBeVisible()
     expect(screen.getByRole('button', { name: /choose files/i })).toBeEnabled()
     expect(screen.getAllByText(/PNG/).length).toBeGreaterThan(0)
     expect(screen.getAllByText(/MP3/).length).toBeGreaterThan(0)
@@ -31,11 +31,22 @@ describe('Clyvora Convert interface', () => {
 
     await user.upload(input!, pngFile())
 
-    expect(await screen.findByRole('heading', { name: /1 file in this batch/i })).toBeVisible()
-    expect(screen.getByRole('button', { name: /configure sample\.png/i })).toBeEnabled()
-    expect(screen.getByLabelText(/output format/i)).toHaveValue('jpg')
-    expect(screen.getByRole('button', { name: /convert file/i })).toBeEnabled()
-    expect(screen.queryByRole('heading', { level: 1 })).not.toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: /1 file in queue/i })).toBeVisible()
+    expect(screen.getByLabelText(/output format for sample\.png/i)).toHaveValue('jpg')
+    expect(screen.getByRole('button', { name: /^options$/i })).toBeEnabled()
+    expect(screen.getByRole('button', { name: /^convert/i })).toBeEnabled()
+    expect(screen.queryByRole('heading', { name: /convert media without uploading/i })).not.toBeInTheDocument()
+  })
+
+  it('opens contextual image options without duplicating the output selector', async () => {
+    const user = userEvent.setup()
+    const { container } = render(<App />)
+    const input = container.querySelector<HTMLInputElement>('input[type="file"]')
+    await user.upload(input!, pngFile())
+    await user.click(await screen.findByRole('button', { name: /^options$/i }))
+    expect(screen.getByRole('dialog', { name: /sample\.png/i })).toBeVisible()
+    expect(screen.getAllByRole('group')[0].querySelectorAll('button').length).toBeGreaterThan(1)
+    expect(screen.getAllByRole('combobox')).toHaveLength(1)
   })
 
   it('announces a renamed-file rejection and allows dismissing it', async () => {

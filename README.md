@@ -1,8 +1,8 @@
 # Clyvora Convert
 
-> Convert files locally. No uploads, queues, or accounts.
+> Convert media locally. No uploads, waiting, or accounts.
 
-Clyvora Convert is an open-source image and audio converter that runs entirely in the browser. Selected files are processed on the user's device and are never sent to a conversion server.
+Clyvora Convert is an open-source image, audio, and video converter that runs entirely in the browser. Selected files are processed on the user's device and are never sent to a conversion server.
 
 ![Clyvora Convert interface](public/clyvora-convert-card.webp)
 
@@ -22,21 +22,27 @@ Clyvora Convert is an open-source image and audio converter that runs entirely i
 | PNG | JPG, WebP |
 | JPG / JPEG | PNG, WebP |
 | WebP | PNG, JPG |
-| MP3 | WAV |
-| WAV | MP3 at 128, 192, 256, or 320 kbps |
+| MP3 | WAV, OGG, Opus |
+| WAV | MP3, OGG, Opus |
+| OGG | MP3, WAV, Opus |
+| Opus | MP3, WAV, OGG |
+| MP4 | WebM, MP3, WAV, OGG, Opus |
+| WebM | MP4, MP3, WAV, OGG, Opus |
 
 File signatures are inspected instead of trusting extensions alone. Renamed, damaged, or unsupported files are rejected with a clear explanation.
 
 ## Features
 
 - Drag-and-drop, multiple selection, clipboard image paste, and a locally generated sample image.
-- Image resize controls with aspect-ratio locking, JPG/WebP quality, and a selectable JPG transparency background.
-- Native image previews and a before/after comparison.
-- Audio playback before and after conversion.
-- Remembered local preferences and “apply to compatible files.”
+- A compact conversion queue with per-file output selection, progress, retry, and editing after completion.
+- Image resize controls with aspect-ratio locking, no-upscale protection, JPG/WebP quality, and a selectable JPG transparency background.
+- Video quality, maximum resolution, codec, and audio-bitrate controls.
+- Audio bitrate, channel, and sample-rate controls.
+- Native image comparison plus audio and video playback before and after conversion.
+- Remembered local preferences and "apply to compatible files."
 - Result dimensions, elapsed time, size change, and device-memory guidance.
-- Lazy audio-engine loading with separate loading and conversion states.
-- Individual downloads and lazy “Download all as ZIP.”
+- Lazy media-engine loading with separate loading and conversion states.
+- Individual downloads and lazy "Download all as ZIP."
 
 ## Quick start
 
@@ -69,14 +75,14 @@ The development command copies the installed FFmpeg runtime into `public/ffmpeg`
 ```text
 src/core             signatures, registry, validation, naming, queue and preferences
 src/engines/image    native browser image decoding, canvas rendering and encoding
-src/engines/audio    lazy FFmpeg worker integration and temporary-file cleanup
+src/engines/audio    lazy FFmpeg audio/video worker and temporary-file cleanup
 src/App.tsx          interface, orchestration, cancellation and downloads
 public/sw.js         same-origin runtime caching for offline use
 ```
 
 Image conversion prefers `createImageBitmap` and `OffscreenCanvas`, with safe browser fallbacks. It does not load FFmpeg.
 
-Audio conversion dynamically imports `@ffmpeg/ffmpeg`. The multithreaded core is selected only when cross-origin isolation and `SharedArrayBuffer` are available; otherwise the single-threaded core is used. The heavy core assets are not part of the initial JavaScript bundle.
+Audio and video conversion dynamically import `@ffmpeg/ffmpeg`. The multithreaded core is selected only when cross-origin isolation and `SharedArrayBuffer` are available; otherwise the single-threaded core is used. The heavy core assets are not part of the initial JavaScript bundle.
 
 ## Privacy boundary
 
@@ -105,7 +111,8 @@ For offline use, users must first visit the production application and load the 
 - Very large conversions can exceed a browser tab's memory ceiling, especially on mobile devices.
 - Image cancellation is cooperative; a native encode may finish internally before its discarded result is released.
 - EXIF and other source metadata are not preserved.
-- Converting MP3 to WAV increases file size and cannot restore lost audio quality.
+- Transcoding cannot restore quality already lost in the source. WAV outputs and high-quality video settings can substantially increase file size.
+- Video conversion is CPU- and memory-intensive in a browser, particularly on mobile devices.
 
 ## Contributing
 

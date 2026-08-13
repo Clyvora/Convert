@@ -6,12 +6,12 @@ export interface MemoryAssessment {
   detail: string
 }
 
-export function assessMemoryRisk(bytes: number, kind: 'image' | 'audio', deviceMemory?: number): MemoryAssessment {
-  const estimatedWorkingBytes = bytes * (kind === 'image' ? 6 : 4)
+export function assessMemoryRisk(bytes: number, kind: 'image' | 'audio' | 'video', deviceMemory?: number): MemoryAssessment {
+  const estimatedWorkingBytes = bytes * (kind === 'image' ? 6 : kind === 'video' ? 8 : 4)
   const availableBytes = deviceMemory ? deviceMemory * 1024 ** 3 : undefined
   const ratio = availableBytes ? estimatedWorkingBytes / availableBytes : 0
-  const heavyThreshold = kind === 'image' ? 75 * 1024 ** 2 : 150 * 1024 ** 2
-  const moderateThreshold = kind === 'image' ? 25 * 1024 ** 2 : 60 * 1024 ** 2
+  const heavyThreshold = kind === 'image' ? 75 * 1024 ** 2 : kind === 'video' ? 250 * 1024 ** 2 : 150 * 1024 ** 2
+  const moderateThreshold = kind === 'image' ? 25 * 1024 ** 2 : kind === 'video' ? 100 * 1024 ** 2 : 60 * 1024 ** 2
 
   if (bytes >= heavyThreshold || ratio >= 0.2) {
     return { level: 'heavy', label: 'Heavy', detail: 'May approach this browser tab’s memory limit.' }

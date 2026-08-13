@@ -1,25 +1,26 @@
-import type { ConversionEngine, ConversionOptions } from '../../core/types'
-import { AudioFfmpegEngine } from './AudioFfmpegEngine'
+import type { ConversionEngine, ConversionOptions, DetectedFile } from '../../core/types'
+import { LocalMediaFfmpegEngine } from './AudioFfmpegEngine'
 
-/** Shared engine adapter around the reusable, worker-backed FFmpeg instance. */
-export class AudioConversionEngine implements ConversionEngine {
-  private readonly engine = new AudioFfmpegEngine()
+export class MediaConversionEngine implements ConversionEngine {
+  private readonly engine = new LocalMediaFfmpegEngine()
 
   async convert(
     file: File,
+    detected: DetectedFile,
     options: ConversionOptions,
     signal: AbortSignal,
     onProgress: (progress: number | null, label?: string) => void,
   ): Promise<Blob> {
-    const inputFormat = options.outputFormat === 'mp3' ? 'wav' : 'mp3'
-    const result = await this.engine.convert(file, inputFormat, {
-      outputFormat: options.outputFormat as 'mp3' | 'wav',
-      bitrateKbps: options.mp3Bitrate,
+    const result = await this.engine.convert(file, detected.format, {
+      outputFormat: options.outputFormat as 'mp3' | 'wav' | 'ogg' | 'opus' | 'mp4' | 'webm',
+      audioBitrate: options.audioBitrate,
+      audioChannels: options.audioChannels,
+      audioSampleRate: options.audioSampleRate,
+      videoQuality: options.videoQuality,
+      videoResolution: options.videoResolution,
+      videoCodec: options.videoCodec,
       signal,
-      onProgress: ({ phase, progress }) => onProgress(
-        progress,
-        phase === 'loading-engine' ? 'Loading audio engine' : 'Converting audio',
-      ),
+      onProgress: ({ phase, progress }) => onProgress(progress, phase === 'loading-engine' ? 'Loading local media engine' : `Converting ${detected.kind}`),
     })
     return result.blob
   }
@@ -27,3 +28,5 @@ export class AudioConversionEngine implements ConversionEngine {
   cancel(): void { this.engine.cancel() }
   dispose(): void { this.engine.dispose() }
 }
+
+export { MediaConversionEngine as AudioConversionEngine }
