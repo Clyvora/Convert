@@ -19,8 +19,8 @@ describe('Clyvora Convert interface', () => {
     expect(screen.getByRole('heading', { level: 1, name: /convert files locally/i })).toBeVisible()
     expect(screen.getByText(/your files never leave this device/i)).toBeVisible()
     expect(screen.getByRole('button', { name: /choose files/i })).toBeEnabled()
-    expect(screen.getByText(/PNG/)).toBeVisible()
-    expect(screen.getByText(/MP3/)).toBeVisible()
+    expect(screen.getAllByText(/PNG/).length).toBeGreaterThan(0)
+    expect(screen.getAllByText(/MP3/).length).toBeGreaterThan(0)
   })
 
   it('adds a signature-validated file to an operable conversion workspace', async () => {

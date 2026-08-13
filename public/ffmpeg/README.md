@@ -1,14 +1,17 @@
 # Self-hosted FFmpeg runtime assets
 
-These files are copied from the installed `@ffmpeg/core` and `@ffmpeg/core-mt`
-packages. The application fetches them from its own origin only after an audio
-conversion begins.
+The runtime files in the ignored `runtime/single` and `runtime/multi` directories are generated
+from the installed `@ffmpeg/core` and `@ffmpeg/core-mt` packages. The application
+fetches them from its own origin only after an audio conversion begins.
 
 Regenerate them after updating FFmpeg packages:
 
-```powershell
-.\scripts\ffmpeg\copy-assets.ps1
+```bash
+npm run prepare:ffmpeg
 ```
+
+Do not commit the generated core files. They are prepared automatically before
+development, production builds, and production previews.
 
 The multi-threaded build requires cross-origin isolation (COOP/COEP). The audio
 engine automatically uses the single-threaded build when that is unavailable.

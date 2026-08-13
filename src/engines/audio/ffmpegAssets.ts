@@ -20,12 +20,12 @@ export function canUseMultithreadCore(): boolean {
 export function getFfmpegAssetUrls(mode: AudioEngineMode): FfmpegAssetUrls {
   const folder = mode === 'multi-thread' ? 'multi' : 'single'
   const urls: FfmpegAssetUrls = {
-    coreURL: assetUrl(`ffmpeg/${folder}/ffmpeg-core.js`),
-    wasmURL: assetUrl(`ffmpeg/${folder}/ffmpeg-core.wasm`),
+    coreURL: assetUrl(`ffmpeg/runtime/${folder}/ffmpeg-core.js`),
+    wasmURL: assetUrl(`ffmpeg/runtime/${folder}/ffmpeg-core.wasm`),
   }
 
   if (mode === 'multi-thread') {
-    urls.workerURL = assetUrl('ffmpeg/multi/ffmpeg-core.worker.js')
+    urls.workerURL = assetUrl('ffmpeg/runtime/multi/ffmpeg-core.worker.js')
   }
 
   return urls

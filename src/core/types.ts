@@ -41,6 +41,11 @@ export interface QueueItem {
   outputUrl?: string
   error?: string
   warning?: string
+  sourceWidth?: number
+  sourceHeight?: number
+  resultWidth?: number
+  resultHeight?: number
+  durationMs?: number
 }
 
 export interface ConversionEngine {

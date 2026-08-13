@@ -1,13 +1,22 @@
 {
-  "name": "convert",
+  "name": "clyvora-convert",
   "private": true,
-  "version": "0.0.0",
+  "version": "1.0.0",
+  "description": "A private, local-first image and audio converter for the browser.",
+  "license": "MIT",
   "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
+    "predev": "npm run prepare:ffmpeg",
     "dev": "vite",
+    "prebuild": "npm run prepare:ffmpeg",
     "build": "tsc -b && vite build",
     "lint": "oxlint --ignore-pattern public/ffmpeg/**",
+    "prepreview": "npm run prepare:ffmpeg",
     "preview": "vite preview",
+    "prepare:ffmpeg": "node scripts/ffmpeg/copy-assets.mjs",
     "test": "vitest run",
     "test:unit": "vitest run src/core src/engines",
     "test:integration": "vitest run src/App.test.tsx src/engines/image/image.integration.test.ts"

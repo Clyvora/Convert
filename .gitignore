@@ -10,14 +10,23 @@ lerna-debug.log*
 node_modules
 dist
 dist-ssr
+coverage
+*.tsbuildinfo
 *.local
+.env
+.env.*
+!.env.example
 scripts/ffmpeg/*-profile/
+
+# Generated from installed @ffmpeg/core packages.
+public/ffmpeg/runtime/
 
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
 .idea
 .DS_Store
+Thumbs.db
 *.suo
 *.ntvs*
 *.njsproj
