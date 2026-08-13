@@ -109,7 +109,8 @@ async function resolveSoundCloudMedia(url: URL, signal: AbortSignal): Promise<Re
     response = await fetch(resolverUrl(), {
       method: 'POST',
       signal,
-      headers: { 'content-type': 'application/json' },
+      // text/plain is CORS-safelisted, avoiding a separate preflight round trip to the Worker.
+      headers: { 'content-type': 'text/plain;charset=UTF-8' },
       body: JSON.stringify({ url: url.href }),
     })
   } catch (error) {

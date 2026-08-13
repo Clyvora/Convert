@@ -21,10 +21,10 @@ function page(downloadable = true, overrides: Record<string, unknown> = {}, clie
   return `<html><script src="https://a-v2.sndcdn.com/assets/app.js"></script><script>window.__sc_hydration = ${JSON.stringify(hydration)};</script></html>`
 }
 
-function request(url = TRACK_URL, origin = 'https://convert.example'): Request {
+function request(url = TRACK_URL, origin = 'https://convert.example', contentType = 'application/json'): Request {
   return new Request('https://resolver.example/v1/soundcloud/resolve', {
     method: 'POST',
-    headers: { 'content-type': 'application/json', origin },
+    headers: { 'content-type': contentType, origin },
     body: JSON.stringify({ url }),
   })
 }
@@ -62,6 +62,21 @@ describe('SoundCloud resolver Worker', () => {
     }, { fetch: fetchMock, cache: emptyCache() })
     expect(response.status).toBe(400)
     expect(fetchMock).not.toHaveBeenCalled()
+  })
+
+  it('accepts the browser simple-request content type without a preflight', async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url === TRACK_URL) return new Response(page(true, {}, CLIENT_ID), { headers: { 'content-type': 'text/html' } })
+      if (url.startsWith(TRANSCODING_URL)) return new Response(JSON.stringify({ url: MEDIA_URL }), {
+        headers: { 'content-type': 'application/json' },
+      })
+      throw new Error(`Unexpected fetch: ${url}`)
+    })
+    const response = await handleRequest(request(TRACK_URL, 'https://convert.example', 'text/plain;charset=UTF-8'), {
+      ALLOWED_ORIGINS: 'https://convert.example',
+    }, { fetch: fetchMock, cache: emptyCache() })
+    expect(response.status).toBe(200)
   })
 
   it('resolves a public stream even when the uploader disabled SoundCloud downloads', async () => {

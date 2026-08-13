@@ -44,7 +44,7 @@ File signatures are inspected instead of trusting extensions alone. Renamed, dam
 - Remembered local preferences and "apply to compatible files."
 - Result dimensions, elapsed time, size change, and device-memory guidance.
 - Lazy media-engine loading with separate loading and conversion states.
-- Individual downloads and lazy "Download all as ZIP."
+- Automatic single-file downloads, individual re-downloads, and lazy "Download all as ZIP."
 
 ## Quick start
 

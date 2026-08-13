@@ -2,7 +2,6 @@ import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'r
 import type { ReactNode } from 'react'
 import './App.css'
 import { detectFile, FileDetectionError } from './core/detection'
-import { clearCachedMediaEngineFiles } from './core/cache'
 import { formatBytes } from './core/format'
 import { importMediaLink } from './core/linkImport'
 import { assessMemoryRisk, calculateSizeChange, formatDuration } from './core/metrics'
@@ -29,23 +28,15 @@ const ACCEPT = [
   'image/png', 'image/jpeg', 'image/webp', 'audio/mpeg', 'audio/wav', 'audio/ogg', 'video/mp4', 'video/webm',
 ].join(',')
 const PREFERENCE_KEY = 'clyvora-convert-preferences-v1'
-const APP_PREFERENCE_KEY = 'clyvora-convert-app-preferences-v1'
-
-interface AppPreferences {
-  rememberSettings: boolean
-  autoDownloadSingle: boolean
-  reduceMotion: boolean
-}
 
 type LinkImportState =
   | { status: 'idle' }
   | { status: 'loading'; loaded: number; total?: number }
   | { status: 'error'; message: string }
 
-const DEFAULT_APP_PREFERENCES: AppPreferences = {
-  rememberSettings: true,
-  autoDownloadSingle: false,
-  reduceMotion: false,
+interface Notice {
+  message: string
+  tone: 'success' | 'error' | 'info'
 }
 
 const IMAGE_QUALITY_PRESETS = [
@@ -77,16 +68,29 @@ function friendlyError(error: unknown): string {
   return 'Conversion failed. The source may be damaged, unsupported, or too large for this browser.'
 }
 
-function loadJson<T>(key: string, fallback: T): T {
-  try { return { ...fallback, ...JSON.parse(localStorage.getItem(key) ?? '{}') } as T } catch { return fallback }
-}
-
 function loadPreferences(): SavedPreferences {
   try { return JSON.parse(localStorage.getItem(PREFERENCE_KEY) ?? '{}') as SavedPreferences } catch { return {} }
 }
 
 function savePreferences(preferences: SavedPreferences): void {
   try { localStorage.setItem(PREFERENCE_KEY, JSON.stringify(preferences)) } catch { /* Storage is optional. */ }
+}
+
+function triggerDownload(url: string, name: string): void {
+  const anchor = document.createElement('a')
+  anchor.href = url
+  anchor.download = name
+  anchor.hidden = true
+  document.body.append(anchor)
+  anchor.click()
+  anchor.remove()
+}
+
+function downloadBlob(blob: Blob, name: string): void {
+  const url = URL.createObjectURL(blob)
+  triggerDownload(url, name)
+  // Keep the object URL alive long enough for browsers that start downloads asynchronously.
+  setTimeout(() => URL.revokeObjectURL(url), 60_000)
 }
 
 async function readImageDimensions(blob: Blob): Promise<{ width?: number; height?: number }> {
@@ -137,25 +141,44 @@ function formatKind(kind: QueueItem['detected']['kind']): string {
   return kind[0].toUpperCase() + kind.slice(1)
 }
 
+type IconName = 'upload' | 'link' | 'plus' | 'image' | 'audio' | 'video' | 'preview' | 'options' | 'remove' | 'arrow' | 'download' | 'archive' | 'cancel'
+
+function Icon({ name }: { name: IconName }) {
+  const paths: Record<IconName, ReactNode> = {
+    upload: <><path d="M12 16V4" /><path d="m7.5 8.5 4.5-4.5 4.5 4.5" /><path d="M5 20h14" /></>,
+    link: <><path d="M10.5 13.5 13.5 10" /><path d="M8.2 15.8 6.7 17.3a3.5 3.5 0 0 1-5-5l3-3a3.5 3.5 0 0 1 5 0" transform="translate(3)" /><path d="m15.8 8.2 1.5-1.5a3.5 3.5 0 0 1 5 5l-3 3a3.5 3.5 0 0 1-5 0" transform="translate(-3)" /></>,
+    plus: <><path d="M12 5v14" /><path d="M5 12h14" /></>,
+    image: <><rect x="3" y="4" width="18" height="16" rx="3" /><circle cx="8.5" cy="9" r="1.5" /><path d="m5 18 4.5-4.5 3 3 2-2L19 19" /></>,
+    audio: <><path d="M9 18V5l10-2v13" /><circle cx="6" cy="18" r="3" /><circle cx="16" cy="16" r="3" /></>,
+    video: <><rect x="3" y="5" width="14" height="14" rx="3" /><path d="m17 10 4-2v8l-4-2" /></>,
+    preview: <><path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6Z" /><circle cx="12" cy="12" r="2.5" /></>,
+    options: <><path d="M4 7h10" /><path d="M18 7h2" /><circle cx="16" cy="7" r="2" /><path d="M4 17h2" /><path d="M10 17h10" /><circle cx="8" cy="17" r="2" /></>,
+    remove: <><path d="M5 5l14 14" /><path d="M19 5 5 19" /></>,
+    arrow: <><path d="M5 12h14" /><path d="m14 7 5 5-5 5" /></>,
+    download: <><path d="M12 3v12" /><path d="m7 10 5 5 5-5" /><path d="M5 21h14" /></>,
+    archive: <><path d="M4 7h16" /><path d="M6 7v13h12V7" /><path d="M3 3h18v4H3z" /><path d="M10 12h4" /></>,
+    cancel: <><circle cx="12" cy="12" r="9" /><path d="m9 9 6 6" /><path d="m15 9-6 6" /></>,
+  }
+  return <svg className="icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">{paths[name]}</svg>
+}
+
 function App() {
   const [items, dispatch] = useReducer(queueReducer, [])
   const [dropActive, setDropActive] = useState(false)
-  const [notice, setNotice] = useState('')
+  const [notice, setNotice] = useState<Notice | null>(null)
   const [busy, setBusy] = useState(false)
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [optionsOpen, setOptionsOpen] = useState(false)
   const [previewOpen, setPreviewOpen] = useState(false)
-  const [preferencesOpen, setPreferencesOpen] = useState(false)
   const [linkOpen, setLinkOpen] = useState(false)
   const [linkUrl, setLinkUrl] = useState('')
   const [linkState, setLinkState] = useState<LinkImportState>({ status: 'idle' })
   const [comparePosition, setComparePosition] = useState(50)
   const [sourcePreviewUrl, setSourcePreviewUrl] = useState<string | null>(null)
-  const [appPreferences, setAppPreferences] = useState<AppPreferences>(() => loadJson(APP_PREFERENCE_KEY, DEFAULT_APP_PREFERENCES))
+  const [reduceMotion, setReduceMotion] = useState(() => globalThis.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false)
   const inputRef = useRef<HTMLInputElement>(null)
   const itemsRef = useRef(items)
   const preferencesRef = useRef<SavedPreferences>(loadPreferences())
-  const appPreferencesRef = useRef(appPreferences)
   const abortRef = useRef<AbortController | null>(null)
   const linkAbortRef = useRef<AbortController | null>(null)
   const activeIdRef = useRef<string | null>(null)
@@ -168,10 +191,13 @@ function App() {
   const returnFocusRef = useRef<HTMLElement | null>(null)
 
   useEffect(() => { itemsRef.current = items }, [items])
-  useEffect(() => { appPreferencesRef.current = appPreferences }, [appPreferences])
   useEffect(() => {
-    try { localStorage.setItem(APP_PREFERENCE_KEY, JSON.stringify(appPreferences)) } catch { /* Optional. */ }
-  }, [appPreferences])
+    const query = globalThis.matchMedia?.('(prefers-reduced-motion: reduce)')
+    if (!query) return
+    const update = () => setReduceMotion(query.matches)
+    query.addEventListener?.('change', update)
+    return () => query.removeEventListener?.('change', update)
+  }, [])
   useEffect(() => {
     if (previousItemCountRef.current === 0 && items.length > 0) {
       document.documentElement.scrollTop = 0
@@ -179,6 +205,11 @@ function App() {
     }
     previousItemCountRef.current = items.length
   }, [items.length])
+  useEffect(() => {
+    if (!notice) return
+    const timeout = window.setTimeout(() => setNotice(null), 5_000)
+    return () => window.clearTimeout(timeout)
+  }, [notice])
   useEffect(() => {
     const warnBeforeLeaving = (event: BeforeUnloadEvent) => { if (busy) event.preventDefault() }
     window.addEventListener('beforeunload', warnBeforeLeaving)
@@ -194,7 +225,7 @@ function App() {
   const selected = items.find((item) => item.id === selectedId) ?? null
   const completed = items.filter((item) => item.status === 'completed' && item.outputBlob)
   const actionableCount = items.filter((item) => ['ready', 'failed', 'cancelled'].includes(item.status)).length
-  const hasOpenDialog = optionsOpen || previewOpen || preferencesOpen || linkOpen
+  const hasOpenDialog = optionsOpen || previewOpen || linkOpen
 
   useEffect(() => {
     if (sourcePreviewUrl) URL.revokeObjectURL(sourcePreviewUrl)
@@ -221,7 +252,7 @@ function App() {
     const handleDialogKeys = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
         event.preventDefault()
-        setOptionsOpen(false); setPreviewOpen(false); setPreferencesOpen(false); setLinkOpen(false); linkAbortRef.current?.abort()
+        setOptionsOpen(false); setPreviewOpen(false); setLinkOpen(false); linkAbortRef.current?.abort()
         return
       }
       if (event.key !== 'Tab') return
@@ -246,7 +277,6 @@ function App() {
   }
   const patchItem = (id: string, patch: Partial<QueueItem>) => applyQueueAction({ type: 'update', id, patch })
   const rememberOptions = (item: QueueItem, options: ConversionOptions) => {
-    if (!appPreferencesRef.current.rememberSettings) return
     preferencesRef.current = { ...preferencesRef.current, [item.detected.format]: preferenceSubset(options) }
     savePreferences(preferencesRef.current)
   }
@@ -264,7 +294,7 @@ function App() {
         const videoDetails = detected.kind === 'video' ? await readVideoMetadata(file) : {}
         const memory = assessMemoryRisk(file.size, detected.kind, deviceMemory)
         additions.push({
-          id: makeId(), file, detected, options: mergePreferences(detected.format, appPreferencesRef.current.rememberSettings ? preferencesRef.current : {}),
+          id: makeId(), file, detected, options: mergePreferences(detected.format, preferencesRef.current),
           status: 'ready', progress: 0,
           warning: memory.level === 'heavy' ? `${memory.label}: ${memory.detail}` : undefined,
           sourceWidth: imageDetails.width ?? videoDetails.width,
@@ -276,7 +306,7 @@ function App() {
       }
     }
     if (additions.length) applyQueueAction({ type: 'add', items: additions })
-    setNotice(errors.join(' '))
+    setNotice(errors.length ? { message: errors.join(' '), tone: 'error' } : null)
   }, [])
 
   useEffect(() => {
@@ -291,7 +321,7 @@ function App() {
   const openLinkDialog = () => {
     setLinkUrl('')
     setLinkState({ status: 'idle' })
-    setOptionsOpen(false); setPreviewOpen(false); setPreferencesOpen(false); setLinkOpen(true)
+    setOptionsOpen(false); setPreviewOpen(false); setLinkOpen(true)
   }
   const closeLinkDialog = () => {
     linkAbortRef.current?.abort()
@@ -306,7 +336,8 @@ function App() {
     try {
       const result = await importMediaLink(linkUrl, controller.signal, ({ loaded, total }) => setLinkState({ status: 'loading', loaded, total }))
       await addFiles([result.file])
-      setNotice(`${result.file.name} was imported from the link and is ready to convert.`)
+      downloadBlob(result.file, result.file.name)
+      setNotice({ message: `Download started for ${result.file.name}. It was also added to the converter.`, tone: 'success' })
       setLinkOpen(false)
     } catch (error) {
       if (controller.signal.aborted) return
@@ -389,8 +420,9 @@ function App() {
       if (result) results.push(result)
     }
     setBusy(false)
-    if (ids.length === 1 && results.length === 1 && appPreferencesRef.current.autoDownloadSingle) {
-      const anchor = document.createElement('a'); anchor.href = results[0].url; anchor.download = results[0].name; anchor.click()
+    if (ids.length === 1 && results.length === 1) {
+      triggerDownload(results[0].url, results[0].name)
+      setNotice({ message: `Automatic download started for ${results[0].name}.`, tone: 'success' })
     }
   }
 
@@ -410,7 +442,7 @@ function App() {
       if (item.id === selected.id || item.detected.kind !== selected.detected.kind || item.status === 'completed') return
       patchItem(item.id, { options: applyCompatibleSettings(selected.options, item.detected.format, item.options) }); count += 1
     })
-    setNotice(count ? `Applied these settings to ${count} compatible ${formatKind(selected.detected.kind).toLowerCase()} ${count === 1 ? 'file' : 'files'}.` : 'There are no other compatible files to update.')
+    setNotice({ message: count ? `Applied these settings to ${count} compatible ${formatKind(selected.detected.kind).toLowerCase()} ${count === 1 ? 'file' : 'files'}.` : 'There are no other compatible files to update.', tone: 'info' })
   }
   const editCompleted = (item: QueueItem) => {
     if (item.outputUrl) URL.revokeObjectURL(item.outputUrl)
@@ -423,32 +455,15 @@ function App() {
     completed.forEach((item) => zip.file(item.outputName ?? 'converted', item.outputBlob!))
     const blob = await zip.generateAsync({ type: 'blob', compression: 'DEFLATE', compressionOptions: { level: 6 } })
     const url = URL.createObjectURL(blob)
-    const anchor = document.createElement('a'); anchor.href = url; anchor.download = 'clyvora-convert.zip'; anchor.click()
-    setTimeout(() => URL.revokeObjectURL(url), 0)
+    triggerDownload(url, 'clyvora-convert.zip')
+    setTimeout(() => URL.revokeObjectURL(url), 60_000)
   }
-  const updateAppPreferences = (patch: Partial<AppPreferences>) => setAppPreferences((current) => ({ ...current, ...patch }))
-  const setRememberSettings = (checked: boolean) => {
-    if (!checked) {
-      preferencesRef.current = {}
-      localStorage.removeItem(PREFERENCE_KEY)
-    }
-    updateAppPreferences({ rememberSettings: checked })
-  }
-  const clearLocalSettings = async () => {
-    if (busy) return
-    localStorage.removeItem(PREFERENCE_KEY); localStorage.removeItem(APP_PREFERENCE_KEY)
-    preferencesRef.current = {}; setAppPreferences(DEFAULT_APP_PREFERENCES)
-    mediaEngineRef.current?.dispose?.(); mediaEngineRef.current = null
-    if ('caches' in globalThis) await clearCachedMediaEngineFiles(caches)
-    setNotice('Saved defaults and cached media-engine files were cleared. The offline app shell was kept.')
-  }
-
   const returnHome = () => {
     if (busy) return
     itemsRef.current.forEach((item) => item.outputUrl && URL.revokeObjectURL(item.outputUrl))
     applyQueueAction({ type: 'reset' })
-    setSelectedId(null); setOptionsOpen(false); setPreviewOpen(false); setPreferencesOpen(false); setLinkOpen(false); linkAbortRef.current?.abort(); setNotice('')
-    window.scrollTo({ top: 0, behavior: appPreferencesRef.current.reduceMotion ? 'auto' : 'smooth' })
+    setSelectedId(null); setOptionsOpen(false); setPreviewOpen(false); setLinkOpen(false); linkAbortRef.current?.abort(); setNotice(null)
+    window.scrollTo({ top: 0, behavior: reduceMotion ? 'auto' : 'smooth' })
   }
 
   const queueAnnouncement = useMemo(() => {
@@ -463,14 +478,11 @@ function App() {
   const selectedOutputIsVideo = selected ? isVideoFormat(selected.options.outputFormat) : false
 
   return (
-    <main className={items.length ? 'app app--workspace' : 'app'} data-reduce-motion={appPreferences.reduceMotion || undefined}>
+    <main className={items.length ? 'app app--workspace' : 'app'} data-reduce-motion={reduceMotion || undefined}>
       <div className="ambient" aria-hidden="true"><i /><i /></div>
       <div ref={backgroundRef} inert={hasOpenDialog ? true : undefined} aria-hidden={hasOpenDialog || undefined}>
       <header className="site-header">
         <button type="button" className="brand" aria-label="Clyvora Convert home" disabled={busy} onClick={returnHome}><img src="/favicon.png" alt="" width="32" height="32" /><span>Clyvora <strong>Convert</strong></span></button>
-        <nav className="site-nav" aria-label="Application links">
-          <button type="button" disabled={busy} title={busy ? 'Settings are unavailable during conversion.' : undefined} onClick={() => setPreferencesOpen(true)}>Settings</button>
-        </nav>
       </header>
 
       {items.length === 0 ? (
@@ -480,49 +492,49 @@ function App() {
           </section>
           <section className={`drop-card ${dropActive ? 'drop-card--active' : ''}`} aria-label="Choose local media files" onDragEnter={(event) => { event.preventDefault(); setDropActive(true) }} onDragOver={(event) => { event.preventDefault(); setDropActive(true) }} onDragLeave={(event) => { if (event.currentTarget === event.target) setDropActive(false) }} onDrop={(event) => { event.preventDefault(); setDropActive(false); void addFiles(Array.from(event.dataTransfer.files)) }}>
             <input ref={inputRef} className="sr-only" type="file" multiple accept={ACCEPT} aria-label="Choose image, audio, or video files" tabIndex={-1} onChange={(event) => { void addFiles(Array.from(event.target.files ?? [])); event.target.value = '' }} />
-            <div className="drop-icon" aria-hidden="true">↑</div>
+            <div className="drop-icon" aria-hidden="true"><Icon name="upload" /></div>
             <div><h2>Select files to convert</h2><p>or drop multiple files here</p></div>
-            <div className="file-source-actions"><button className="button button--primary button--select" type="button" onClick={() => inputRef.current?.click()}>Choose files</button><button className="button button--link" type="button" onClick={openLinkDialog}>Paste link</button></div>
+            <div className="file-source-actions"><button className="button button--primary button--select" type="button" onClick={() => inputRef.current?.click()}><Icon name="upload" />Choose files</button><button className="button button--link" type="button" onClick={openLinkDialog}><Icon name="link" />Paste link</button></div>
             <div className="local-note"><span>◆</span> File contents and names stay on this device.</div>
           </section>
         </div>
       ) : (
         <section className="queue-shell" aria-labelledby="queue-heading">
-          <div className="queue-heading"><div><p className="eyebrow">Conversion queue</p><h1 id="queue-heading">{items.length} {items.length === 1 ? 'file' : 'files'} in queue</h1></div><div className="queue-add-actions"><button className="button button--add" type="button" disabled={busy} onClick={openLinkDialog}>+ Paste link</button><button className="button button--add" type="button" disabled={busy} onClick={() => inputRef.current?.click()}>+ Add files</button></div><input ref={inputRef} className="sr-only" type="file" multiple accept={ACCEPT} aria-label="Add image, audio, or video files" tabIndex={-1} onChange={(event) => { void addFiles(Array.from(event.target.files ?? [])); event.target.value = '' }} /></div>
+          <div className="queue-heading"><div><p className="eyebrow">Conversion queue</p><h1 id="queue-heading">{items.length} {items.length === 1 ? 'file' : 'files'} in queue</h1></div><div className="queue-add-actions"><button className="button button--add" type="button" disabled={busy} onClick={openLinkDialog}><Icon name="link" />Paste link</button><button className="button button--add" type="button" disabled={busy} onClick={() => inputRef.current?.click()}><Icon name="plus" />Add files</button></div><input ref={inputRef} className="sr-only" type="file" multiple accept={ACCEPT} aria-label="Add image, audio, or video files" tabIndex={-1} onChange={(event) => { void addFiles(Array.from(event.target.files ?? [])); event.target.value = '' }} /></div>
           <div className="queue-list" role="list" aria-label="Conversion queue">
             {items.map((item) => (
               <article key={item.id} className={`queue-card queue-card--${item.detected.kind}`} role="listitem">
                 <div className="queue-row">
-                  <div className="queue-file"><span className="file-glyph" aria-hidden="true">{item.detected.kind === 'image' ? '▧' : item.detected.kind === 'audio' ? '♪' : '▶'}</span><span className="file-copy"><strong>{item.file.name}</strong><small>{formatBytes(item.file.size)} · {formatKind(item.detected.kind)}{item.sourceWidth ? ` · ${item.sourceWidth} × ${item.sourceHeight}` : ''}</small></span></div>
-                  <div className="conversion-route" aria-label={`${item.detected.format} to ${item.options.outputFormat}`}><span className="format-chip">{item.detected.format.toUpperCase()}</span><span className="route-arrow">→</span><label><span className="sr-only">Output format for {item.file.name}</span><select aria-label={`Output format for ${item.file.name}`} disabled={busy || item.status === 'completed'} value={item.options.outputFormat} onChange={(event) => updateOptions(item, { ...item.options, outputFormat: event.target.value as MediaFormat, videoCodec: 'auto' })}>{getOutputFormats(item.detected.format).map((format) => <option key={format} value={format}>{format.toUpperCase()}</option>)}</select></label></div>
-                  <div className="row-actions"><button type="button" onClick={() => openPreview(item)}>Preview</button>{item.status === 'completed' ? <button type="button" onClick={() => editCompleted(item)}>Edit</button> : <button type="button" disabled={busy} onClick={() => openOptions(item)}>Options</button>}<button className="remove" type="button" disabled={item.id === activeIdRef.current} onClick={() => removeItem(item)} aria-label={`Remove ${item.file.name}`}>×</button></div>
+                  <div className="queue-file"><span className="file-glyph" aria-hidden="true"><Icon name={item.detected.kind} /></span><span className="file-copy"><strong>{item.file.name}</strong><small>{formatBytes(item.file.size)} · {formatKind(item.detected.kind)}{item.sourceWidth ? ` · ${item.sourceWidth} × ${item.sourceHeight}` : ''}</small></span></div>
+                  <div className="conversion-route" aria-label={`${item.detected.format} to ${item.options.outputFormat}`}><span className="format-chip">{item.detected.format.toUpperCase()}</span><span className="route-arrow"><Icon name="arrow" /></span><label><span className="sr-only">Output format for {item.file.name}</span><select aria-label={`Output format for ${item.file.name}`} disabled={busy || item.status === 'completed'} value={item.options.outputFormat} onChange={(event) => updateOptions(item, { ...item.options, outputFormat: event.target.value as MediaFormat, videoCodec: 'auto' })}>{getOutputFormats(item.detected.format).map((format) => <option key={format} value={format}>{format.toUpperCase()}</option>)}</select></label></div>
+                  <div className="row-actions"><button type="button" onClick={() => openPreview(item)}><Icon name="preview" />Preview</button>{item.status === 'completed' ? <button type="button" onClick={() => editCompleted(item)}><Icon name="options" />Edit</button> : <button type="button" disabled={busy} onClick={() => openOptions(item)}><Icon name="options" />Options</button>}<button className="remove" type="button" disabled={item.id === activeIdRef.current} onClick={() => removeItem(item)} aria-label={`Remove ${item.file.name}`}><Icon name="remove" /></button></div>
                   <span className={`status status--${item.status}`}>{statusLabel(item)}</span>
                 </div>
                 {(item.status === 'converting' || item.status === 'loading-engine') && <div className={`progress ${item.status === 'loading-engine' || item.detected.kind === 'image' ? 'progress--indeterminate' : ''}`} role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={item.status === 'converting' && item.detected.kind !== 'image' ? Math.round(item.progress * 100) : undefined}><span style={item.status === 'converting' && item.detected.kind !== 'image' ? { width: `${Math.round(item.progress * 100)}%` } : undefined} /><small>{statusLabel(item)}{item.status === 'converting' && item.detected.kind !== 'image' ? ` · ${Math.round(item.progress * 100)}%` : ''}</small></div>}
                 {item.warning && <p className="row-message row-message--warn">{item.warning}</p>}
                 {item.error && <p className="row-message" role="alert">{item.error}</p>}
-                {item.status === 'completed' && <div className="inline-result"><span><strong>{item.outputName}</strong><small>{formatBytes(item.outputBlob?.size ?? 0)}{item.resultWidth && item.resultHeight ? ` · ${item.resultWidth} × ${item.resultHeight}` : ''} · {resultChangeLabel(item)} · {formatDuration(item.durationMs)}</small></span><a href={item.outputUrl} download={item.outputName}>Download</a></div>}
+                {item.status === 'completed' && <div className="inline-result"><span><strong>{item.outputName}</strong><small>{formatBytes(item.outputBlob?.size ?? 0)}{item.resultWidth && item.resultHeight ? ` · ${item.resultWidth} × ${item.resultHeight}` : ''} · {resultChangeLabel(item)} · {formatDuration(item.durationMs)}</small></span><a href={item.outputUrl} download={item.outputName}><Icon name="download" />Download</a></div>}
               </article>
             ))}
           </div>
-          <div className="queue-footer"><div><strong>{actionableCount ? `${actionableCount} ${actionableCount === 1 ? 'file' : 'files'} ready to convert` : 'All files converted'}</strong><span>{completed.length ? `${completed.length} completed` : 'Everything stays on this device'}</span></div><div className="queue-footer__actions"><button type="button" className="text-action" disabled={!items.some((item) => item.status === 'completed' || item.status === 'cancelled')} onClick={clearCompleted}>Clear finished</button>{completed.length > 1 && <button type="button" className="button" disabled={busy} onClick={() => void downloadAll().catch((error: unknown) => setNotice(friendlyError(error)))}>Download ZIP</button>}{busy ? <button type="button" className="button button--cancel" onClick={cancel}>Cancel</button> : actionableCount > 0 && <button type="button" className="button button--convert" onClick={() => void convertIds(items.filter((item) => item.status !== 'completed').map((item) => item.id))}>Convert {actionableCount > 1 ? actionableCount : ''}<span>→</span></button>}</div></div>
+          <div className="queue-footer"><div><strong>{actionableCount ? `${actionableCount} ${actionableCount === 1 ? 'file' : 'files'} ready to convert` : 'All files converted'}</strong><span>{completed.length ? `${completed.length} completed` : 'Everything stays on this device'}</span></div><div className="queue-footer__actions"><button type="button" className="text-action" disabled={!items.some((item) => item.status === 'completed' || item.status === 'cancelled')} onClick={clearCompleted}>Clear finished</button>{completed.length > 1 && <button type="button" className="button" disabled={busy} onClick={() => void downloadAll().catch((error: unknown) => setNotice({ message: friendlyError(error), tone: 'error' }))}><Icon name="archive" />Download ZIP</button>}{busy ? <button type="button" className="button button--cancel" onClick={cancel}><Icon name="cancel" />Cancel</button> : actionableCount > 0 && <button type="button" className="button button--convert" onClick={() => void convertIds(items.filter((item) => item.status !== 'completed').map((item) => item.id))}>Convert {actionableCount > 1 ? actionableCount : ''}<Icon name="arrow" /></button>}</div></div>
         </section>
       )}
 
-      {notice && <div className="notice" role="alert"><span>{notice}</span><button type="button" onClick={() => setNotice('')} aria-label="Dismiss message">×</button></div>}
+      {notice && <div className={`notice notice--${notice.tone}`} role="alert"><span>{notice.message}</span><button type="button" onClick={() => setNotice(null)} aria-label="Dismiss message"><Icon name="remove" /></button></div>}
       </div>
 
       {linkOpen && (
         <div className="modal-layer" role="presentation" onMouseDown={(event) => { if (event.currentTarget === event.target) closeLinkDialog() }}>
           <section ref={dialogRef} className="link-dialog" role="dialog" aria-modal="true" aria-labelledby="link-heading" aria-describedby="link-description">
-            <header><div><p className="eyebrow">Import media</p><h2 id="link-heading">Paste a link</h2></div><button type="button" className="modal-close" onClick={closeLinkDialog} aria-label="Close link importer">×</button></header>
+            <header><div><p className="eyebrow">Import media</p><h2 id="link-heading">Paste a link</h2></div><button type="button" className="modal-close" onClick={closeLinkDialog} aria-label="Close link importer"><Icon name="remove" /></button></header>
             <div className="link-body">
               <form onSubmit={(event) => { event.preventDefault(); void submitLink() }}>
                 <label htmlFor="media-link">Media link</label>
-                <div className="link-field"><input id="media-link" type="url" inputMode="url" autoComplete="url" required placeholder="https://…" value={linkUrl} disabled={linkState.status === 'loading'} onChange={(event) => { setLinkUrl(event.target.value); if (linkState.status !== 'idle') setLinkState({ status: 'idle' }) }} /><button className="button button--primary" type="submit" disabled={linkState.status === 'loading' || !linkUrl.trim()}>{linkState.status === 'loading' ? 'Checking…' : 'Add link'}</button></div>
-                <p id="link-description">Paste a direct HTTPS media link, public SoundCloud track, share link, or unlisted track link.</p>
+                <div className="link-field"><input id="media-link" type="url" inputMode="url" autoComplete="url" required placeholder="https://…" value={linkUrl} disabled={linkState.status === 'loading'} onChange={(event) => { setLinkUrl(event.target.value); if (linkState.status !== 'idle') setLinkState({ status: 'idle' }) }} /><button className="button button--primary" type="submit" disabled={linkState.status === 'loading' || !linkUrl.trim()}>{linkState.status === 'loading' ? <><span className="button-spinner" />Working…</> : <><Icon name="download" />Download</>}</button></div>
+                <p id="link-description">Paste a direct HTTPS media link, public SoundCloud track, share link, or unlisted track link. The original downloads automatically and stays available for conversion.</p>
               </form>
-              {linkState.status === 'loading' && <div className="link-progress" role="status"><span>Fetching link{linkState.total ? ` · ${Math.round(linkState.loaded / linkState.total * 100)}%` : linkState.loaded ? ` · ${formatBytes(linkState.loaded)}` : '…'}</span>{linkState.total && <progress max={linkState.total} value={linkState.loaded} aria-label="Link download progress" />}</div>}
+              {linkState.status === 'loading' && <div className="link-progress" role="status"><span>{linkState.loaded ? 'Downloading media' : 'Resolving link'}{linkState.total ? ` · ${Math.round(linkState.loaded / linkState.total * 100)}%` : linkState.loaded ? ` · ${formatBytes(linkState.loaded)}` : '…'}</span>{linkState.total && <progress max={linkState.total} value={linkState.loaded} aria-label="Link download progress" />}</div>}
               {linkState.status === 'error' && <p className="link-error" role="alert">{linkState.message}</p>}
             </div>
           </section>
@@ -532,7 +544,7 @@ function App() {
       {selected && optionsOpen && (
         <div className="modal-layer" role="presentation" onMouseDown={(event) => { if (event.currentTarget === event.target) setOptionsOpen(false) }}>
           <section ref={dialogRef} className="options-dialog" role="dialog" aria-modal="true" aria-labelledby="options-heading">
-            <header><div><p className="eyebrow">{formatKind(selected.detected.kind)} options</p><h2 id="options-heading">{selected.file.name}</h2></div><button type="button" className="modal-close" onClick={() => setOptionsOpen(false)} aria-label="Close options">×</button></header>
+            <header><div><p className="eyebrow">{formatKind(selected.detected.kind)} options</p><h2 id="options-heading">{selected.file.name}</h2></div><button type="button" className="modal-close" onClick={() => setOptionsOpen(false)} aria-label="Close options"><Icon name="remove" /></button></header>
             <div className="dialog-route"><span>{selected.detected.format.toUpperCase()}</span><i>→</i><strong>{selected.options.outputFormat.toUpperCase()}</strong></div>
             <div className="options-body">
               {isImageFormat(selected.detected.format) && <>
@@ -560,17 +572,12 @@ function App() {
 
       {selected && previewOpen && (
         <div className="modal-layer" role="presentation" onMouseDown={(event) => { if (event.currentTarget === event.target) setPreviewOpen(false) }}>
-          <section ref={dialogRef} className="preview-dialog" role="dialog" aria-modal="true" aria-labelledby="preview-heading"><header><div><p className="eyebrow">{selected.outputUrl ? 'Before and after' : 'Source preview'}</p><h2 id="preview-heading">{selected.file.name}</h2></div><button type="button" className="modal-close" onClick={() => setPreviewOpen(false)} aria-label="Close preview">×</button></header><div className="preview-body">
+          <section ref={dialogRef} className="preview-dialog" role="dialog" aria-modal="true" aria-labelledby="preview-heading"><header><div><p className="eyebrow">{selected.outputUrl ? 'Before and after' : 'Source preview'}</p><h2 id="preview-heading">{selected.file.name}</h2></div><button type="button" className="modal-close" onClick={() => setPreviewOpen(false)} aria-label="Close preview"><Icon name="remove" /></button></header><div className="preview-body">
             {selected.detected.kind === 'image' && sourcePreviewUrl ? <><div className="image-compare"><img src={sourcePreviewUrl} alt={`Source preview of ${selected.file.name}`} />{selected.outputUrl && <div className="result-layer" style={{ clipPath: `inset(0 ${100 - comparePosition}% 0 0)` }}><img src={selected.outputUrl} alt={`Converted preview of ${selected.file.name}`} /></div>}{selected.outputUrl && <div className="compare-line" style={{ left: `${comparePosition}%` }}><span>↔</span></div>}</div>{selected.outputUrl && <label className="compare-control">Comparison position<input type="range" min="0" max="100" value={comparePosition} onChange={(event) => setComparePosition(Number(event.target.value))} /></label>}</> : selected.detected.kind === 'video' && sourcePreviewUrl ? <div className="media-preview"><span id={`source-media-${selected.id}`}>Source</span><video aria-labelledby={`source-media-${selected.id}`} controls preload="metadata" src={sourcePreviewUrl} />{selected.outputUrl && <><span id={`result-media-${selected.id}`}>Result</span>{isVideoFormat(selected.options.outputFormat) ? <video aria-labelledby={`result-media-${selected.id}`} controls preload="metadata" src={selected.outputUrl} /> : <audio aria-labelledby={`result-media-${selected.id}`} controls preload="metadata" src={selected.outputUrl} />}</>}</div> : sourcePreviewUrl ? <div className="media-preview"><span id={`source-media-${selected.id}`}>Source</span><audio aria-labelledby={`source-media-${selected.id}`} controls preload="metadata" src={sourcePreviewUrl} />{selected.outputUrl && <><span id={`result-media-${selected.id}`}>Result</span><audio aria-labelledby={`result-media-${selected.id}`} controls preload="metadata" src={selected.outputUrl} /></>}</div> : <div className="preview-placeholder">Preview unavailable in this browser.</div>}
-          </div>{selected.outputBlob && <footer className="preview-result"><div><span>Result</span><strong>{formatBytes(selected.outputBlob.size)}</strong><small>{selected.resultWidth && selected.resultHeight ? `${selected.resultWidth} × ${selected.resultHeight} · ` : ''}{resultChangeLabel(selected)} · {formatDuration(selected.durationMs)}</small></div><a className="button button--primary" href={selected.outputUrl} download={selected.outputName}>Download result</a></footer>}</section>
+          </div>{selected.outputBlob && <footer className="preview-result"><div><span>Result</span><strong>{formatBytes(selected.outputBlob.size)}</strong><small>{selected.resultWidth && selected.resultHeight ? `${selected.resultWidth} × ${selected.resultHeight} · ` : ''}{resultChangeLabel(selected)} · {formatDuration(selected.durationMs)}</small></div><a className="button button--primary" href={selected.outputUrl} download={selected.outputName}><Icon name="download" />Download result</a></footer>}</section>
         </div>
       )}
 
-      {preferencesOpen && (
-        <div className="modal-layer" role="presentation" onMouseDown={(event) => { if (event.currentTarget === event.target) setPreferencesOpen(false) }}>
-          <section ref={dialogRef} className="preferences-dialog" role="dialog" aria-modal="true" aria-labelledby="preferences-heading"><header><div><p className="eyebrow">Application</p><h2 id="preferences-heading">Settings</h2></div><button type="button" className="modal-close" onClick={() => setPreferencesOpen(false)} aria-label="Close settings">×</button></header><div className="preferences-body"><PreferenceToggle title="Remember conversion settings" description="Use your last format and quality choices for similar files." checked={appPreferences.rememberSettings} onChange={setRememberSettings} /><PreferenceToggle title="Auto-download single results" description="Download automatically when converting one file at a time." checked={appPreferences.autoDownloadSingle} onChange={(checked) => updateAppPreferences({ autoDownloadSingle: checked })} /><PreferenceToggle title="Reduce motion" description="Disable decorative and progress animations in this app." checked={appPreferences.reduceMotion} onChange={(checked) => updateAppPreferences({ reduceMotion: checked })} /><div className="processing-summary"><span>Local processing</span><strong>{globalThis.crossOriginIsolated ? 'Audio uses multiple threads when available · video uses compatibility mode' : 'Audio and video use compatibility mode'}</strong><small>Video uses the stable single-thread engine; audio uses the faster worker when this browser safely supports it.</small></div><button type="button" className="danger-action" disabled={busy} onClick={() => void clearLocalSettings()}>Clear saved settings and cached media engine</button></div></section>
-        </div>
-      )}
 
       <div className="sr-only" aria-live="polite" aria-atomic="true">{busy ? items.find((item) => item.status === 'converting' || item.status === 'loading-engine')?.phaseLabel : queueAnnouncement}</div>
     </main>
@@ -583,10 +590,6 @@ function Segmented({ label, children }: { label: string; children: ReactNode }) 
 
 function OptionGroup({ title, help, children }: { title: string; help?: string; children: ReactNode }) {
   return <section className="option-group"><h3>{title}</h3>{children}{help && <p>{help}</p>}</section>
-}
-
-function PreferenceToggle({ title, description, checked, onChange }: { title: string; description: string; checked: boolean; onChange: (checked: boolean) => void }) {
-  return <label className="preference-toggle"><span><strong>{title}</strong><small>{description}</small></span><input type="checkbox" checked={checked} onChange={(event) => onChange(event.target.checked)} /></label>
 }
 
 export default App

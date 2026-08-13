@@ -70,9 +70,12 @@ function isSoundCloudPageHost(hostname) {
 async function fetchSoundCloudPage(initialUrl, fetchImpl) {
   let currentUrl = initialUrl
   for (let redirects = 0; redirects <= MAX_REDIRECTS; redirects += 1) {
+    const pathParts = currentUrl.pathname.split('/').filter(Boolean)
+    const cachePublicTrackPage = SOUNDCLOUD_HOSTS.has(currentUrl.hostname.toLowerCase()) && pathParts.length === 2
     const response = await fetchImpl(currentUrl, {
       redirect: 'manual',
       headers: { 'user-agent': 'Mozilla/5.0 Clyvora-Link-Resolver/1.1', accept: 'text/html' },
+      ...(cachePublicTrackPage ? { cf: { cacheEverything: true, cacheTtl: 30 } } : {}),
     })
     if (response.status < 300 || response.status >= 400) return { response, url: currentUrl }
     const location = response.headers.get('location')
@@ -192,18 +195,27 @@ async function discoverClientId(html, hydration, request, env, fetchImpl, cache,
     }))
     return hydrated
   }
-  for (const assetUrl of extractAssetUrls(html)) {
-    const response = await fetchImpl(assetUrl, { headers: { 'user-agent': 'Mozilla/5.0 Clyvora-Link-Resolver/1.1' } })
-    if (!response.ok) continue
-    const source = await readLimitedText(response, MAX_ASSET_BYTES, 'SoundCloud application asset')
-    const match = source.match(CLIENT_ID_PATTERN)
-    if (!match) continue
+  const assets = extractAssetUrls(html)
+  for (let offset = 0; offset < assets.length; offset += 4) {
+    const matches = await Promise.all(assets.slice(offset, offset + 4).map(async (assetUrl) => {
+      try {
+        const response = await fetchImpl(assetUrl, {
+          headers: { 'user-agent': 'Mozilla/5.0 Clyvora-Link-Resolver/1.1' },
+          cf: { cacheEverything: true, cacheTtl: 21600 },
+        })
+        if (!response.ok) return null
+        const source = await readLimitedText(response, MAX_ASSET_BYTES, 'SoundCloud application asset')
+        return source.match(CLIENT_ID_PATTERN)?.[1] ?? null
+      } catch { return null }
+    }))
+    const clientId = matches.find(Boolean)
+    if (!clientId) continue
     if (cache) {
-      await cache.put(cacheKey(request), new Response(match[1], {
+      await cache.put(cacheKey(request), new Response(clientId, {
         headers: { 'cache-control': 'public, max-age=21600' },
       }))
     }
-    return match[1]
+    return clientId
   }
   throw new Error('SoundCloud changed its website and the resolver could not initialize.')
 }
@@ -277,8 +289,9 @@ export async function handleRequest(request, env = {}, dependencies = {}) {
     return fail('NOT_FOUND', 'Resolver route not found.', 404, origin)
   }
   if (request.method !== 'POST') return fail('METHOD_NOT_ALLOWED', 'Use POST for this endpoint.', 405, origin, { allow: 'POST, OPTIONS' })
-  if (!request.headers.get('content-type')?.toLowerCase().startsWith('application/json')) {
-    return fail('INVALID_REQUEST', 'Send a JSON request.', 415, origin)
+  const contentType = request.headers.get('content-type')?.toLowerCase() ?? ''
+  if (!contentType.startsWith('application/json') && !contentType.startsWith('text/plain')) {
+    return fail('INVALID_REQUEST', 'Send a JSON request body.', 415, origin)
   }
   if ((Number(request.headers.get('content-length')) || 0) > MAX_REQUEST_BYTES) {
     return fail('INVALID_REQUEST', 'The request is too large.', 413, origin)

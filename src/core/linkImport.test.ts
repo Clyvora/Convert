@@ -42,7 +42,9 @@ describe('browser link importing', () => {
 
     const result = await importMediaLink('https://soundcloud.com/artist/track', new AbortController().signal)
     expect(result.file.name).toBe('Artist - Track.mp3')
-    expect(fetchMock).toHaveBeenNthCalledWith(1, '/api/soundcloud/resolve', expect.objectContaining({ method: 'POST' }))
+    expect(fetchMock).toHaveBeenNthCalledWith(1, '/api/soundcloud/resolve', expect.objectContaining({
+      method: 'POST', headers: { 'content-type': 'text/plain;charset=UTF-8' },
+    }))
     expect(fetchMock).toHaveBeenNthCalledWith(2, expect.objectContaining({ hostname: 'cf-media.sndcdn.com' }), expect.objectContaining({ redirect: 'follow' }))
   })
 
