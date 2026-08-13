@@ -33,7 +33,7 @@ File signatures are inspected instead of trusting extensions alone. Renamed, dam
 
 ## Features
 
-- Drag-and-drop, multiple selection, clipboard image paste, and a locally generated sample image.
+- Drag-and-drop, multiple selection, and clipboard image paste.
 - A compact conversion queue with per-file output selection, progress, retry, and editing after completion.
 - Image resize controls with aspect-ratio locking, no-upscale protection, JPG/WebP quality, and a selectable JPG transparency background.
 - Video quality, maximum resolution, codec, and audio-bitrate controls.

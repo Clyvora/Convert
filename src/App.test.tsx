@@ -15,14 +15,16 @@ function pngFile(name = 'sample.png'): File {
 describe('Clyvora Convert interface', () => {
   beforeEach(() => localStorage.clear())
 
-  it('puts the product, local-processing promise, file picker, and formats in the initial UI', () => {
+  it('keeps the initial UI focused on the product promise and file picker', () => {
     render(<App />)
 
     expect(screen.getByRole('heading', { level: 1, name: /convert media without uploading it/i })).toBeVisible()
     expect(screen.getByText(/file contents and names stay on this device/i)).toBeVisible()
     expect(screen.getByRole('button', { name: /choose files/i })).toBeEnabled()
-    expect(screen.getAllByText(/PNG/).length).toBeGreaterThan(0)
-    expect(screen.getAllByText(/MP3/).length).toBeGreaterThan(0)
+    expect(screen.queryByRole('button', { name: /try a sample image/i })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /paste an image/i })).not.toBeInTheDocument()
+    expect(screen.queryByLabelText(/supported formats and privacy/i)).not.toBeInTheDocument()
+    expect(screen.queryByLabelText(/automatic input detection and output selection/i)).not.toBeInTheDocument()
   })
 
   it('adds a signature-validated file to an operable conversion workspace', async () => {

@@ -115,24 +115,6 @@ async function readVideoMetadata(blob: Blob): Promise<{ width?: number; height?:
   })
 }
 
-async function createSampleFile(): Promise<File> {
-  const canvas = document.createElement('canvas')
-  canvas.width = 960
-  canvas.height = 600
-  const context = canvas.getContext('2d')
-  if (!context) throw new Error('This browser could not create the sample image.')
-  context.fillStyle = '#090a0a'; context.fillRect(0, 0, canvas.width, canvas.height)
-  context.strokeStyle = 'rgba(238,234,224,.12)'; context.lineWidth = 1
-  for (let x = 0; x <= canvas.width; x += 48) { context.beginPath(); context.moveTo(x, 0); context.lineTo(x, canvas.height); context.stroke() }
-  for (let y = 0; y <= canvas.height; y += 48) { context.beginPath(); context.moveTo(0, y); context.lineTo(canvas.width, y); context.stroke() }
-  context.strokeStyle = 'rgba(238,234,224,.38)'; context.beginPath(); context.arc(760, 280, 210, 0, Math.PI * 2); context.stroke()
-  context.fillStyle = '#eeeae0'; context.font = '300 72px system-ui'; context.fillText('Clyvora Convert', 64, 260)
-  context.fillStyle = '#9a9891'; context.font = '24px system-ui'; context.fillText('A locally generated sample image.', 68, 310)
-  const blob = await new Promise<Blob>((resolve, reject) => canvas.toBlob((value) => value ? resolve(value) : reject(new Error('Could not create the sample image.')), 'image/png'))
-  canvas.width = 1; canvas.height = 1
-  return new File([blob], 'clyvora-sample.png', { type: 'image/png' })
-}
-
 function resultChangeLabel(item: QueueItem): string | null {
   if (!item.outputBlob) return null
   const change = calculateSizeChange(item.file.size, item.outputBlob.size)
@@ -286,21 +268,6 @@ function App() {
     setNotice(errors.join(' '))
   }, [])
 
-  const addSample = async () => { try { await addFiles([await createSampleFile()]) } catch (error) { setNotice(friendlyError(error)) } }
-  const pasteImage = async () => {
-    try {
-      if (!navigator.clipboard?.read) throw new Error('Clipboard image reading is not available in this browser.')
-      const clipboardItems = await navigator.clipboard.read()
-      const imageType = clipboardItems.flatMap((entry) => entry.types).find((type) => type.startsWith('image/'))
-      const source = clipboardItems.find((entry) => imageType && entry.types.includes(imageType))
-      if (!source || !imageType) throw new Error('There is no supported image in the clipboard.')
-      const extension = imageType === 'image/jpeg' ? 'jpg' : imageType.split('/')[1]
-      await addFiles([new File([await source.getType(imageType)], `pasted-image.${extension}`, { type: imageType })])
-    } catch (error) {
-      const blocked = error instanceof DOMException && (error.name === 'NotAllowedError' || error.name === 'SecurityError')
-      setNotice(blocked ? 'Clipboard access was blocked. Allow clipboard access for this site, or press Ctrl+V to paste an image.' : friendlyError(error))
-    }
-  }
   useEffect(() => {
     const handlePaste = (event: ClipboardEvent) => {
       const file = Array.from(event.clipboardData?.files ?? []).find((candidate) => candidate.type.startsWith('image/'))
@@ -472,9 +439,6 @@ function App() {
         <div className="landing" id="top">
           <section className="landing-hero" aria-labelledby="page-title">
             <div className="hero-copy"><p className="eyebrow">Private by design</p><h1 id="page-title">Convert media without uploading it.</h1><p>Images, audio, and video are processed directly on this device. No account, analytics, or conversion server.</p></div>
-            <div className="route-visual" aria-label="Automatic input detection and output selection">
-              <div><span>Input</span><strong>Auto</strong><small>Detected locally</small></div><i>→</i><div className="route-visual__output"><span>Output</span><strong>Choose</strong><small>Per file</small></div>
-            </div>
           </section>
           <section className={`drop-card ${dropActive ? 'drop-card--active' : ''}`} aria-label="Choose local media files" onDragEnter={(event) => { event.preventDefault(); setDropActive(true) }} onDragOver={(event) => { event.preventDefault(); setDropActive(true) }} onDragLeave={(event) => { if (event.currentTarget === event.target) setDropActive(false) }} onDrop={(event) => { event.preventDefault(); setDropActive(false); void addFiles(Array.from(event.dataTransfer.files)) }}>
             <input ref={inputRef} className="sr-only" type="file" multiple accept={ACCEPT} aria-label="Choose image, audio, or video files" tabIndex={-1} onChange={(event) => { void addFiles(Array.from(event.target.files ?? [])); event.target.value = '' }} />
@@ -483,11 +447,6 @@ function App() {
             <button className="button button--primary button--select" type="button" onClick={() => inputRef.current?.click()}>Choose files</button>
             <div className="local-note"><span>◆</span> File contents and names stay on this device.</div>
           </section>
-          <div className="starter-actions"><button type="button" onClick={() => void addSample()}>Try a sample image</button><span /><button type="button" onClick={() => void pasteImage()}>Paste an image</button></div>
-          <section className="capability-strip" id="privacy" aria-label="Supported formats and privacy">
-            <div><span>Images</span><strong>PNG · JPG · WebP</strong></div><div><span>Audio</span><strong>MP3 · WAV · OGG · Opus</strong></div><div><span>Video</span><strong>MP4 · WebM</strong></div><div className="capability-strip__privacy"><span>Local processing</span><strong>No upload path</strong></div>
-          </section>
-          <p className="engine-note">Audio and video use a local FFmpeg engine downloaded on first use (about 32 MB). Source metadata is removed from converted files.</p>
         </div>
       ) : (
         <section className="queue-shell" aria-labelledby="queue-heading">
