@@ -13,6 +13,7 @@ export interface ImageResizeOptions {
   readonly width?: number
   readonly height?: number
   readonly lockAspectRatio?: boolean
+  readonly preventUpscale?: boolean
 }
 
 export interface ImageConversionOptions extends ImageResizeOptions {

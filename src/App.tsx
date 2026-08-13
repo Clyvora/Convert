@@ -89,6 +89,23 @@ function resultChangeLabel(item: QueueItem): string | null {
   return change < 0 ? `${Math.abs(change).toFixed(0)}% smaller` : `${change.toFixed(0)}% larger`
 }
 
+function resultAdvice(item: QueueItem): string | null {
+  if (!item.outputBlob || item.file.size <= 0) return null
+  const change = calculateSizeChange(item.file.size, item.outputBlob.size)
+  if (change === null || change <= 2) return null
+  if (item.detected.kind === 'image') {
+    const webpSuggestion = getOutputFormats(item.detected.format).includes('webp') ? ' or WebP' : ''
+    return `This result is ${change.toFixed(0)}% larger. A smaller quality preset${webpSuggestion} will usually reduce it.`
+  }
+  return 'This output is larger because uncompressed WAV audio trades storage space for compatibility.'
+}
+
+const QUALITY_PRESETS = [
+  { label: 'Smaller', value: 0.72 },
+  { label: 'Balanced', value: 0.86 },
+  { label: 'Best', value: 0.96 },
+] as const
+
 function App() {
   const [items, dispatch] = useReducer(queueReducer, [])
   const [dropActive, setDropActive] = useState(false)
@@ -105,8 +122,17 @@ function App() {
   const batchCancelledRef = useRef(false)
   const audioEngineRef = useRef<ConversionEngine | null>(null)
   const progressUpdateRef = useRef(new Map<string, { label?: string; progress: number; time: number }>())
+  const previousItemCountRef = useRef(0)
 
   useEffect(() => { itemsRef.current = items }, [items])
+
+  useEffect(() => {
+    if (previousItemCountRef.current === 0 && items.length > 0) {
+      document.documentElement.scrollTop = 0
+      document.body.scrollTop = 0
+    }
+    previousItemCountRef.current = items.length
+  }, [items.length])
 
   useEffect(() => {
     const warnBeforeLeaving = (event: BeforeUnloadEvent) => {
@@ -351,6 +377,25 @@ function App() {
     setTimeout(() => URL.revokeObjectURL(url), 0)
   }
 
+  const reconvertSmaller = async (item: QueueItem) => {
+    if (item.outputUrl) URL.revokeObjectURL(item.outputUrl)
+    const formats = getOutputFormats(item.detected.format)
+    const outputFormat = formats.includes('webp') ? 'webp' : item.options.outputFormat
+    patchItem(item.id, {
+      status: 'ready',
+      options: { ...item.options, outputFormat, quality: Math.min(item.options.quality, 0.72) },
+      progress: 0,
+      phaseLabel: undefined,
+      outputName: undefined,
+      outputBlob: undefined,
+      outputUrl: undefined,
+      resultWidth: undefined,
+      resultHeight: undefined,
+      durationMs: undefined,
+    })
+    await convertIds([item.id])
+  }
+
   const completedSummary = useMemo(() => completed.length === 1 ? '1 file ready' : `${completed.length} files ready`, [completed.length])
   const selectedMemory = selected ? assessMemoryRisk(selected.file.size, selected.detected.kind, (navigator as Navigator & { deviceMemory?: number }).deviceMemory) : null
   const selectedPipeline = selected?.detected.kind === 'image'
@@ -363,25 +408,27 @@ function App() {
       <header className="site-header">
         <a href="#top" className="brand" aria-label="Clyvora Convert home">
           <img src="/favicon.png" alt="" width="32" height="32" decoding="async" />
+          <span>Clyvora <strong>Convert</strong></span>
         </a>
         <nav className="site-nav" aria-label="Clyvora sites">
-          <a href="https://lens.clyvora.tech">Lens</a>
-          <a href="https://www.clyvora.tech">Home</a>
+          <a href="#privacy">Privacy</a>
+          <a href="https://github.com/ClyvoraTech/Clyvora/tree/main/Convert" target="_blank" rel="noreferrer">Source</a>
         </nav>
       </header>
 
-      <section id="top" className="intro" aria-labelledby="page-title">
-        <p className="eyebrow">Private media conversion</p>
-        <h1 id="page-title">Convert files <em>locally.</em></h1>
-        <p className="lede">A focused converter with detailed controls and none of the server wait. Everything happens inside this browser.</p>
-        <div className="privacy-points" aria-label="Privacy guarantees">
-          <span>No file transfer</span><span>No conversion server</span><span>No filename logging</span>
-        </div>
-      </section>
+      {items.length === 0 && (
+        <section id="top" className="intro" aria-labelledby="page-title">
+          <p className="eyebrow">Private by design</p>
+          <h1 id="page-title">Private image and audio conversion.</h1>
+          <p className="lede">Convert PNG, JPG, WebP, MP3, and WAV directly on this device. No uploads, analytics, accounts, or conversion server.</p>
+        </section>
+      )}
+
+      <div className={items.length ? 'workbench' : 'landing-flow'}>
 
       <section className="converter-card" aria-label="Local file converter">
         <div className="converter-topbar">
-          <div><span className="converter-dot" /> Local converter</div>
+          <div><span className="converter-dot" /> {items.length ? 'Your conversion queue' : 'Local image and audio converter'}</div>
           <div className="route-preview" aria-label="Supported conversion examples"><b>PNG</b><span>→</span><b>JPG</b><i /> <b>MP3</b><span>→</span><b>WAV</b></div>
         </div>
 
@@ -399,20 +446,20 @@ function App() {
               <div className="drop-icon" aria-hidden="true"><span>+</span></div>
               <div><h2>Select files to convert</h2><p>Drop multiple files here or choose them from this device.</p></div>
               <button className="button button--primary button--select" type="button" onClick={() => inputRef.current?.click()}>Choose files <span>⌄</span></button>
-              <div className="local-note"><span>◆</span> Your files never leave this device.</div>
+              <div className="local-note"><span>◆</span> Processed locally. File contents and names are never sent anywhere.</div>
             </section>
             <div className="starter-actions">
               <button type="button" onClick={() => void addSample()}>Try a sample image</button>
               <span />
               <button type="button" onClick={() => void pasteImage()}>Paste an image</button>
               <span />
-              <small>PNG · JPG · WebP · MP3 · WAV</small>
+              <small>Supported: PNG · JPG · WebP · MP3 · WAV</small>
             </div>
           </>
         ) : (
           <section className="workspace" aria-labelledby="queue-heading">
             <div className="workspace-heading">
-              <div><p className="eyebrow">Conversion queue</p><h2 id="queue-heading">{items.length} {items.length === 1 ? 'file' : 'files'} in queue</h2></div>
+              <div><p className="eyebrow">Files</p><h2 id="queue-heading">{items.length} {items.length === 1 ? 'file' : 'files'} in this batch</h2></div>
               <button className="button button--add" type="button" disabled={busy} onClick={() => inputRef.current?.click()}>+ Add files</button>
               <input ref={inputRef} className="sr-only" type="file" multiple accept={ACCEPT} aria-label="Add image or audio files" tabIndex={-1} onChange={(event) => { void addFiles(Array.from(event.target.files ?? [])); event.target.value = '' }} />
             </div>
@@ -428,14 +475,9 @@ function App() {
                     <div className="conversion-route" aria-label={`${item.detected.format} to ${item.options.outputFormat}`}>
                       <span className="format-chip">{item.detected.format.toUpperCase()}</span>
                       <span className="route-arrow">→</span>
-                      <label className="inline-output"><span className="sr-only">Convert {item.file.name} to</span>
-                        <select disabled={busy || item.status === 'completed'} value={item.options.outputFormat} onChange={(event) => updateOptions(item, { ...item.options, outputFormat: event.target.value as MediaFormat })}>
-                          {getOutputFormats(item.detected.format).map((format) => <option key={format} value={format}>{format.toUpperCase()}</option>)}
-                        </select>
-                      </label>
+                      <span className="format-chip format-chip--output">{item.options.outputFormat.toUpperCase()}</span>
                     </div>
-                    <button className="settings-trigger" type="button" onClick={() => setSelectedId(item.id)} aria-label={`Open settings for ${item.file.name}`}>Settings</button>
-                    <span className={`status status--${item.status}`}>{item.status.replace('-', ' ')}</span>
+                    <span className={`status status--${item.status}`}>{item.phaseLabel ?? item.status.replace('-', ' ')}</span>
                     <button className="remove" type="button" disabled={item.id === activeIdRef.current} onClick={() => removeItem(item)} aria-label={`Remove ${item.file.name}`}>×</button>
                   </div>
                   {(item.status === 'converting' || item.status === 'loading-engine') && (
@@ -460,7 +502,7 @@ function App() {
                 <button type="button" disabled={!items.some((item) => item.status === 'completed' || item.status === 'cancelled')} onClick={clearCompleted}>Clear completed</button>
                 {completed.length > 1 && <button type="button" disabled={busy} onClick={() => void downloadAll().catch((error: unknown) => setNotice(friendlyError(error)))}>Download all as ZIP</button>}
               </div>
-              {busy ? <button type="button" className="button button--cancel" onClick={cancel}>Cancel conversion</button> : <button type="button" className="button button--convert" disabled={actionableCount === 0} onClick={() => void convertIds(items.filter((item) => item.status !== 'completed').map((item) => item.id))}>Convert {actionableCount || ''} {actionableCount === 1 ? 'file' : 'files'} <span>→</span></button>}
+              {busy ? <button type="button" className="button button--cancel" onClick={cancel}>Cancel conversion</button> : actionableCount > 0 ? <button type="button" className="button button--convert" onClick={() => void convertIds(items.filter((item) => item.status !== 'completed').map((item) => item.id))}>{actionableCount === 1 ? 'Convert file' : `Convert ${actionableCount} files`} <span>→</span></button> : <span className="batch-complete">All files converted</span>}
             </div>
           </section>
         )}
@@ -469,10 +511,10 @@ function App() {
       {notice && <div className="notice" role="alert"><span>{notice}</span><button type="button" onClick={() => setNotice('')} aria-label="Dismiss message">×</button></div>}
 
       {selected && (
-        <section className="detail-panel" aria-labelledby="settings-heading">
+        <section className={`detail-panel ${selected.status === 'completed' ? 'detail-panel--completed' : ''}`} aria-labelledby="settings-heading">
           <div className="detail-heading">
-            <div><p className="eyebrow">Selected file</p><h2 id="settings-heading">{selected.file.name}</h2></div>
-            <button type="button" className="apply-all" disabled={busy || items.filter((item) => item.detected.kind === selected.detected.kind).length < 2} onClick={applyToAll}>Apply settings to compatible files</button>
+            <div><p className="eyebrow">{selected.status === 'completed' ? 'Conversion complete' : 'Selected file'}</p><h2 id="settings-heading">{selected.file.name}</h2></div>
+            {selected.status !== 'completed' && <button type="button" className="apply-all" disabled={busy || items.filter((item) => item.detected.kind === selected.detected.kind).length < 2} onClick={applyToAll}>Apply settings to compatible files</button>}
           </div>
           <div className="detail-grid">
             <div className="preview-panel">
@@ -493,8 +535,9 @@ function App() {
               </div>
             </div>
 
-            <aside className="settings" aria-label={`Settings for ${selected.file.name}`}>
-              <fieldset disabled={busy || selected.status === 'completed'}>
+            <aside className={`settings ${selected.status === 'completed' ? 'settings--result' : ''}`} aria-label={selected.status === 'completed' ? `Result for ${selected.file.name}` : `Settings for ${selected.file.name}`}>
+              {selected.status !== 'completed' ? (
+              <fieldset disabled={busy}>
                 <label>Output format
                   <select aria-label="Output format" value={selected.options.outputFormat} onChange={(event) => updateOptions(selected, { ...selected.options, outputFormat: event.target.value as MediaFormat })}>
                     {getOutputFormats(selected.detected.format).map((format) => <option key={format} value={format}>{format.toUpperCase()}</option>)}
@@ -502,24 +545,33 @@ function App() {
                 </label>
                 {isImageFormat(selected.detected.format) && (
                   <>
-                    {(selected.options.outputFormat === 'jpg' || selected.options.outputFormat === 'webp') && <label>Image quality <span>{Math.round(selected.options.quality * 100)}%</span><input type="range" min="0.1" max="1" step="0.05" value={selected.options.quality} onChange={(event) => updateOptions(selected, { ...selected.options, quality: Number(event.target.value) })} /></label>}
-                    <div className="field-group"><span>Resize (optional)</span><div className="dimension-fields">
-                      <label>Width<input type="number" min="1" max="32767" placeholder="Original" value={selected.options.width ?? ''} onChange={(event) => updateOptions(selected, { ...selected.options, width: event.target.value ? Number(event.target.value) : undefined })} /></label>
-                      <span aria-hidden="true">×</span>
-                      <label>Height<input type="number" min="1" max="32767" placeholder="Original" value={selected.options.height ?? ''} onChange={(event) => updateOptions(selected, { ...selected.options, height: event.target.value ? Number(event.target.value) : undefined })} /></label>
-                    </div></div>
-                    <label className="check"><input type="checkbox" checked={selected.options.lockAspectRatio} onChange={(event) => updateOptions(selected, { ...selected.options, lockAspectRatio: event.target.checked })} /> Lock aspect ratio</label>
-                    {selected.options.outputFormat === 'jpg' && <label>Transparent pixels<div className="color-field"><input type="color" value={selected.options.jpgBackgroundColor} onChange={(event) => updateOptions(selected, { ...selected.options, jpgBackgroundColor: event.target.value })} /><span>{selected.options.jpgBackgroundColor}</span></div></label>}
+                    {(selected.options.outputFormat === 'jpg' || selected.options.outputFormat === 'webp') && <>
+                      <div className="preset-group"><span>Quality preset</span><div role="group" aria-label="Image quality preset">{QUALITY_PRESETS.map((preset) => <button key={preset.label} type="button" aria-pressed={Math.abs(selected.options.quality - preset.value) < 0.02} onClick={() => updateOptions(selected, { ...selected.options, quality: preset.value })}>{preset.label}</button>)}</div></div>
+                      <label>Exact quality <span>{Math.round(selected.options.quality * 100)}%</span><input aria-label="Exact image quality" type="range" min="0.1" max="1" step="0.01" value={selected.options.quality} onChange={(event) => updateOptions(selected, { ...selected.options, quality: Number(event.target.value) })} /></label>
+                    </>}
+                    <details className="advanced-settings">
+                      <summary>Advanced image settings</summary>
+                      <div className="advanced-content">
+                        <div className="field-group"><span>Resize (optional)</span><div className="dimension-fields">
+                          <label>Width<input type="number" min="1" max="32767" placeholder="Original" value={selected.options.width ?? ''} onChange={(event) => updateOptions(selected, { ...selected.options, width: event.target.value ? Number(event.target.value) : undefined })} /></label>
+                          <span aria-hidden="true">×</span>
+                          <label>Height<input type="number" min="1" max="32767" placeholder="Original" value={selected.options.height ?? ''} onChange={(event) => updateOptions(selected, { ...selected.options, height: event.target.value ? Number(event.target.value) : undefined })} /></label>
+                        </div></div>
+                        <label className="check"><input type="checkbox" checked={selected.options.lockAspectRatio} onChange={(event) => updateOptions(selected, { ...selected.options, lockAspectRatio: event.target.checked })} /> Lock aspect ratio</label>
+                        <label className="check"><input type="checkbox" checked={selected.options.preventUpscale} onChange={(event) => updateOptions(selected, { ...selected.options, preventUpscale: event.target.checked })} /> Prevent enlargement</label>
+                        {selected.options.outputFormat === 'jpg' && <label>Transparent pixels<div className="color-field"><input type="color" value={selected.options.jpgBackgroundColor} onChange={(event) => updateOptions(selected, { ...selected.options, jpgBackgroundColor: event.target.value })} /><span>{selected.options.jpgBackgroundColor}</span></div></label>}
+                        <p className="hint">Source metadata is removed. Locked dimensions fit without cropping.</p>
+                      </div>
+                    </details>
                   </>
                 )}
                 {selected.detected.kind === 'audio' && selected.options.outputFormat === 'mp3' && <label>MP3 bitrate<select value={selected.options.mp3Bitrate} onChange={(event) => updateOptions(selected, { ...selected.options, mp3Bitrate: Number(event.target.value) as 128 | 192 | 256 | 320 })}>{[128, 192, 256, 320].map((value) => <option key={value} value={value}>{value} kbps</option>)}</select></label>}
                 {selected.detected.format === 'mp3' && <p className="hint">WAV will be larger. It cannot restore quality already lost in the MP3.</p>}
-                <div className="pipeline-card"><span>Conversion method</span><strong>{selectedPipeline}</strong><small>{selected.detected.kind === 'image' ? 'FFmpeg stays unloaded.' : 'Loaded only for this audio job.'}</small></div>
-                {selected.status !== 'completed' && <button className="button button--primary button--full" type="button" onClick={() => void convertIds([selected.id])}>{selected.status === 'failed' || selected.status === 'cancelled' ? 'Retry conversion' : 'Convert file'}</button>}
+                <div className="pipeline-card"><span>Conversion method</span><strong>{selectedPipeline}</strong><small>{selected.detected.kind === 'image' ? 'No conversion engine download is needed.' : 'About 32 MB on first use, then reused for this session.'}</small></div>
               </fieldset>
-              {selected.status === 'completed' && selected.outputUrl && (
+              ) : selected.outputUrl && (
                 <div className="result-summary">
-                  <span className="result-ready">Result ready</span>
+                  <div className="result-hero"><span aria-hidden="true">✓</span><div><strong>Result ready</strong><small>{selected.outputName}</small></div></div>
                   <dl>
                     <div><dt>Original</dt><dd>{formatBytes(selected.file.size)}</dd></div>
                     <div><dt>Result</dt><dd>{formatBytes(selected.outputBlob?.size ?? 0)}</dd></div>
@@ -527,13 +579,31 @@ function App() {
                     <div><dt>Time</dt><dd>{formatDuration(selected.durationMs)}</dd></div>
                     {selected.resultWidth && <div><dt>Dimensions</dt><dd>{selected.resultWidth} × {selected.resultHeight}</dd></div>}
                   </dl>
+                  {resultAdvice(selected) && <div className="result-advice"><strong>Worth adjusting</strong><p>{resultAdvice(selected)}</p>{selected.detected.kind === 'image' && <button className="button button--secondary button--full" type="button" onClick={() => void reconvertSmaller(selected)}>Make a smaller version</button>}</div>}
                   <a className="button button--primary button--full" href={selected.outputUrl} download={selected.outputName}>Download result</a>
+                  <button className="button button--quiet button--full" type="button" onClick={() => inputRef.current?.click()}>Add another file</button>
                 </div>
               )}
             </aside>
           </div>
         </section>
       )}
+
+      {items.length === 0 && (
+        <section id="privacy" className="trust-section" aria-labelledby="trust-heading">
+          <div className="trust-heading">
+            <p className="eyebrow">A privacy claim you can verify</p>
+            <h2 id="trust-heading">Your media stays in this browser.</h2>
+          </div>
+          <div className="trust-grid">
+            <article><strong>Nothing to upload</strong><p>Images use browser canvas tools. Audio runs in a local FFmpeg WebAssembly worker.</p></article>
+            <article><strong>No tracking layer</strong><p>No accounts, analytics, advertisements, filename logging, or remote conversion API.</p></article>
+            <article><strong>Open implementation</strong><p>Inspect the <a href="https://github.com/ClyvoraTech/Clyvora/tree/main/Convert" target="_blank" rel="noreferrer">source code and licenses</a> for yourself.</p></article>
+          </div>
+          <p className="trust-note">Audio conversion downloads a local processing engine of roughly 32 MB the first time it is needed. Converted files exclude source metadata.</p>
+        </section>
+      )}
+      </div>
 
       <div className="sr-only" aria-live="polite" aria-atomic="true">{busy ? items.find((item) => item.status === 'converting' || item.status === 'loading-engine')?.phaseLabel : completedSummary}</div>
     </main>

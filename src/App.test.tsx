@@ -16,8 +16,8 @@ describe('Clyvora Convert interface', () => {
   it('puts the product, local-processing promise, file picker, and formats in the initial UI', () => {
     render(<App />)
 
-    expect(screen.getByRole('heading', { level: 1, name: /convert files locally/i })).toBeVisible()
-    expect(screen.getByText(/your files never leave this device/i)).toBeVisible()
+    expect(screen.getByRole('heading', { level: 1, name: /private image and audio conversion/i })).toBeVisible()
+    expect(screen.getByText(/file contents and names are never sent anywhere/i)).toBeVisible()
     expect(screen.getByRole('button', { name: /choose files/i })).toBeEnabled()
     expect(screen.getAllByText(/PNG/).length).toBeGreaterThan(0)
     expect(screen.getAllByText(/MP3/).length).toBeGreaterThan(0)
@@ -31,10 +31,11 @@ describe('Clyvora Convert interface', () => {
 
     await user.upload(input!, pngFile())
 
-    expect(await screen.findByRole('heading', { name: /1 file in queue/i })).toBeVisible()
+    expect(await screen.findByRole('heading', { name: /1 file in this batch/i })).toBeVisible()
     expect(screen.getByRole('button', { name: /configure sample\.png/i })).toBeEnabled()
     expect(screen.getByLabelText(/output format/i)).toHaveValue('jpg')
     expect(screen.getByRole('button', { name: /convert file/i })).toBeEnabled()
+    expect(screen.queryByRole('heading', { level: 1 })).not.toBeInTheDocument()
   })
 
   it('announces a renamed-file rejection and allows dismissing it', async () => {

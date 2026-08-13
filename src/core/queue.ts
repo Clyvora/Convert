@@ -12,7 +12,7 @@ const TRANSITIONS: Record<QueueStatus, readonly QueueStatus[]> = {
   ready: ['loading-engine', 'converting', 'cancelled'],
   'loading-engine': ['converting', 'failed', 'cancelled'],
   converting: ['completed', 'failed', 'cancelled'],
-  completed: [],
+  completed: ['ready'],
   failed: ['ready'],
   cancelled: ['ready'],
 }

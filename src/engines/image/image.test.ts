@@ -43,6 +43,14 @@ describe('image dimension calculations', () => {
     })).toEqual({ width: 500, height: 500 })
   })
 
+  it('prevents accidental enlargement when requested', () => {
+    expect(calculateOutputDimensions(800, 600, {
+      width: 1600,
+      lockAspectRatio: true,
+      preventUpscale: true,
+    })).toEqual({ width: 800, height: 600 })
+  })
+
   it('rejects invalid and browser-unsafe canvas dimensions', () => {
     expect(() => calculateOutputDimensions(100, 100, { width: 0 })).toThrow(/positive whole number/i)
     expect(() => validateCanvasDimensions(32768, 1)).toThrow(/canvas limit/i)

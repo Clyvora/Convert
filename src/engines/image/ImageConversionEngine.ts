@@ -14,6 +14,7 @@ export class ImageConversionEngine implements ConversionEngine {
       width: options.width,
       height: options.height,
       lockAspectRatio: options.lockAspectRatio,
+      preventUpscale: options.preventUpscale,
       quality: options.quality,
       jpgBackgroundColor: options.jpgBackgroundColor,
       signal,

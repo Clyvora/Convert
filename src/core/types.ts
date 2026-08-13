@@ -24,6 +24,7 @@ export interface ConversionOptions {
   width?: number
   height?: number
   lockAspectRatio: boolean
+  preventUpscale: boolean
   jpgBackgroundColor: string
   mp3Bitrate: 128 | 192 | 256 | 320
 }

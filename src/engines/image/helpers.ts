@@ -65,7 +65,7 @@ export function calculateOutputDimensions(
   assertSourceDimension(sourceWidth, 'Source width')
   assertSourceDimension(sourceHeight, 'Source height')
 
-  const { width, height, lockAspectRatio = true } = options
+  const { width, height, lockAspectRatio = true, preventUpscale = false } = options
   if (width !== undefined) assertDimension(width, 'Output width')
   if (height !== undefined) assertDimension(height, 'Output height')
 
@@ -74,7 +74,10 @@ export function calculateOutputDimensions(
   }
 
   if (!lockAspectRatio) {
-    return validateCanvasDimensions(width ?? sourceWidth, height ?? sourceHeight)
+    return validateCanvasDimensions(
+      preventUpscale ? Math.min(width ?? sourceWidth, sourceWidth) : width ?? sourceWidth,
+      preventUpscale ? Math.min(height ?? sourceHeight, sourceHeight) : height ?? sourceHeight,
+    )
   }
 
   const ratio = sourceWidth / sourceHeight
@@ -82,15 +85,15 @@ export function calculateOutputDimensions(
   let outputHeight: number
 
   if (width !== undefined && height !== undefined) {
-    const scale = Math.min(width / sourceWidth, height / sourceHeight)
+    const scale = Math.min(width / sourceWidth, height / sourceHeight, preventUpscale ? 1 : Number.POSITIVE_INFINITY)
     outputWidth = Math.max(1, Math.round(sourceWidth * scale))
     outputHeight = Math.max(1, Math.round(sourceHeight * scale))
   } else if (width !== undefined) {
-    outputWidth = width
-    outputHeight = Math.max(1, Math.round(width / ratio))
+    outputWidth = preventUpscale ? Math.min(width, sourceWidth) : width
+    outputHeight = Math.max(1, Math.round(outputWidth / ratio))
   } else {
-    outputHeight = height as number
-    outputWidth = Math.max(1, Math.round((height as number) * ratio))
+    outputHeight = preventUpscale ? Math.min(height as number, sourceHeight) : height as number
+    outputWidth = Math.max(1, Math.round(outputHeight * ratio))
   }
 
   return validateCanvasDimensions(outputWidth, outputHeight)

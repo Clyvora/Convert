@@ -16,6 +16,7 @@ export function preferenceSubset(options: ConversionOptions): Partial<Conversion
     outputFormat: options.outputFormat,
     quality: options.quality,
     lockAspectRatio: options.lockAspectRatio,
+    preventUpscale: options.preventUpscale,
     jpgBackgroundColor: options.jpgBackgroundColor,
     mp3Bitrate: options.mp3Bitrate,
   }
@@ -36,6 +37,7 @@ export function applyCompatibleSettings(
         width: source.width,
         height: source.height,
         lockAspectRatio: source.lockAspectRatio,
+        preventUpscale: source.preventUpscale,
         jpgBackgroundColor: source.jpgBackgroundColor,
       }
     : { ...target, outputFormat, mp3Bitrate: source.mp3Bitrate }

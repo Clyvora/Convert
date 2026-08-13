@@ -12,6 +12,7 @@ function item(id: string, status: QueueStatus = 'ready'): QueueItem {
       outputFormat: 'jpg',
       quality: 0.9,
       lockAspectRatio: true,
+      preventUpscale: true,
       jpgBackgroundColor: '#ffffff',
       mp3Bitrate: 192,
     },
