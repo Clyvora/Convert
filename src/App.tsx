@@ -364,6 +364,10 @@ function App() {
         <a href="#top" className="brand" aria-label="Clyvora Convert home">
           <img src="/favicon.png" alt="" width="32" height="32" decoding="async" />
         </a>
+        <nav className="site-nav" aria-label="Clyvora sites">
+          <a href="https://lens.clyvora.tech">Lens</a>
+          <a href="https://www.clyvora.tech">Home</a>
+        </nav>
       </header>
 
       <section id="top" className="intro" aria-labelledby="page-title">
