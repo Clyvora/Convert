@@ -4,7 +4,7 @@
   "version": "1.0.0",
   "description": "A private, local-first image, audio, and video converter for the browser.",
   "license": "MIT",
-  "homepage": "https://convert.clyvora.tech/",
+  "homepage": "https://www.convert.clyvora.tech/",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/ClyvoraTech/Convert.git"

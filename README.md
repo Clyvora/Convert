@@ -4,7 +4,7 @@
 
 Clyvora Convert is an open-source image, audio, and video converter that runs entirely in the browser. Selected files are processed on the user's device and are never sent to a conversion server.
 
-**Use it online:** [convert.clyvora.tech](https://convert.clyvora.tech/)
+**Use it online:** [www.convert.clyvora.tech](https://www.convert.clyvora.tech/)
 
 ![Clyvora Convert interface](public/clyvora-convert-card.webp)
 

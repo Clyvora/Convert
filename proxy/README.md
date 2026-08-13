@@ -9,7 +9,7 @@ The Worker deliberately does not support DRM, account-only private tracks, profi
 ## Deploy
 
 1. Create a free Cloudflare account if you do not already have one.
-2. Replace `https://convert.clyvora.tech` in `wrangler.jsonc` if the real production site uses a different origin.
+2. Replace `https://www.convert.clyvora.tech` in `wrangler.jsonc` if the real production site uses a different origin.
 3. From this directory, run `pnpm install`, then `pnpm exec wrangler login`, and finally `pnpm deploy`.
 4. Copy the resulting `workers.dev` URL and append `/v1/soundcloud/resolve`.
 5. Put that complete address in Convert's production `VITE_MEDIA_RESOLVER_URL` environment variable, then rebuild/deploy Convert. If Cloudflare routes `/api/soundcloud/resolve` on the site's own domain to this Worker, no Vite variable is needed.
