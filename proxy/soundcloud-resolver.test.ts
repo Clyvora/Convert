@@ -38,6 +38,18 @@ function emptyCache() {
 }
 
 describe('SoundCloud resolver Worker', () => {
+  it('allows both production site origins and returns the matching CORS header', async () => {
+    for (const origin of ['https://convert.clyvora.tech', 'https://www.convert.clyvora.tech']) {
+      const response = await handleRequest(new Request('https://resolver.example/v1/soundcloud/resolve', {
+        method: 'OPTIONS', headers: { origin },
+      }), {
+        ALLOWED_ORIGINS: 'https://convert.clyvora.tech,https://www.convert.clyvora.tech',
+      })
+      expect(response.status).toBe(204)
+      expect(response.headers.get('access-control-allow-origin')).toBe(origin)
+    }
+  })
+
   it('rejects callers outside the explicit origin allowlist', async () => {
     const response = await handleRequest(request(TRACK_URL, 'https://attacker.example'), {
       ALLOWED_ORIGINS: 'https://convert.example',

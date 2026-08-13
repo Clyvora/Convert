@@ -8,7 +8,7 @@
     "enabled": false
   },
   "vars": {
-    "ALLOWED_ORIGINS": "http://localhost:5173,https://www.convert.clyvora.tech"
+    "ALLOWED_ORIGINS": "http://localhost:5173,https://convert.clyvora.tech,https://www.convert.clyvora.tech"
   },
   "ratelimits": [
     {

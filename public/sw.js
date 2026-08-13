@@ -1,5 +1,11 @@
-const CACHE = 'clyvora-convert-v3'
+const CACHE = 'clyvora-convert-v4'
 const SHELL = ['/', '/manifest.webmanifest', '/favicon.png', '/apple-touch-icon.png']
+
+function storeResponse(event, request, response) {
+  if (!response.ok) return
+  const responseForCache = response.clone()
+  event.waitUntil(caches.open(CACHE).then((cache) => cache.put(request, responseForCache)))
+}
 
 self.addEventListener('install', (event) => {
   event.waitUntil(caches.open(CACHE).then((cache) => cache.addAll(SHELL)))
@@ -16,13 +22,13 @@ self.addEventListener('fetch', (event) => {
   const isNavigation = event.request.mode === 'navigate'
   if (isNavigation) {
     event.respondWith(fetch(event.request).then((response) => {
-      if (response.ok) event.waitUntil(caches.open(CACHE).then((cache) => cache.put('/', response.clone())))
+      storeResponse(event, '/', response)
       return response
     }).catch(() => caches.match('/')))
     return
   }
   event.respondWith(caches.match(event.request).then((cached) => cached || fetch(event.request).then((response) => {
-    if (response.ok) event.waitUntil(caches.open(CACHE).then((cache) => cache.put(event.request, response.clone())))
+    storeResponse(event, event.request, response)
     return response
   })))
 })
