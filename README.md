@@ -35,7 +35,7 @@ File signatures are inspected instead of trusting extensions alone. Renamed, dam
 
 - Drag-and-drop, multiple selection, and clipboard image paste.
 - Direct HTTPS media-link imports when the original host permits browser access.
-- Optional built-in SoundCloud importing for public tracks, share links, and unlisted links whose uploader enabled downloads, using a narrowly scoped resolver that never receives the audio bytes.
+- Optional built-in SoundCloud importing for public playable tracks, share links, and unlisted access-key links, using a narrowly scoped resolver that never receives the audio bytes.
 - A compact conversion queue with per-file output selection, progress, retry, and editing after completion.
 - Image resize controls with aspect-ratio locking, no-upscale protection, JPG/WebP quality, and a selectable JPG transparency background.
 - Video quality, maximum resolution, codec, and audio-bitrate controls.
@@ -97,7 +97,7 @@ Audio and video conversion dynamically import `@ffmpeg/ffmpeg`. Audio uses the m
 
 Clyvora Convert does not contain an upload path. Object URLs, canvases, local buffers, and FFmpeg's in-browser virtual filesystem keep selected media on the device. When a user explicitly imports a direct link, the browser contacts that link's original host.
 
-When the optional SoundCloud resolver is configured, the pasted SoundCloud URL is sent to that Worker. The Worker checks public page metadata and proceeds only when the uploader enabled downloads. It returns a short-lived SoundCloud CDN address; the browser downloads the audio directly from SoundCloud, so file contents do not pass through or get stored by the Worker. The service worker fetches and caches only same-origin application assets.
+When the optional SoundCloud resolver is configured, the pasted SoundCloud URL is sent to that Worker. The Worker resolves a public non-encrypted playback stream and returns a short-lived SoundCloud CDN address; the browser downloads the audio directly from SoundCloud, so file contents do not pass through or get stored by the Worker. The service worker fetches and caches only same-origin application assets.
 
 Contributions must not add telemetry containing filenames or file contents. Any future network feature must be isolated from selected media and receive an explicit privacy review.
 
@@ -125,7 +125,7 @@ For offline use, users must first visit the production application and load the 
 - Transcoding cannot restore quality already lost in the source. WAV outputs and high-quality video settings can substantially increase file size.
 - Video conversion is CPU- and memory-intensive in a browser, particularly on mobile devices.
 - Link imports depend on the original host allowing cross-origin browser requests and linking directly to a supported media file.
-- SoundCloud importing requires the optional resolver deployment, public page structure that can change without notice, and an uploader-enabled non-DRM progressive stream. Unlisted links work when the complete access-key link is supplied; account-only private, paid, regional, protected, and download-disabled tracks do not.
+- SoundCloud importing requires the optional resolver deployment, public page structure that can change without notice, and a playable non-DRM progressive stream. Unlisted links work when the complete access-key link is supplied; account-only private, paid, regional, encrypted, and unsupported stream formats do not.
 
 ## Optional SoundCloud resolver
 

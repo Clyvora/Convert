@@ -222,7 +222,8 @@ function selectPermittedTranscoding(track) {
 function safeFilename(track) {
   const artist = track.publisher_metadata?.artist || track.user?.username || 'SoundCloud'
   const title = track.publisher_metadata?.release_title || track.title || 'track'
-  const cleaned = `${artist} - ${title}`
+  const displayName = title.toLowerCase().startsWith(`${artist.toLowerCase()} -`) ? title : `${artist} - ${title}`
+  const cleaned = displayName
     .replace(/[<>:"/\\|?*]/g, '_')
     .split('').map((character) => character.charCodeAt(0) < 32 ? '_' : character).join('')
     .replace(/\s+/g, ' ')
@@ -307,12 +308,9 @@ export async function handleRequest(request, env = {}, dependencies = {}) {
     if (!track) return fail('TRACK_NOT_FOUND', 'No public track was found at that SoundCloud link.', 404, origin)
     if (track.policy === 'BLOCK') return fail('REGION_RESTRICTED', 'This track is not available in the resolver region.', 451, origin)
     if (track.policy === 'SNIP') return fail('SUBSCRIPTION_REQUIRED', 'This track is only available as a protected SoundCloud preview.', 422, origin)
-    if (track.downloadable !== true || track.has_downloads_left === false) {
-      return fail('DOWNLOAD_NOT_PERMITTED', 'The uploader has not enabled downloads for this track.', 422, origin)
-    }
     const transcoding = selectPermittedTranscoding(track)
     if (!transcoding) {
-      return fail('NO_SUPPORTED_STREAM', 'This downloadable track is only available through a protected or unsupported stream.', 422, origin)
+      return fail('NO_SUPPORTED_STREAM', 'This track is only available through a protected or unsupported stream.', 422, origin)
     }
 
     let clientId = await discoverClientId(html, hydration, request, env, fetchImpl, cache)

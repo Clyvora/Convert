@@ -2,9 +2,9 @@
 
 This Cloudflare Worker gives the browser app a narrowly scoped SoundCloud link resolver without relaying audio through Clyvora infrastructure.
 
-It accepts a public SoundCloud track URL, a SoundCloud share link, or an unlisted track URL that already contains its access key. It reads the page metadata and proceeds only when SoundCloud reports that the uploader enabled downloads and still has downloads available. It then resolves a non-encrypted progressive MP3 URL. The browser downloads that short-lived URL directly from SoundCloud's CDN.
+It accepts a public SoundCloud track URL, a SoundCloud share link, or an unlisted track URL that already contains its access key. Like Cobalt's SoundCloud service, it resolves a public, playable, non-encrypted progressive MP3 stream whether or not SoundCloud displays an uploader-enabled Download button. The browser downloads that short-lived URL directly from SoundCloud's CDN.
 
-The Worker deliberately does not support DRM, account-only private tracks, profiles, playlists, arbitrary proxy targets, paid previews, region-blocked media, or tracks whose uploader disabled downloads.
+The Worker deliberately does not support DRM, account-only private tracks, profiles, playlists, arbitrary proxy targets, paid previews, or region-blocked media.
 
 ## Deploy
 

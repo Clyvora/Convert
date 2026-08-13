@@ -28,7 +28,7 @@ describe('browser link importing', () => {
     await expect(importMediaLink('https://example.com/watch/123', new AbortController().signal)).rejects.toThrow(/webpage/i)
   })
 
-  it('resolves an uploader-enabled SoundCloud track before downloading from its CDN', async () => {
+  it('resolves a public SoundCloud track before downloading from its CDN', async () => {
     const fetchMock = vi.spyOn(globalThis, 'fetch')
       .mockResolvedValueOnce(new Response(JSON.stringify({
         kind: 'direct-media',
@@ -63,11 +63,11 @@ describe('browser link importing', () => {
     expect(fetchMock).toHaveBeenNthCalledWith(1, '/api/soundcloud/resolve', expect.objectContaining({ method: 'POST' }))
   })
 
-  it('surfaces the resolver explanation when a SoundCloud uploader disabled downloads', async () => {
+  it('surfaces the resolver explanation for an unsupported protected stream', async () => {
     vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(new Response(JSON.stringify({
-      error: { code: 'DOWNLOAD_NOT_PERMITTED', message: 'The uploader has not enabled downloads for this track.' },
+      error: { code: 'NO_SUPPORTED_STREAM', message: 'This track is only available through a protected or unsupported stream.' },
     }), { status: 422, headers: { 'content-type': 'application/json' } }))
-    await expect(importMediaLink('https://soundcloud.com/artist/track', new AbortController().signal)).rejects.toThrow(/uploader has not enabled/i)
+    await expect(importMediaLink('https://soundcloud.com/artist/track', new AbortController().signal)).rejects.toThrow(/protected or unsupported/i)
   })
 
   it('rejects a compromised resolver response pointing outside SoundCloud media hosts', async () => {

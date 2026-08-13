@@ -520,7 +520,7 @@ function App() {
               <form onSubmit={(event) => { event.preventDefault(); void submitLink() }}>
                 <label htmlFor="media-link">Media link</label>
                 <div className="link-field"><input id="media-link" type="url" inputMode="url" autoComplete="url" required placeholder="https://…" value={linkUrl} disabled={linkState.status === 'loading'} onChange={(event) => { setLinkUrl(event.target.value); if (linkState.status !== 'idle') setLinkState({ status: 'idle' }) }} /><button className="button button--primary" type="submit" disabled={linkState.status === 'loading' || !linkUrl.trim()}>{linkState.status === 'loading' ? 'Checking…' : 'Add link'}</button></div>
-                <p id="link-description">Paste a direct HTTPS media link, SoundCloud track, share link, or unlisted track link. SoundCloud imports work when the uploader enabled downloads.</p>
+                <p id="link-description">Paste a direct HTTPS media link, public SoundCloud track, share link, or unlisted track link.</p>
               </form>
               {linkState.status === 'loading' && <div className="link-progress" role="status"><span>Fetching link{linkState.total ? ` · ${Math.round(linkState.loaded / linkState.total * 100)}%` : linkState.loaded ? ` · ${formatBytes(linkState.loaded)}` : '…'}</span>{linkState.total && <progress max={linkState.total} value={linkState.loaded} aria-label="Link download progress" />}</div>}
               {linkState.status === 'error' && <p className="link-error" role="alert">{linkState.message}</p>}

@@ -64,19 +64,24 @@ describe('SoundCloud resolver Worker', () => {
     expect(fetchMock).not.toHaveBeenCalled()
   })
 
-  it('refuses tracks whose uploader did not enable downloads', async () => {
-    const fetchMock = vi.fn().mockResolvedValueOnce(new Response(page(false), {
-      headers: { 'content-type': 'text/html' },
-    }))
+  it('resolves a public stream even when the uploader disabled SoundCloud downloads', async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url === TRACK_URL) return new Response(page(false, {}, CLIENT_ID), { headers: { 'content-type': 'text/html' } })
+      if (url.startsWith(TRANSCODING_URL)) return new Response(JSON.stringify({ url: MEDIA_URL }), {
+        headers: { 'content-type': 'application/json' },
+      })
+      throw new Error(`Unexpected fetch: ${url}`)
+    })
     const response = await handleRequest(request(), { ALLOWED_ORIGINS: 'https://convert.example' }, {
       fetch: fetchMock, cache: emptyCache(),
     })
-    expect(response.status).toBe(422)
-    await expect(response.json()).resolves.toMatchObject({ error: { code: 'DOWNLOAD_NOT_PERMITTED' } })
-    expect(fetchMock).toHaveBeenCalledTimes(1)
+    expect(response.status).toBe(200)
+    await expect(response.json()).resolves.toMatchObject({ kind: 'direct-media', mediaUrl: MEDIA_URL })
+    expect(fetchMock).toHaveBeenCalledTimes(2)
   })
 
-  it('returns a direct CDN URL only for an uploader-enabled progressive track', async () => {
+  it('returns a direct CDN URL for a public non-encrypted progressive track', async () => {
     const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
       const url = String(input)
       if (url === TRACK_URL) return new Response(page(), { headers: { 'content-type': 'text/html' } })
