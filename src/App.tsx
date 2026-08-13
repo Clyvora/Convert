@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'r
 import type { ReactNode } from 'react'
 import './App.css'
 import { detectFile, FileDetectionError } from './core/detection'
+import { clearCachedMediaEngineFiles } from './core/cache'
 import { formatBytes } from './core/format'
 import { assessMemoryRisk, calculateSizeChange, formatDuration } from './core/metrics'
 import { outputFilename, uniqueFilename } from './core/naming'
@@ -18,7 +19,6 @@ import type {
   ConversionOptions,
   MediaFormat,
   QueueItem,
-  VideoCodec,
   VideoQuality,
   VideoResolution,
 } from './core/types'
@@ -66,6 +66,7 @@ function makeId(): string {
 
 function friendlyError(error: unknown): string {
   if (error instanceof DOMException && error.name === 'AbortError') return 'Conversion cancelled. You can retry when ready.'
+  if (error instanceof DOMException && error.name === 'NotAllowedError') return 'Clipboard access was blocked. Allow clipboard access for this site, or press Ctrl+V to paste an image.'
   if (error instanceof Error) return error.message
   return 'Conversion failed. The source may be damaged, unsupported, or too large for this browser.'
 }
@@ -170,6 +171,9 @@ function App() {
   const mediaEngineRef = useRef<ConversionEngine | null>(null)
   const progressUpdateRef = useRef(new Map<string, { label?: string; progress: number; time: number }>())
   const previousItemCountRef = useRef(0)
+  const backgroundRef = useRef<HTMLDivElement>(null)
+  const dialogRef = useRef<HTMLElement>(null)
+  const returnFocusRef = useRef<HTMLElement | null>(null)
 
   useEffect(() => { itemsRef.current = items }, [items])
   useEffect(() => { appPreferencesRef.current = appPreferences }, [appPreferences])
@@ -197,6 +201,7 @@ function App() {
   const selected = items.find((item) => item.id === selectedId) ?? null
   const completed = items.filter((item) => item.status === 'completed' && item.outputBlob)
   const actionableCount = items.filter((item) => ['ready', 'failed', 'cancelled'].includes(item.status)).length
+  const hasOpenDialog = optionsOpen || previewOpen || preferencesOpen
 
   useEffect(() => {
     if (sourcePreviewUrl) URL.revokeObjectURL(sourcePreviewUrl)
@@ -209,14 +214,38 @@ function App() {
   }, [selected?.id])
 
   useEffect(() => {
-    if (!optionsOpen && !previewOpen && !preferencesOpen) return
-    const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key !== 'Escape') return
-      setOptionsOpen(false); setPreviewOpen(false); setPreferencesOpen(false)
+    if (!hasOpenDialog) return
+    returnFocusRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null
+    const previousBodyOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    const dialog = dialogRef.current
+    const focusableSelector = 'button:not([disabled]), a[href], input:not([disabled]), select:not([disabled]), summary, [tabindex]:not([tabindex="-1"])'
+    const focusables = () => Array.from(dialog?.querySelectorAll<HTMLElement>(focusableSelector) ?? []).filter((element) => {
+      const style = getComputedStyle(element)
+      return !element.hidden && style.display !== 'none' && style.visibility !== 'hidden'
+    })
+    requestAnimationFrame(() => focusables()[0]?.focus())
+    const handleDialogKeys = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        event.preventDefault()
+        setOptionsOpen(false); setPreviewOpen(false); setPreferencesOpen(false)
+        return
+      }
+      if (event.key !== 'Tab') return
+      const elements = focusables()
+      if (!elements.length) { event.preventDefault(); return }
+      const first = elements[0]
+      const last = elements[elements.length - 1]
+      if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus() }
+      else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus() }
     }
-    window.addEventListener('keydown', closeOnEscape)
-    return () => window.removeEventListener('keydown', closeOnEscape)
-  }, [optionsOpen, previewOpen, preferencesOpen])
+    window.addEventListener('keydown', handleDialogKeys)
+    return () => {
+      window.removeEventListener('keydown', handleDialogKeys)
+      document.body.style.overflow = previousBodyOverflow
+      requestAnimationFrame(() => returnFocusRef.current?.focus())
+    }
+  }, [hasOpenDialog])
 
   const applyQueueAction = (action: QueueAction) => {
     itemsRef.current = queueReducer(itemsRef.current, action)
@@ -242,7 +271,7 @@ function App() {
         const videoDetails = detected.kind === 'video' ? await readVideoMetadata(file) : {}
         const memory = assessMemoryRisk(file.size, detected.kind, deviceMemory)
         additions.push({
-          id: makeId(), file, detected, options: mergePreferences(detected.format, preferencesRef.current),
+          id: makeId(), file, detected, options: mergePreferences(detected.format, appPreferencesRef.current.rememberSettings ? preferencesRef.current : {}),
           status: 'ready', progress: 0,
           warning: memory.level === 'heavy' ? `${memory.label}: ${memory.detail}` : undefined,
           sourceWidth: imageDetails.width ?? videoDetails.width,
@@ -267,7 +296,10 @@ function App() {
       if (!source || !imageType) throw new Error('There is no supported image in the clipboard.')
       const extension = imageType === 'image/jpeg' ? 'jpg' : imageType.split('/')[1]
       await addFiles([new File([await source.getType(imageType)], `pasted-image.${extension}`, { type: imageType })])
-    } catch (error) { setNotice(friendlyError(error)) }
+    } catch (error) {
+      const blocked = error instanceof DOMException && (error.name === 'NotAllowedError' || error.name === 'SecurityError')
+      setNotice(blocked ? 'Clipboard access was blocked. Allow clipboard access for this site, or press Ctrl+V to paste an image.' : friendlyError(error))
+    }
   }
   useEffect(() => {
     const handlePaste = (event: ClipboardEvent) => {
@@ -389,15 +421,36 @@ function App() {
     setTimeout(() => URL.revokeObjectURL(url), 0)
   }
   const updateAppPreferences = (patch: Partial<AppPreferences>) => setAppPreferences((current) => ({ ...current, ...patch }))
+  const setRememberSettings = (checked: boolean) => {
+    if (!checked) {
+      preferencesRef.current = {}
+      localStorage.removeItem(PREFERENCE_KEY)
+    }
+    updateAppPreferences({ rememberSettings: checked })
+  }
   const clearLocalSettings = async () => {
+    if (busy) return
     localStorage.removeItem(PREFERENCE_KEY); localStorage.removeItem(APP_PREFERENCE_KEY)
     preferencesRef.current = {}; setAppPreferences(DEFAULT_APP_PREFERENCES)
     mediaEngineRef.current?.dispose?.(); mediaEngineRef.current = null
-    if ('caches' in globalThis) await Promise.all((await caches.keys()).filter((key) => key.startsWith('clyvora-convert')).map((key) => caches.delete(key)))
-    setNotice('Saved defaults and cached conversion assets were cleared.')
+    if ('caches' in globalThis) await clearCachedMediaEngineFiles(caches)
+    setNotice('Saved defaults and cached media-engine files were cleared. The offline app shell was kept.')
   }
 
-  const completedSummary = useMemo(() => completed.length === 1 ? '1 file ready' : `${completed.length} files ready`, [completed.length])
+  const returnHome = () => {
+    if (busy) return
+    itemsRef.current.forEach((item) => item.outputUrl && URL.revokeObjectURL(item.outputUrl))
+    applyQueueAction({ type: 'reset' })
+    setSelectedId(null); setOptionsOpen(false); setPreviewOpen(false); setPreferencesOpen(false); setNotice('')
+    window.scrollTo({ top: 0, behavior: appPreferencesRef.current.reduceMotion ? 'auto' : 'smooth' })
+  }
+
+  const queueAnnouncement = useMemo(() => {
+    if (!items.length) return 'No files in the conversion queue.'
+    if (actionableCount) return `${actionableCount} ${actionableCount === 1 ? 'file is' : 'files are'} ready to convert.`
+    if (completed.length) return `${completed.length} ${completed.length === 1 ? 'file was' : 'files were'} converted.`
+    return 'No files are ready to convert.'
+  }, [actionableCount, completed.length, items.length])
   const selectedMemory = selected ? assessMemoryRisk(selected.file.size, selected.detected.kind, (navigator as Navigator & { deviceMemory?: number }).deviceMemory) : null
   const compatibleCount = selected ? items.filter((item) => item.id !== selected.id && item.detected.kind === selected.detected.kind && item.status !== 'completed').length : 0
   const selectedOutputIsAudio = selected ? isAudioFormat(selected.options.outputFormat) : false
@@ -406,10 +459,11 @@ function App() {
   return (
     <main className={items.length ? 'app app--workspace' : 'app'} data-reduce-motion={appPreferences.reduceMotion || undefined}>
       <div className="ambient" aria-hidden="true"><i /><i /></div>
+      <div ref={backgroundRef} inert={hasOpenDialog ? true : undefined} aria-hidden={hasOpenDialog || undefined}>
       <header className="site-header">
-        <a href="#top" className="brand" aria-label="Clyvora Convert home"><img src="/favicon.png" alt="" width="32" height="32" /><span>Clyvora <strong>Convert</strong></span></a>
+        <button type="button" className="brand" aria-label="Clyvora Convert home" disabled={busy} onClick={returnHome}><img src="/favicon.png" alt="" width="32" height="32" /><span>Clyvora <strong>Convert</strong></span></button>
         <nav className="site-nav" aria-label="Application links">
-          <button type="button" onClick={() => setPreferencesOpen(true)}>Settings</button>
+          <button type="button" disabled={busy} title={busy ? 'Settings are unavailable during conversion.' : undefined} onClick={() => setPreferencesOpen(true)}>Settings</button>
           <a href="https://github.com/ClyvoraTech/Clyvora/tree/main/Convert" target="_blank" rel="noreferrer">Source</a>
         </nav>
       </header>
@@ -426,7 +480,7 @@ function App() {
             <input ref={inputRef} className="sr-only" type="file" multiple accept={ACCEPT} aria-label="Choose image, audio, or video files" tabIndex={-1} onChange={(event) => { void addFiles(Array.from(event.target.files ?? [])); event.target.value = '' }} />
             <div className="drop-icon" aria-hidden="true">↑</div>
             <div><h2>Select files to convert</h2><p>or drop multiple files here</p></div>
-            <button className="button button--primary button--select" type="button" onClick={() => inputRef.current?.click()}>Choose files <span>⌄</span></button>
+            <button className="button button--primary button--select" type="button" onClick={() => inputRef.current?.click()}>Choose files</button>
             <div className="local-note"><span>◆</span> File contents and names stay on this device.</div>
           </section>
           <div className="starter-actions"><button type="button" onClick={() => void addSample()}>Try a sample image</button><span /><button type="button" onClick={() => void pasteImage()}>Paste an image</button></div>
@@ -450,7 +504,7 @@ function App() {
                 {(item.status === 'converting' || item.status === 'loading-engine') && <div className={`progress ${item.status === 'loading-engine' || item.detected.kind === 'image' ? 'progress--indeterminate' : ''}`} role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={item.status === 'converting' && item.detected.kind !== 'image' ? Math.round(item.progress * 100) : undefined}><span style={item.status === 'converting' && item.detected.kind !== 'image' ? { width: `${Math.round(item.progress * 100)}%` } : undefined} /><small>{statusLabel(item)}{item.status === 'converting' && item.detected.kind !== 'image' ? ` · ${Math.round(item.progress * 100)}%` : ''}</small></div>}
                 {item.warning && <p className="row-message row-message--warn">{item.warning}</p>}
                 {item.error && <p className="row-message" role="alert">{item.error}</p>}
-                {item.status === 'completed' && <div className="inline-result"><span><strong>{item.outputName}</strong><small>{formatBytes(item.outputBlob?.size ?? 0)} · {resultChangeLabel(item)} · {formatDuration(item.durationMs)}</small></span><a href={item.outputUrl} download={item.outputName}>Download</a></div>}
+                {item.status === 'completed' && <div className="inline-result"><span><strong>{item.outputName}</strong><small>{formatBytes(item.outputBlob?.size ?? 0)}{item.resultWidth && item.resultHeight ? ` · ${item.resultWidth} × ${item.resultHeight}` : ''} · {resultChangeLabel(item)} · {formatDuration(item.durationMs)}</small></span><a href={item.outputUrl} download={item.outputName}>Download</a></div>}
               </article>
             ))}
           </div>
@@ -459,27 +513,28 @@ function App() {
       )}
 
       {notice && <div className="notice" role="alert"><span>{notice}</span><button type="button" onClick={() => setNotice('')} aria-label="Dismiss message">×</button></div>}
+      </div>
 
       {selected && optionsOpen && (
         <div className="modal-layer" role="presentation" onMouseDown={(event) => { if (event.currentTarget === event.target) setOptionsOpen(false) }}>
-          <section className="options-dialog" role="dialog" aria-modal="true" aria-labelledby="options-heading">
+          <section ref={dialogRef} className="options-dialog" role="dialog" aria-modal="true" aria-labelledby="options-heading">
             <header><div><p className="eyebrow">{formatKind(selected.detected.kind)} options</p><h2 id="options-heading">{selected.file.name}</h2></div><button type="button" className="modal-close" onClick={() => setOptionsOpen(false)} aria-label="Close options">×</button></header>
             <div className="dialog-route"><span>{selected.detected.format.toUpperCase()}</span><i>→</i><strong>{selected.options.outputFormat.toUpperCase()}</strong></div>
             <div className="options-body">
               {isImageFormat(selected.detected.format) && <>
-                {(selected.options.outputFormat === 'jpg' || selected.options.outputFormat === 'webp') && <OptionGroup title="Image quality" help="Lower quality creates smaller files. Balanced is recommended for most images."><Segmented>{IMAGE_QUALITY_PRESETS.map((preset) => <button key={preset.label} type="button" aria-pressed={Math.abs(selected.options.quality - preset.value) < .02} onClick={() => updateOptions(selected, { ...selected.options, quality: preset.value })}>{preset.label}</button>)}</Segmented><label className="range-row">Exact quality <span>{Math.round(selected.options.quality * 100)}%</span><input aria-label="Exact image quality" type="range" min=".1" max="1" step=".01" value={selected.options.quality} onChange={(event) => updateOptions(selected, { ...selected.options, quality: Number(event.target.value) })} /></label></OptionGroup>}
+                {(selected.options.outputFormat === 'jpg' || selected.options.outputFormat === 'webp') && <OptionGroup title="Image quality" help="Lower quality creates smaller files. Balanced is recommended for most images."><Segmented label="Image quality presets">{IMAGE_QUALITY_PRESETS.map((preset) => <button key={preset.label} type="button" aria-pressed={Math.abs(selected.options.quality - preset.value) < .02} onClick={() => updateOptions(selected, { ...selected.options, quality: preset.value })}>{preset.label}</button>)}</Segmented><label className="range-row">Exact quality <span>{Math.round(selected.options.quality * 100)}%</span><input aria-label="Exact image quality" type="range" min=".1" max="1" step=".01" value={selected.options.quality} onChange={(event) => updateOptions(selected, { ...selected.options, quality: Number(event.target.value) })} /></label></OptionGroup>}
                 <details className="advanced-settings"><summary>Dimensions and transparency</summary><div className="advanced-content"><div className="dimension-fields"><label>Width<input type="number" min="1" max="32767" placeholder="Original" value={selected.options.width ?? ''} onChange={(event) => updateOptions(selected, { ...selected.options, width: event.target.value ? Number(event.target.value) : undefined })} /></label><span>×</span><label>Height<input type="number" min="1" max="32767" placeholder="Original" value={selected.options.height ?? ''} onChange={(event) => updateOptions(selected, { ...selected.options, height: event.target.value ? Number(event.target.value) : undefined })} /></label></div><label className="check"><input type="checkbox" checked={selected.options.lockAspectRatio} onChange={(event) => updateOptions(selected, { ...selected.options, lockAspectRatio: event.target.checked })} /> Lock aspect ratio</label><label className="check"><input type="checkbox" checked={selected.options.preventUpscale} onChange={(event) => updateOptions(selected, { ...selected.options, preventUpscale: event.target.checked })} /> Never enlarge smaller images</label>{selected.options.outputFormat === 'jpg' && <label className="color-row">Transparent pixels <span><input type="color" value={selected.options.jpgBackgroundColor} onChange={(event) => updateOptions(selected, { ...selected.options, jpgBackgroundColor: event.target.value })} />{selected.options.jpgBackgroundColor}</span></label>}</div></details>
               </>}
 
               {selectedOutputIsVideo && <>
-                <OptionGroup title="Video quality" help="The selected resolution is a maximum. Smaller videos are never enlarged."><Segmented>{VIDEO_QUALITIES.map((preset) => <button key={preset.value} type="button" aria-pressed={selected.options.videoQuality === preset.value} onClick={() => updateOptions(selected, { ...selected.options, videoQuality: preset.value })}>{preset.label}</button>)}</Segmented></OptionGroup>
-                <OptionGroup title="Maximum resolution" help="If this resolution is unavailable, the original dimensions are preserved within the selected limit."><Segmented>{VIDEO_RESOLUTIONS.map((preset) => <button key={preset.label} type="button" aria-pressed={selected.options.videoResolution === preset.value} onClick={() => updateOptions(selected, { ...selected.options, videoResolution: preset.value })}>{preset.label}</button>)}</Segmented></OptionGroup>
-                <OptionGroup title="Video codec" help={selected.options.outputFormat === 'mp4' ? 'H.264 offers the broadest playback compatibility.' : 'VP9 provides efficient WebM video in modern browsers.'}><Segmented><button type="button" aria-pressed={selected.options.videoCodec === 'auto'} onClick={() => updateOptions(selected, { ...selected.options, videoCodec: 'auto' })}>Auto</button><button type="button" aria-pressed={selected.options.videoCodec !== 'auto'} onClick={() => updateOptions(selected, { ...selected.options, videoCodec: (selected.options.outputFormat === 'mp4' ? 'h264' : 'vp9') as VideoCodec })}>{selected.options.outputFormat === 'mp4' ? 'H.264 + AAC' : 'VP9 + Opus'}</button></Segmented></OptionGroup>
+                <OptionGroup title="Video quality" help="The selected resolution is a maximum. Smaller videos are never enlarged."><Segmented label="Video quality presets">{VIDEO_QUALITIES.map((preset) => <button key={preset.value} type="button" aria-pressed={selected.options.videoQuality === preset.value} onClick={() => updateOptions(selected, { ...selected.options, videoQuality: preset.value })}>{preset.label}</button>)}</Segmented></OptionGroup>
+                <OptionGroup title="Maximum resolution" help="If this resolution is unavailable, the original dimensions are preserved within the selected limit."><Segmented label="Maximum video resolution">{VIDEO_RESOLUTIONS.map((preset) => <button key={preset.label} type="button" aria-pressed={selected.options.videoResolution === preset.value} onClick={() => updateOptions(selected, { ...selected.options, videoResolution: preset.value })}>{preset.label}</button>)}</Segmented></OptionGroup>
+                <OptionGroup title="Video codec" help="The codec is selected from the output container so the result remains widely playable."><div className="codec-summary"><span>{selected.options.outputFormat.toUpperCase()}</span><strong>{selected.options.outputFormat === 'mp4' ? 'H.264 + AAC' : 'VP8 + Opus'}</strong></div></OptionGroup>
               </>}
 
               {(selected.detected.kind === 'audio' || selectedOutputIsAudio || selectedOutputIsVideo) && <>
-                <OptionGroup title={selectedOutputIsVideo ? 'Audio bitrate' : 'Audio quality'} help={selected.options.outputFormat === 'wav' ? 'WAV is uncompressed, so bitrate does not apply.' : 'Higher bitrates improve fidelity but increase file size.'}><Segmented>{AUDIO_BITRATES.map((value) => <button key={value} type="button" disabled={selected.options.outputFormat === 'wav'} aria-pressed={selected.options.audioBitrate === value} onClick={() => updateOptions(selected, { ...selected.options, audioBitrate: value })}>{value}k</button>)}</Segmented></OptionGroup>
-                {selectedOutputIsAudio && <div className="two-column-options"><OptionGroup title="Channels"><Segmented><button type="button" aria-pressed={selected.options.audioChannels === 'source'} onClick={() => updateOptions(selected, { ...selected.options, audioChannels: 'source' })}>Source</button><button type="button" aria-pressed={selected.options.audioChannels === 1} onClick={() => updateOptions(selected, { ...selected.options, audioChannels: 1 as AudioChannels })}>Mono</button><button type="button" aria-pressed={selected.options.audioChannels === 2} onClick={() => updateOptions(selected, { ...selected.options, audioChannels: 2 as AudioChannels })}>Stereo</button></Segmented></OptionGroup><OptionGroup title="Sample rate"><select aria-label="Audio sample rate" value={selected.options.audioSampleRate} onChange={(event) => updateOptions(selected, { ...selected.options, audioSampleRate: (event.target.value === 'source' ? 'source' : Number(event.target.value)) as AudioSampleRate })}><option value="source">Source</option><option value="44100">44.1 kHz</option><option value="48000">48 kHz</option></select></OptionGroup></div>}
+                <OptionGroup title={selectedOutputIsVideo ? 'Audio bitrate' : 'Audio quality'} help={selected.options.outputFormat === 'wav' ? 'WAV is uncompressed, so bitrate does not apply.' : 'Higher bitrates improve fidelity but increase file size.'}><Segmented label={selectedOutputIsVideo ? 'Video audio bitrate' : 'Audio bitrate'}>{AUDIO_BITRATES.map((value) => <button key={value} type="button" disabled={selected.options.outputFormat === 'wav'} aria-pressed={selected.options.audioBitrate === value} onClick={() => updateOptions(selected, { ...selected.options, audioBitrate: value })}>{value}k</button>)}</Segmented></OptionGroup>
+                {selectedOutputIsAudio && <div className="two-column-options"><OptionGroup title="Channels"><Segmented label="Audio channels"><button type="button" aria-pressed={selected.options.audioChannels === 'source'} onClick={() => updateOptions(selected, { ...selected.options, audioChannels: 'source' })}>Source</button><button type="button" aria-pressed={selected.options.audioChannels === 1} onClick={() => updateOptions(selected, { ...selected.options, audioChannels: 1 as AudioChannels })}>Mono</button><button type="button" aria-pressed={selected.options.audioChannels === 2} onClick={() => updateOptions(selected, { ...selected.options, audioChannels: 2 as AudioChannels })}>Stereo</button></Segmented></OptionGroup><OptionGroup title="Sample rate"><select aria-label="Audio sample rate" value={selected.options.audioSampleRate} onChange={(event) => updateOptions(selected, { ...selected.options, audioSampleRate: (event.target.value === 'source' ? 'source' : Number(event.target.value)) as AudioSampleRate })}><option value="source">Source</option><option value="44100">44.1 kHz</option><option value="48000">48 kHz</option></select></OptionGroup></div>}
               </>}
               <div className="privacy-option"><span>Metadata</span><div><strong>Removed automatically</strong><small>Converted files do not retain source metadata.</small></div></div>
               {selectedMemory?.level !== 'light' && <p className="memory-warning">{selectedMemory?.label}: {selectedMemory?.detail}</p>}
@@ -491,25 +546,25 @@ function App() {
 
       {selected && previewOpen && (
         <div className="modal-layer" role="presentation" onMouseDown={(event) => { if (event.currentTarget === event.target) setPreviewOpen(false) }}>
-          <section className="preview-dialog" role="dialog" aria-modal="true" aria-labelledby="preview-heading"><header><div><p className="eyebrow">{selected.outputUrl ? 'Before and after' : 'Source preview'}</p><h2 id="preview-heading">{selected.file.name}</h2></div><button type="button" className="modal-close" onClick={() => setPreviewOpen(false)} aria-label="Close preview">×</button></header><div className="preview-body">
-            {selected.detected.kind === 'image' && sourcePreviewUrl ? <><div className="image-compare"><img src={sourcePreviewUrl} alt={`Source preview of ${selected.file.name}`} />{selected.outputUrl && <div className="result-layer" style={{ clipPath: `inset(0 ${100 - comparePosition}% 0 0)` }}><img src={selected.outputUrl} alt={`Converted preview of ${selected.file.name}`} /></div>}{selected.outputUrl && <div className="compare-line" style={{ left: `${comparePosition}%` }}><span>↔</span></div>}</div>{selected.outputUrl && <label className="compare-control">Comparison position<input type="range" min="0" max="100" value={comparePosition} onChange={(event) => setComparePosition(Number(event.target.value))} /></label>}</> : selected.detected.kind === 'video' && sourcePreviewUrl ? <div className="media-preview"><label>Source</label><video controls preload="metadata" src={sourcePreviewUrl} />{selected.outputUrl && <><label>Result</label>{isVideoFormat(selected.options.outputFormat) ? <video controls preload="metadata" src={selected.outputUrl} /> : <audio controls preload="metadata" src={selected.outputUrl} />}</>}</div> : sourcePreviewUrl ? <div className="media-preview"><label>Source</label><audio controls preload="metadata" src={sourcePreviewUrl} />{selected.outputUrl && <><label>Result</label><audio controls preload="metadata" src={selected.outputUrl} /></>}</div> : <div className="preview-placeholder">Preview unavailable in this browser.</div>}
-          </div>{selected.outputBlob && <footer className="preview-result"><div><span>Result</span><strong>{formatBytes(selected.outputBlob.size)}</strong><small>{resultChangeLabel(selected)} · {formatDuration(selected.durationMs)}</small></div><a className="button button--primary" href={selected.outputUrl} download={selected.outputName}>Download result</a></footer>}</section>
+          <section ref={dialogRef} className="preview-dialog" role="dialog" aria-modal="true" aria-labelledby="preview-heading"><header><div><p className="eyebrow">{selected.outputUrl ? 'Before and after' : 'Source preview'}</p><h2 id="preview-heading">{selected.file.name}</h2></div><button type="button" className="modal-close" onClick={() => setPreviewOpen(false)} aria-label="Close preview">×</button></header><div className="preview-body">
+            {selected.detected.kind === 'image' && sourcePreviewUrl ? <><div className="image-compare"><img src={sourcePreviewUrl} alt={`Source preview of ${selected.file.name}`} />{selected.outputUrl && <div className="result-layer" style={{ clipPath: `inset(0 ${100 - comparePosition}% 0 0)` }}><img src={selected.outputUrl} alt={`Converted preview of ${selected.file.name}`} /></div>}{selected.outputUrl && <div className="compare-line" style={{ left: `${comparePosition}%` }}><span>↔</span></div>}</div>{selected.outputUrl && <label className="compare-control">Comparison position<input type="range" min="0" max="100" value={comparePosition} onChange={(event) => setComparePosition(Number(event.target.value))} /></label>}</> : selected.detected.kind === 'video' && sourcePreviewUrl ? <div className="media-preview"><span id={`source-media-${selected.id}`}>Source</span><video aria-labelledby={`source-media-${selected.id}`} controls preload="metadata" src={sourcePreviewUrl} />{selected.outputUrl && <><span id={`result-media-${selected.id}`}>Result</span>{isVideoFormat(selected.options.outputFormat) ? <video aria-labelledby={`result-media-${selected.id}`} controls preload="metadata" src={selected.outputUrl} /> : <audio aria-labelledby={`result-media-${selected.id}`} controls preload="metadata" src={selected.outputUrl} />}</>}</div> : sourcePreviewUrl ? <div className="media-preview"><span id={`source-media-${selected.id}`}>Source</span><audio aria-labelledby={`source-media-${selected.id}`} controls preload="metadata" src={sourcePreviewUrl} />{selected.outputUrl && <><span id={`result-media-${selected.id}`}>Result</span><audio aria-labelledby={`result-media-${selected.id}`} controls preload="metadata" src={selected.outputUrl} /></>}</div> : <div className="preview-placeholder">Preview unavailable in this browser.</div>}
+          </div>{selected.outputBlob && <footer className="preview-result"><div><span>Result</span><strong>{formatBytes(selected.outputBlob.size)}</strong><small>{selected.resultWidth && selected.resultHeight ? `${selected.resultWidth} × ${selected.resultHeight} · ` : ''}{resultChangeLabel(selected)} · {formatDuration(selected.durationMs)}</small></div><a className="button button--primary" href={selected.outputUrl} download={selected.outputName}>Download result</a></footer>}</section>
         </div>
       )}
 
       {preferencesOpen && (
         <div className="modal-layer" role="presentation" onMouseDown={(event) => { if (event.currentTarget === event.target) setPreferencesOpen(false) }}>
-          <section className="preferences-dialog" role="dialog" aria-modal="true" aria-labelledby="preferences-heading"><header><div><p className="eyebrow">Application</p><h2 id="preferences-heading">Settings</h2></div><button type="button" className="modal-close" onClick={() => setPreferencesOpen(false)} aria-label="Close settings">×</button></header><div className="preferences-body"><PreferenceToggle title="Remember conversion settings" description="Use your last format and quality choices for similar files." checked={appPreferences.rememberSettings} onChange={(checked) => updateAppPreferences({ rememberSettings: checked })} /><PreferenceToggle title="Auto-download single results" description="Download automatically when converting one file at a time." checked={appPreferences.autoDownloadSingle} onChange={(checked) => updateAppPreferences({ autoDownloadSingle: checked })} /><PreferenceToggle title="Reduce motion" description="Disable decorative and progress animations in this app." checked={appPreferences.reduceMotion} onChange={(checked) => updateAppPreferences({ reduceMotion: checked })} /><div className="processing-summary"><span>Local processing</span><strong>{globalThis.crossOriginIsolated ? 'Automatic · multithreaded when available' : 'Automatic · compatibility mode'}</strong><small>The faster worker is selected only when this browser safely supports it.</small></div><button type="button" className="danger-action" onClick={() => void clearLocalSettings()}>Clear saved settings and cached engine</button></div></section>
+          <section ref={dialogRef} className="preferences-dialog" role="dialog" aria-modal="true" aria-labelledby="preferences-heading"><header><div><p className="eyebrow">Application</p><h2 id="preferences-heading">Settings</h2></div><button type="button" className="modal-close" onClick={() => setPreferencesOpen(false)} aria-label="Close settings">×</button></header><div className="preferences-body"><PreferenceToggle title="Remember conversion settings" description="Use your last format and quality choices for similar files." checked={appPreferences.rememberSettings} onChange={setRememberSettings} /><PreferenceToggle title="Auto-download single results" description="Download automatically when converting one file at a time." checked={appPreferences.autoDownloadSingle} onChange={(checked) => updateAppPreferences({ autoDownloadSingle: checked })} /><PreferenceToggle title="Reduce motion" description="Disable decorative and progress animations in this app." checked={appPreferences.reduceMotion} onChange={(checked) => updateAppPreferences({ reduceMotion: checked })} /><div className="processing-summary"><span>Local processing</span><strong>{globalThis.crossOriginIsolated ? 'Audio uses multiple threads when available · video uses compatibility mode' : 'Audio and video use compatibility mode'}</strong><small>Video uses the stable single-thread engine; audio uses the faster worker when this browser safely supports it.</small></div><button type="button" className="danger-action" disabled={busy} onClick={() => void clearLocalSettings()}>Clear saved settings and cached media engine</button></div></section>
         </div>
       )}
 
-      <div className="sr-only" aria-live="polite" aria-atomic="true">{busy ? items.find((item) => item.status === 'converting' || item.status === 'loading-engine')?.phaseLabel : completedSummary}</div>
+      <div className="sr-only" aria-live="polite" aria-atomic="true">{busy ? items.find((item) => item.status === 'converting' || item.status === 'loading-engine')?.phaseLabel : queueAnnouncement}</div>
     </main>
   )
 }
 
-function Segmented({ children }: { children: ReactNode }) {
-  return <div className="segmented" role="group">{children}</div>
+function Segmented({ label, children }: { label: string; children: ReactNode }) {
+  return <div className="segmented" role="group" aria-label={label}>{children}</div>
 }
 
 function OptionGroup({ title, help, children }: { title: string; help?: string; children: ReactNode }) {

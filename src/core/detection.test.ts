@@ -46,7 +46,7 @@ describe('file signature detection', () => {
     },
     {
       label: 'Ogg Vorbis',
-      value: bytes(0x4f, 0x67, 0x67, 0x53, 0, 0, 0, 0),
+      value: bytes(0x4f, 0x67, 0x67, 0x53, 0, 0, 0, 0, 0x01, 0x76, 0x6f, 0x72, 0x62, 0x69, 0x73),
       expected: { format: 'ogg', kind: 'audio', mimeType: 'audio/ogg', extension: 'ogg' },
     },
     {
@@ -71,6 +71,21 @@ describe('file signature detection', () => {
   it('does not treat a RIFF container without a supported form type as WebP or WAV', () => {
     const avi = bytes(0x52, 0x49, 0x46, 0x46, 0, 0, 0, 0, 0x41, 0x56, 0x49, 0x20)
     expect(detectSignature(avi)).toBeNull()
+  })
+
+  it('rejects unsupported Ogg codecs instead of assuming every Ogg stream is Vorbis', () => {
+    const oggFlac = bytes(0x4f, 0x67, 0x67, 0x53, 0, 0, 0, 0, 0x7f, 0x46, 0x4c, 0x41, 0x43)
+    expect(detectSignature(oggFlac)).toBeNull()
+  })
+
+  it.each([
+    ['AVIF', [0x61, 0x76, 0x69, 0x66]],
+    ['HEIC', [0x68, 0x65, 0x69, 0x63]],
+    ['M4A', [0x4d, 0x34, 0x41, 0x20]],
+    ['3GP', [0x33, 0x67, 0x70, 0x35]],
+    ['unknown ISO media', [0x66, 0x6f, 0x6f, 0x20]],
+  ])('rejects %s files that share the ISO base-media ftyp signature', (_label, brand) => {
+    expect(detectSignature(bytes(0, 0, 0, 24, 0x66, 0x74, 0x79, 0x70, ...brand))).toBeNull()
   })
 
   it('rejects invalid MPEG frame fields instead of accepting a loose sync prefix', () => {

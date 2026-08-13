@@ -11,6 +11,7 @@ import type {
 
 type FfmpegInstance = InstanceType<(typeof import('@ffmpeg/ffmpeg'))['FFmpeg']>
 type ProgressCallback = (event: { progress: number; time: number }) => void
+type LogCallback = (event: { type: string; message: string }) => void
 
 /** Lazy, reusable worker-backed FFmpeg converter for audio and video. */
 export class LocalMediaFfmpegEngine {
@@ -42,10 +43,13 @@ export class LocalMediaFfmpegEngine {
     let mountedDirectory: string | null = null
     let outputPath: string | null = null
     let progressCallback: ProgressCallback | null = null
+    let logCallback: LogCallback | null = null
+    const diagnosticLog: string[] = []
     let currentFfmpeg: FfmpegInstance | null = null
 
     try {
-      await this.ensureLoaded(options.signal, options.onProgress)
+      const requiresVideoCore = inputFormat === 'mp4' || inputFormat === 'webm' || options.outputFormat === 'mp4' || options.outputFormat === 'webm'
+      await this.ensureLoaded(options.signal, options.onProgress, requiresVideoCore ? 'single-thread' : undefined)
       this.throwIfAborted(options.signal)
       currentFfmpeg = this.ffmpeg
       if (!currentFfmpeg || !this.mode) throw new AudioConversionError('engine-load-failed', 'The local media engine did not initialize.')
@@ -65,11 +69,18 @@ export class LocalMediaFfmpegEngine {
       progressCallback = ({ progress }) => {
         if (Number.isFinite(progress)) this.report(options.onProgress, 'converting', Math.min(1, Math.max(0, progress)))
       }
+      logCallback = ({ message }) => {
+        diagnosticLog.push(message)
+        if (diagnosticLog.length > 12) diagnosticLog.shift()
+      }
+      currentFfmpeg.on('log', logCallback)
       currentFfmpeg.on('progress', progressCallback)
       this.report(options.onProgress, 'converting', 0)
       const exitCode = await currentFfmpeg.exec(arguments_, -1, { signal: options.signal })
       this.throwIfAborted(options.signal)
-      if (exitCode !== 0) throw new AudioConversionError('conversion-failed', `The local media engine stopped with code ${exitCode}.`)
+      if (exitCode !== 0) throw new AudioConversionError('conversion-failed', `The local media engine stopped with code ${exitCode}.`, {
+        cause: new Error(diagnosticLog.join('\n')),
+      })
 
       const bytes = await currentFfmpeg.readFile(outputPath, 'binary', { signal: options.signal })
       if (typeof bytes === 'string') throw new AudioConversionError('conversion-failed', 'The local media engine returned an invalid result.')
@@ -86,10 +97,12 @@ export class LocalMediaFfmpegEngine {
         throw new AudioConversionError('cancelled', 'Media conversion was cancelled.', { cause: error })
       }
       if (error instanceof AudioConversionError) throw error
-      throw new AudioConversionError('conversion-failed', 'This media file could not be converted. It may be damaged or use an unsupported codec.', { cause: error })
+      const details = [error instanceof Error ? `${error.name}: ${error.message}` : String(error), ...diagnosticLog].filter(Boolean).join('\n')
+      throw new AudioConversionError('conversion-failed', 'This media file could not be converted. It may be damaged or use an unsupported codec.', { cause: new Error(details) })
     } finally {
       if (currentFfmpeg?.loaded) {
         if (progressCallback) currentFfmpeg.off('progress', progressCallback)
+        if (logCallback) currentFfmpeg.off('log', logCallback)
         await this.cleanup(currentFfmpeg, jobDirectory, mountedDirectory, outputPath)
       }
       this.active = false
@@ -104,16 +117,17 @@ export class LocalMediaFfmpegEngine {
 
   dispose(): void { this.cancelled = true; this.reset() }
 
-  private async ensureLoaded(signal: AbortSignal | undefined, onProgress: LocalMediaConversionOptions['onProgress']): Promise<void> {
-    if (this.ffmpeg?.loaded) return
+  private async ensureLoaded(signal: AbortSignal | undefined, onProgress: LocalMediaConversionOptions['onProgress'], requiredMode?: LocalMediaEngineMode): Promise<void> {
+    if (this.ffmpeg?.loaded && (!requiredMode || this.mode === requiredMode)) return
+    if (this.ffmpeg?.loaded && requiredMode && this.mode !== requiredMode) this.reset()
     if (this.loading) return this.loading
     this.report(onProgress, 'loading-engine', null)
-    this.loading = this.loadBestCore(signal)
+    this.loading = this.loadBestCore(signal, requiredMode)
     try { await this.loading } finally { this.loading = null }
   }
 
-  private async loadBestCore(signal: AbortSignal | undefined): Promise<void> {
-    const preferredMode: LocalMediaEngineMode = canUseMultithreadCore() ? 'multi-thread' : 'single-thread'
+  private async loadBestCore(signal: AbortSignal | undefined, requiredMode?: LocalMediaEngineMode): Promise<void> {
+    const preferredMode: LocalMediaEngineMode = requiredMode ?? (canUseMultithreadCore() ? 'multi-thread' : 'single-thread')
     try {
       await this.loadCore(preferredMode, signal)
     } catch (preferredError) {

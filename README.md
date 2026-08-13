@@ -67,8 +67,11 @@ The development command copies the installed FFmpeg runtime into `public/ffmpeg`
 | `npm test` | Run all automated tests |
 | `npm run test:unit` | Run core and conversion-engine tests |
 | `npm run test:integration` | Run UI and image-pipeline integration tests |
+| `npm run test:media` | Run real audio/video conversions through FFmpeg WebAssembly in a browser |
 | `npm run lint` | Run the source-code linter |
 | `npm run prepare:ffmpeg` | Regenerate local FFmpeg runtime assets |
+
+The media integration suite launches Chromium headlessly and performs real conversions through the self-hosted WebAssembly runtime. It uses `BROWSER_EXECUTABLE_PATH` when set, otherwise a detected Brave, Chrome, or Edge installation on Windows, and finally Playwright's installed Chromium.
 
 ## Architecture
 
@@ -82,7 +85,7 @@ public/sw.js         same-origin runtime caching for offline use
 
 Image conversion prefers `createImageBitmap` and `OffscreenCanvas`, with safe browser fallbacks. It does not load FFmpeg.
 
-Audio and video conversion dynamically import `@ffmpeg/ffmpeg`. The multithreaded core is selected only when cross-origin isolation and `SharedArrayBuffer` are available; otherwise the single-threaded core is used. The heavy core assets are not part of the initial JavaScript bundle.
+Audio and video conversion dynamically import `@ffmpeg/ffmpeg`. Audio uses the multithreaded core when cross-origin isolation and `SharedArrayBuffer` are available. Video uses the stable single-threaded core. The heavy core assets are not part of the initial JavaScript bundle.
 
 ## Privacy boundary
 

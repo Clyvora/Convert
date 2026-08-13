@@ -11,6 +11,8 @@ node_modules
 dist
 dist-ssr
 coverage
+.vitest-attachments/
+**/__screenshots__/
 *.tsbuildinfo
 *.local
 .env

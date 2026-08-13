@@ -56,14 +56,21 @@ function videoScaleFilter(resolution: LocalMediaConversionOptions['videoResoluti
 }
 
 function videoArguments(options: LocalMediaConversionOptions): string[] {
+  const codec = options.videoCodec === 'auto'
+    ? options.outputFormat === 'mp4' ? 'h264' : 'vp8'
+    : options.videoCodec
+  if ((options.outputFormat === 'mp4' && codec !== 'h264') || (options.outputFormat === 'webm' && codec !== 'vp8')) {
+    throw new TypeError(`The ${codec.toUpperCase()} codec is not available for ${options.outputFormat.toUpperCase()} output.`)
+  }
   const crf = options.outputFormat === 'mp4'
     ? { smaller: '32', balanced: '26', high: '20' }[options.videoQuality]
     : { smaller: '42', balanced: '34', high: '27' }[options.videoQuality]
   const shared = ['-map', '0:v:0', '-map', '0:a?', ...videoScaleFilter(options.videoResolution)]
-  if (options.outputFormat === 'mp4') {
+  if (codec === 'h264') {
     return [...shared, '-c:v', 'libx264', '-preset', 'veryfast', '-crf', crf, '-pix_fmt', 'yuv420p', '-c:a', 'aac', '-b:a', `${options.audioBitrate}k`, '-movflags', '+faststart']
   }
-  return [...shared, '-c:v', 'libvpx-vp9', '-deadline', 'realtime', '-cpu-used', '5', '-crf', crf, '-b:v', '0', '-c:a', 'libopus', '-b:a', `${options.audioBitrate}k`]
+  const bitrate = { smaller: '500k', balanced: '1M', high: '2M' }[options.videoQuality]
+  return [...shared, '-c:v', 'libvpx', '-deadline', 'realtime', '-cpu-used', '5', '-crf', crf, '-b:v', bitrate, '-c:a', 'libopus', '-b:a', `${options.audioBitrate}k`]
 }
 
 export function buildMediaArguments(

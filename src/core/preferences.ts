@@ -8,6 +8,9 @@ export function mergePreferences(input: MediaFormat, saved: SavedPreferences): C
   const defaults = defaultOptions(input)
   const candidate = { ...defaults, ...saved[input] }
   if (!isSupportedPair(input, candidate.outputFormat)) candidate.outputFormat = defaults.outputFormat
+  // Codec selection is derived from the output container. This also safely
+  // migrates preferences saved by older builds that exposed VP9 as a choice.
+  candidate.videoCodec = 'auto'
   return candidate
 }
 
@@ -56,7 +59,7 @@ export function applyCompatibleSettings(
           audioSampleRate: source.audioSampleRate,
           videoQuality: source.videoQuality,
           videoResolution: source.videoResolution,
-          videoCodec: source.videoCodec,
+          videoCodec: 'auto',
         }
       : {
           ...target,

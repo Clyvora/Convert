@@ -2,7 +2,7 @@
 import '@testing-library/jest-dom/vitest'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it } from 'vitest'
 
 import App from './App'
 
@@ -13,6 +13,8 @@ function pngFile(name = 'sample.png'): File {
 }
 
 describe('Clyvora Convert interface', () => {
+  beforeEach(() => localStorage.clear())
+
   it('puts the product, local-processing promise, file picker, and formats in the initial UI', () => {
     render(<App />)
 
@@ -46,7 +48,42 @@ describe('Clyvora Convert interface', () => {
     await user.click(await screen.findByRole('button', { name: /^options$/i }))
     expect(screen.getByRole('dialog', { name: /sample\.png/i })).toBeVisible()
     expect(screen.getAllByRole('group')[0].querySelectorAll('button').length).toBeGreaterThan(1)
-    expect(screen.getAllByRole('combobox')).toHaveLength(1)
+    expect(container.querySelectorAll('select')).toHaveLength(1)
+  })
+
+  it('clears remembered choices when remembering is switched off', async () => {
+    const user = userEvent.setup()
+    const { container } = render(<App />)
+    const input = container.querySelector<HTMLInputElement>('input[type="file"]')!
+    await user.upload(input, pngFile('first.png'))
+    await user.selectOptions(screen.getByLabelText(/output format for first\.png/i), 'webp')
+    await user.click(screen.getByRole('button', { name: /^Settings$/ }))
+    await user.click(screen.getByRole('checkbox', { name: /remember conversion settings/i }))
+    await user.click(screen.getByRole('button', { name: /close settings/i }))
+    await user.click(screen.getByRole('button', { name: /remove first\.png/i }))
+    await user.upload(container.querySelector<HTMLInputElement>('input[type="file"]')!, pngFile('second.png'))
+    expect(await screen.findByLabelText(/output format for second\.png/i)).toHaveValue('jpg')
+  })
+
+  it('moves focus into dialogs, restores it on close, and hides background controls', async () => {
+    const user = userEvent.setup()
+    render(<App />)
+    const trigger = screen.getByRole('button', { name: /^Settings$/ })
+    await user.click(trigger)
+    const close = screen.getByRole('button', { name: /close settings/i })
+    await waitFor(() => expect(close).toHaveFocus())
+    expect(screen.queryByRole('button', { name: /choose files/i })).not.toBeInTheDocument()
+    await user.keyboard('{Escape}')
+    await waitFor(() => expect(trigger).toHaveFocus())
+  })
+
+  it('uses the brand control to leave the queue and return home', async () => {
+    const user = userEvent.setup()
+    const { container } = render(<App />)
+    await user.upload(container.querySelector<HTMLInputElement>('input[type="file"]')!, pngFile())
+    expect(await screen.findByRole('heading', { name: /1 file in queue/i })).toBeVisible()
+    await user.click(screen.getByRole('button', { name: /clyvora convert home/i }))
+    expect(await screen.findByRole('heading', { name: /convert media without uploading/i })).toBeVisible()
   })
 
   it('announces a renamed-file rejection and allows dismissing it', async () => {

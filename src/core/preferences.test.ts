@@ -7,6 +7,11 @@ describe('local conversion preferences', () => {
     expect(mergePreferences('png', { png: { outputFormat: 'wav' } }).outputFormat).toBe('jpg')
   })
 
+  it('migrates obsolete remembered video codecs to automatic selection', () => {
+    const saved = { webm: { videoCodec: 'vp9' } } as never
+    expect(mergePreferences('webm', saved).videoCodec).toBe('auto')
+  })
+
   it('copies image settings but keeps an incompatible target output', () => {
     const source = { ...defaultOptions('png'), outputFormat: 'jpg' as const, quality: 0.7, width: 800 }
     const target = defaultOptions('jpg')

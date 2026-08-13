@@ -28,6 +28,15 @@ function containsAscii(bytes: Uint8Array, value: string): boolean {
   return bytes.some((_, offset) => startsWith(bytes, signature, offset))
 }
 
+function ascii(bytes: Uint8Array, offset: number, length: number): string {
+  return String.fromCharCode(...bytes.slice(offset, offset + length))
+}
+
+function isSupportedMp4Brand(brand: string): boolean {
+  const normalized = brand.trim().toLowerCase()
+  return ['isom', 'iso2', 'iso3', 'iso4', 'iso5', 'iso6', 'mp41', 'mp42', 'avc1', 'dash', 'm4v'].includes(normalized)
+}
+
 export function detectSignature(bytes: Uint8Array): DetectedFile | null {
   if (startsWith(bytes, [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])) {
     return { format: 'png', kind: 'image', mimeType: MIME_BY_FORMAT.png, extension: 'png' }
@@ -42,11 +51,13 @@ export function detectSignature(bytes: Uint8Array): DetectedFile | null {
     return { format: 'wav', kind: 'audio', mimeType: MIME_BY_FORMAT.wav, extension: 'wav' }
   }
   if (startsWith(bytes, [0x4f, 0x67, 0x67, 0x53])) {
-    return containsAscii(bytes, 'OpusHead')
-      ? { format: 'opus', kind: 'audio', mimeType: MIME_BY_FORMAT.opus, extension: 'opus' }
-      : { format: 'ogg', kind: 'audio', mimeType: MIME_BY_FORMAT.ogg, extension: 'ogg' }
+    if (containsAscii(bytes, 'OpusHead')) return { format: 'opus', kind: 'audio', mimeType: MIME_BY_FORMAT.opus, extension: 'opus' }
+    if (containsAscii(bytes, '\u0001vorbis')) return { format: 'ogg', kind: 'audio', mimeType: MIME_BY_FORMAT.ogg, extension: 'ogg' }
+    return null
   }
   if (bytes.length >= 12 && startsWith(bytes, [0x66, 0x74, 0x79, 0x70], 4)) {
+    const majorBrand = ascii(bytes, 8, 4)
+    if (!isSupportedMp4Brand(majorBrand)) return null
     return { format: 'mp4', kind: 'video', mimeType: MIME_BY_FORMAT.mp4, extension: 'mp4' }
   }
   if (startsWith(bytes, [0x1a, 0x45, 0xdf, 0xa3]) && containsAscii(bytes, 'webm')) {

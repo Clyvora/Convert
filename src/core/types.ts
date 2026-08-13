@@ -8,7 +8,7 @@ export type AudioChannels = 'source' | 1 | 2
 export type AudioSampleRate = 'source' | 44_100 | 48_000
 export type VideoQuality = 'smaller' | 'balanced' | 'high'
 export type VideoResolution = 'original' | 1080 | 720 | 480
-export type VideoCodec = 'auto' | 'h264' | 'vp9'
+export type VideoCodec = 'auto' | 'h264' | 'vp8'
 
 export type QueueStatus =
   | 'ready'

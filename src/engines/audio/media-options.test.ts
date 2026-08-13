@@ -32,10 +32,24 @@ describe('local media FFmpeg arguments', () => {
     expect(args).toContain('+faststart')
   })
 
-  it('creates VP9 and Opus WebM output', () => {
+  it('creates VP8 and Opus WebM output', () => {
     const args = buildMediaArguments('/input.mp4', '/output.webm', 'mp4', { ...defaults, outputFormat: 'webm' })
-    expect(args).toContain('libvpx-vp9')
+    expect(args).toContain('libvpx')
     expect(args).toContain('libopus')
+  })
+
+  it('honors explicit codec choices and rejects incompatible container/codec combinations', () => {
+    const mp4 = buildMediaArguments('/input.webm', '/output.mp4', 'webm', {
+      ...defaults,
+      outputFormat: 'mp4',
+      videoCodec: 'h264',
+    })
+    expect(mp4).toContain('libx264')
+    expect(() => buildMediaArguments('/input.webm', '/output.mp4', 'webm', {
+      ...defaults,
+      outputFormat: 'mp4',
+      videoCodec: 'vp8',
+    })).toThrow(/not available for MP4/i)
   })
 
   it('rejects unsupported media pairs and reports MIME types', () => {
