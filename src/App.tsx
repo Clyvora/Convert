@@ -14,11 +14,6 @@ import type { ConversionEngine, ConversionOptions, MediaFormat, QueueItem } from
 const ACCEPT = '.png,.jpg,.jpeg,.webp,.mp3,.wav,image/png,image/jpeg,image/webp,audio/mpeg,audio/wav'
 const PREFERENCE_KEY = 'clyvora-convert-preferences-v1'
 
-interface OfflineReadiness {
-  appCached: boolean
-  audioCached: boolean
-}
-
 function makeId(): string {
   return globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random()}`
 }
@@ -102,8 +97,6 @@ function App() {
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [comparePosition, setComparePosition] = useState(50)
   const [sourcePreviewUrl, setSourcePreviewUrl] = useState<string | null>(null)
-  const [offline, setOffline] = useState<OfflineReadiness>({ appCached: false, audioCached: false })
-  const [offlineRefresh, setOfflineRefresh] = useState(0)
   const inputRef = useRef<HTMLInputElement>(null)
   const itemsRef = useRef(items)
   const preferencesRef = useRef<SavedPreferences>(loadPreferences())
@@ -150,21 +143,6 @@ function App() {
     // The previous URL is deliberately revoked whenever the selected source changes.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selected?.id])
-
-  useEffect(() => {
-    let active = true
-    const inspectReadiness = async () => {
-      let audioCached = false
-      if ('caches' in globalThis) {
-        const paths = ['/ffmpeg/runtime/single/ffmpeg-core.wasm', '/ffmpeg/runtime/multi/ffmpeg-core.wasm']
-        audioCached = Boolean((await Promise.all(paths.map((path) => caches.match(path)))).find(Boolean))
-      }
-      if (active) setOffline({ appCached: Boolean(navigator.serviceWorker?.controller), audioCached })
-    }
-    void inspectReadiness()
-    navigator.serviceWorker?.ready.then(() => { void inspectReadiness() }).catch(() => undefined)
-    return () => { active = false }
-  }, [offlineRefresh])
 
   const applyQueueAction = (action: QueueAction) => {
     itemsRef.current = queueReducer(itemsRef.current, action)
@@ -314,7 +292,6 @@ function App() {
         resultHeight: dimensions.height,
         durationMs: performance.now() - startedAt,
       })
-      if (item.detected.kind === 'audio') setOfflineRefresh((value) => value + 1)
     } catch (error) {
       const cancelled = controller.signal.aborted
       patchItem(id, { status: cancelled ? 'cancelled' : 'failed', progress: 0, phaseLabel: cancelled ? 'Cancelled' : 'Needs attention', error: friendlyError(error) })
@@ -382,16 +359,11 @@ function App() {
 
   return (
     <main className={items.length ? 'app app--workspace' : 'app'}>
-      <div className="ambient" aria-hidden="true"><i /><i /><i /></div>
+      <div className="ambient" aria-hidden="true"><i /><i><span /></i></div>
       <header className="site-header">
         <a href="#top" className="brand" aria-label="Clyvora Convert home">
-          <img src="/favicon.png" alt="" width="27" height="27" decoding="async" />
-          <span>Clyvora <em>Convert</em></span>
+          <img src="/favicon.png" alt="" width="32" height="32" decoding="async" />
         </a>
-        <div className="header-statuses">
-          <div className="local-badge"><span /> Local processing only</div>
-          <div className="offline-badge" title="Required assets are cached after first use">{offline.appCached ? 'App ready offline' : 'Offline after first visit'}</div>
-        </div>
       </header>
 
       <section id="top" className="intro" aria-labelledby="page-title">
@@ -559,35 +531,6 @@ function App() {
         </section>
       )}
 
-      <section className="readiness-section" aria-labelledby="readiness-heading">
-        <div><p className="eyebrow">Offline readiness</p><h2 id="readiness-heading">Works after the tools are cached.</h2></div>
-        <div className="readiness-grid">
-          <article><span className="ready-dot ready-dot--on" /><div><strong>Images</strong><small>Ready now with browser-native tools</small></div></article>
-          <article><span className={`ready-dot ${offline.audioCached ? 'ready-dot--on' : ''}`} /><div><strong>Audio</strong><small>{offline.audioCached ? 'FFmpeg is ready offline' : 'Caches after the first audio conversion'}</small></div></article>
-          <article><span className={`ready-dot ${offline.appCached ? 'ready-dot--on' : ''}`} /><div><strong>Application</strong><small>{offline.appCached ? 'Interface cached for offline use' : 'Caches after the first production visit'}</small></div></article>
-        </div>
-      </section>
-
-      <section className="how-section" aria-labelledby="how-heading">
-        <div className="section-heading"><p className="eyebrow">How it works</p><h2 id="how-heading">One direct path. No detour.</h2></div>
-        <div className="local-flow" aria-label="Local conversion flow"><span>Your file</span><b>→</b><span>This browser</span><b>→</b><span>Your download</span></div>
-        <div className="pipeline-grid">
-          <article><span>Images</span><h3>Native browser pipeline</h3><p>Decode, resize and export with browser image tools. Transparency and dimensions stay under your control.</p></article>
-          <article><span>Audio</span><h3>Local FFmpeg worker</h3><p>The audio engine loads only when needed and runs away from the interface, using cached same-device assets.</p></article>
-        </div>
-      </section>
-
-      <section className="formats-section" aria-labelledby="formats-heading">
-        <div className="section-heading"><p className="eyebrow">Supported pairs</p><h2 id="formats-heading">Focused by design.</h2><p>Only the conversions shown here are available in version one.</p></div>
-        <div className="pair-grid">{[['PNG', 'JPG'], ['PNG', 'WebP'], ['JPG', 'PNG'], ['JPG', 'WebP'], ['WebP', 'PNG'], ['WebP', 'JPG'], ['MP3', 'WAV'], ['WAV', 'MP3']].map(([from, to]) => <div key={`${from}-${to}`}><span>{from}</span><b>→</b><span>{to}</span></div>)}</div>
-      </section>
-
-      <section className="privacy-detail" aria-labelledby="privacy-heading">
-        <div><p className="eyebrow">Built for privacy</p><h2 id="privacy-heading">Nothing leaves your browser.</h2></div>
-        <div className="privacy-list"><p>No backend receives your media. No account connects it to an identity. No analytics records filenames. Object URLs, canvases and a local worker keep the entire conversion on this device.</p><ul><li>No file transfer</li><li>No cloud storage</li><li>No conversion API</li></ul></div>
-      </section>
-
-      <footer><span>Clyvora Convert</span><span>Local-first · No tracking · No file transmission</span></footer>
       <div className="sr-only" aria-live="polite" aria-atomic="true">{busy ? items.find((item) => item.status === 'converting' || item.status === 'loading-engine')?.phaseLabel : completedSummary}</div>
     </main>
   )
