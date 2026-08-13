@@ -18,6 +18,13 @@ export default defineConfig({
     },
   },
   server: {
+    proxy: {
+      '/api/soundcloud/resolve': {
+        target: 'http://127.0.0.1:8787',
+        changeOrigin: false,
+        rewrite: () => '/v1/soundcloud/resolve',
+      },
+    },
     headers: {
       'Cross-Origin-Opener-Policy': 'same-origin',
       'Cross-Origin-Embedder-Policy': 'require-corp',

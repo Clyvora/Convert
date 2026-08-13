@@ -37,35 +37,46 @@ function createWavFixture(): File {
 
 async function createWebmFixture(): Promise<File> {
   if (typeof MediaRecorder === 'undefined') throw new Error('This browser does not expose MediaRecorder for the WebM integration fixture.')
-  const canvas = document.createElement('canvas')
-  canvas.width = 64; canvas.height = 64
-  const context = canvas.getContext('2d')
-  if (!context) throw new Error('Canvas is unavailable for the WebM integration fixture.')
-  context.fillStyle = '#111312'; context.fillRect(0, 0, 64, 64)
-  const stream = canvas.captureStream(30)
-  const videoTrack = stream.getVideoTracks()[0] as MediaStreamTrack & { requestFrame?: () => void }
   const mimeType = ['video/webm;codecs=vp8', 'video/webm'].find((candidate) => MediaRecorder.isTypeSupported(candidate))
   if (!mimeType) throw new Error('This browser cannot record a WebM integration fixture.')
-  const recorder = new MediaRecorder(stream, { mimeType })
-  const chunks: Blob[] = []
-  recorder.ondataavailable = (event) => { if (event.data.size) chunks.push(event.data) }
-  const stopped = new Promise<void>((resolve, reject) => {
-    recorder.onstop = () => resolve()
-    recorder.onerror = () => reject(new Error('The browser failed to record the WebM integration fixture.'))
-  })
-  recorder.start()
-  for (let frame = 0; frame < 30; frame += 1) {
-    context.fillStyle = frame % 2 ? '#eeeae0' : '#111312'
-    context.fillRect(0, 0, 64, 64)
-    context.fillStyle = frame % 2 ? '#111312' : '#eeeae0'
-    context.fillRect((frame * 3) % 46, 20, 18, 18)
-    videoTrack.requestFrame?.()
-    await new Promise((resolve) => setTimeout(resolve, 34))
+
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    const canvas = document.createElement('canvas')
+    canvas.width = 64; canvas.height = 64
+    const context = canvas.getContext('2d')
+    if (!context) throw new Error('Canvas is unavailable for the WebM integration fixture.')
+    context.fillStyle = '#111312'; context.fillRect(0, 0, 64, 64)
+    const stream = canvas.captureStream(0)
+    const videoTrack = stream.getVideoTracks()[0] as MediaStreamTrack & { requestFrame?: () => void }
+    if (!videoTrack.requestFrame) throw new Error('This browser cannot request deterministic canvas video frames.')
+    const recorder = new MediaRecorder(stream, { mimeType })
+    const chunks: Blob[] = []
+    recorder.ondataavailable = (event) => { if (event.data.size) chunks.push(event.data) }
+    const started = new Promise<void>((resolve) => { recorder.onstart = () => resolve() })
+    const stopped = new Promise<void>((resolve, reject) => {
+      recorder.onstop = () => resolve()
+      recorder.onerror = () => reject(new Error('The browser failed to record the WebM integration fixture.'))
+    })
+    recorder.start(250)
+    await started
+    await new Promise((resolve) => setTimeout(resolve, 50))
+    for (let frame = 0; frame < 45; frame += 1) {
+      context.fillStyle = frame % 2 ? '#eeeae0' : '#111312'
+      context.fillRect(0, 0, 64, 64)
+      context.fillStyle = frame % 2 ? '#111312' : '#eeeae0'
+      context.fillRect((frame * 3) % 46, 20, 18, 18)
+      videoTrack.requestFrame()
+      await new Promise((resolve) => setTimeout(resolve, 34))
+    }
+    recorder.requestData()
+    await new Promise((resolve) => setTimeout(resolve, 100))
+    recorder.stop()
+    await stopped
+    stream.getTracks().forEach((track) => track.stop())
+    const fixture = new File(chunks, 'motion.webm', { type: 'video/webm' })
+    if (fixture.size > 1_000) return fixture
   }
-  recorder.stop()
-  await stopped
-  stream.getTracks().forEach((track) => track.stop())
-  return new File(chunks, 'motion.webm', { type: 'video/webm' })
+  throw new Error('The browser repeatedly produced an empty WebM integration fixture.')
 }
 
 afterAll(() => { audioEngine.dispose(); videoEngine.dispose() })

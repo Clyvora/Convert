@@ -4,6 +4,7 @@ import './App.css'
 import { detectFile, FileDetectionError } from './core/detection'
 import { clearCachedMediaEngineFiles } from './core/cache'
 import { formatBytes } from './core/format'
+import { importMediaLink } from './core/linkImport'
 import { assessMemoryRisk, calculateSizeChange, formatDuration } from './core/metrics'
 import { outputFilename, uniqueFilename } from './core/naming'
 import { applyCompatibleSettings, mergePreferences, preferenceSubset } from './core/preferences'
@@ -35,6 +36,11 @@ interface AppPreferences {
   autoDownloadSingle: boolean
   reduceMotion: boolean
 }
+
+type LinkImportState =
+  | { status: 'idle' }
+  | { status: 'loading'; loaded: number; total?: number }
+  | { status: 'error'; message: string }
 
 const DEFAULT_APP_PREFERENCES: AppPreferences = {
   rememberSettings: true,
@@ -140,6 +146,9 @@ function App() {
   const [optionsOpen, setOptionsOpen] = useState(false)
   const [previewOpen, setPreviewOpen] = useState(false)
   const [preferencesOpen, setPreferencesOpen] = useState(false)
+  const [linkOpen, setLinkOpen] = useState(false)
+  const [linkUrl, setLinkUrl] = useState('')
+  const [linkState, setLinkState] = useState<LinkImportState>({ status: 'idle' })
   const [comparePosition, setComparePosition] = useState(50)
   const [sourcePreviewUrl, setSourcePreviewUrl] = useState<string | null>(null)
   const [appPreferences, setAppPreferences] = useState<AppPreferences>(() => loadJson(APP_PREFERENCE_KEY, DEFAULT_APP_PREFERENCES))
@@ -148,6 +157,7 @@ function App() {
   const preferencesRef = useRef<SavedPreferences>(loadPreferences())
   const appPreferencesRef = useRef(appPreferences)
   const abortRef = useRef<AbortController | null>(null)
+  const linkAbortRef = useRef<AbortController | null>(null)
   const activeIdRef = useRef<string | null>(null)
   const batchCancelledRef = useRef(false)
   const mediaEngineRef = useRef<ConversionEngine | null>(null)
@@ -176,6 +186,7 @@ function App() {
   }, [busy])
   useEffect(() => () => {
     abortRef.current?.abort()
+    linkAbortRef.current?.abort()
     mediaEngineRef.current?.dispose?.()
     itemsRef.current.forEach((item) => item.outputUrl && URL.revokeObjectURL(item.outputUrl))
   }, [])
@@ -183,7 +194,7 @@ function App() {
   const selected = items.find((item) => item.id === selectedId) ?? null
   const completed = items.filter((item) => item.status === 'completed' && item.outputBlob)
   const actionableCount = items.filter((item) => ['ready', 'failed', 'cancelled'].includes(item.status)).length
-  const hasOpenDialog = optionsOpen || previewOpen || preferencesOpen
+  const hasOpenDialog = optionsOpen || previewOpen || preferencesOpen || linkOpen
 
   useEffect(() => {
     if (sourcePreviewUrl) URL.revokeObjectURL(sourcePreviewUrl)
@@ -210,7 +221,7 @@ function App() {
     const handleDialogKeys = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
         event.preventDefault()
-        setOptionsOpen(false); setPreviewOpen(false); setPreferencesOpen(false)
+        setOptionsOpen(false); setPreviewOpen(false); setPreferencesOpen(false); setLinkOpen(false); linkAbortRef.current?.abort()
         return
       }
       if (event.key !== 'Tab') return
@@ -276,6 +287,34 @@ function App() {
     window.addEventListener('paste', handlePaste)
     return () => window.removeEventListener('paste', handlePaste)
   }, [addFiles])
+
+  const openLinkDialog = () => {
+    setLinkUrl('')
+    setLinkState({ status: 'idle' })
+    setOptionsOpen(false); setPreviewOpen(false); setPreferencesOpen(false); setLinkOpen(true)
+  }
+  const closeLinkDialog = () => {
+    linkAbortRef.current?.abort()
+    linkAbortRef.current = null
+    setLinkOpen(false)
+  }
+  const submitLink = async () => {
+    linkAbortRef.current?.abort()
+    const controller = new AbortController()
+    linkAbortRef.current = controller
+    setLinkState({ status: 'loading', loaded: 0 })
+    try {
+      const result = await importMediaLink(linkUrl, controller.signal, ({ loaded, total }) => setLinkState({ status: 'loading', loaded, total }))
+      await addFiles([result.file])
+      setNotice(`${result.file.name} was imported from the link and is ready to convert.`)
+      setLinkOpen(false)
+    } catch (error) {
+      if (controller.signal.aborted) return
+      setLinkState({ status: 'error', message: friendlyError(error) })
+    } finally {
+      if (linkAbortRef.current === controller) linkAbortRef.current = null
+    }
+  }
 
   const reportProgress = (id: string, progress: number | null, label?: string) => {
     const normalized = progress ?? 0
@@ -408,7 +447,7 @@ function App() {
     if (busy) return
     itemsRef.current.forEach((item) => item.outputUrl && URL.revokeObjectURL(item.outputUrl))
     applyQueueAction({ type: 'reset' })
-    setSelectedId(null); setOptionsOpen(false); setPreviewOpen(false); setPreferencesOpen(false); setNotice('')
+    setSelectedId(null); setOptionsOpen(false); setPreviewOpen(false); setPreferencesOpen(false); setLinkOpen(false); linkAbortRef.current?.abort(); setNotice('')
     window.scrollTo({ top: 0, behavior: appPreferencesRef.current.reduceMotion ? 'auto' : 'smooth' })
   }
 
@@ -431,26 +470,25 @@ function App() {
         <button type="button" className="brand" aria-label="Clyvora Convert home" disabled={busy} onClick={returnHome}><img src="/favicon.png" alt="" width="32" height="32" /><span>Clyvora <strong>Convert</strong></span></button>
         <nav className="site-nav" aria-label="Application links">
           <button type="button" disabled={busy} title={busy ? 'Settings are unavailable during conversion.' : undefined} onClick={() => setPreferencesOpen(true)}>Settings</button>
-          <a href="https://github.com/ClyvoraTech/Clyvora/tree/main/Convert" target="_blank" rel="noreferrer">Source</a>
         </nav>
       </header>
 
       {items.length === 0 ? (
         <div className="landing" id="top">
           <section className="landing-hero" aria-labelledby="page-title">
-            <div className="hero-copy"><p className="eyebrow">Private by design</p><h1 id="page-title">Convert media without uploading it.</h1><p>Images, audio, and video are processed directly on this device. No account, analytics, or conversion server.</p></div>
+            <div className="hero-copy"><h1 id="page-title">Convert media without uploading it.</h1><p>Images, audio, and video are processed directly on this device. No account, analytics, or conversion server.</p></div>
           </section>
           <section className={`drop-card ${dropActive ? 'drop-card--active' : ''}`} aria-label="Choose local media files" onDragEnter={(event) => { event.preventDefault(); setDropActive(true) }} onDragOver={(event) => { event.preventDefault(); setDropActive(true) }} onDragLeave={(event) => { if (event.currentTarget === event.target) setDropActive(false) }} onDrop={(event) => { event.preventDefault(); setDropActive(false); void addFiles(Array.from(event.dataTransfer.files)) }}>
             <input ref={inputRef} className="sr-only" type="file" multiple accept={ACCEPT} aria-label="Choose image, audio, or video files" tabIndex={-1} onChange={(event) => { void addFiles(Array.from(event.target.files ?? [])); event.target.value = '' }} />
             <div className="drop-icon" aria-hidden="true">↑</div>
             <div><h2>Select files to convert</h2><p>or drop multiple files here</p></div>
-            <button className="button button--primary button--select" type="button" onClick={() => inputRef.current?.click()}>Choose files</button>
+            <div className="file-source-actions"><button className="button button--primary button--select" type="button" onClick={() => inputRef.current?.click()}>Choose files</button><button className="button button--link" type="button" onClick={openLinkDialog}>Paste link</button></div>
             <div className="local-note"><span>◆</span> File contents and names stay on this device.</div>
           </section>
         </div>
       ) : (
         <section className="queue-shell" aria-labelledby="queue-heading">
-          <div className="queue-heading"><div><p className="eyebrow">Conversion queue</p><h1 id="queue-heading">{items.length} {items.length === 1 ? 'file' : 'files'} in queue</h1></div><button className="button button--add" type="button" disabled={busy} onClick={() => inputRef.current?.click()}>+ Add files</button><input ref={inputRef} className="sr-only" type="file" multiple accept={ACCEPT} aria-label="Add image, audio, or video files" tabIndex={-1} onChange={(event) => { void addFiles(Array.from(event.target.files ?? [])); event.target.value = '' }} /></div>
+          <div className="queue-heading"><div><p className="eyebrow">Conversion queue</p><h1 id="queue-heading">{items.length} {items.length === 1 ? 'file' : 'files'} in queue</h1></div><div className="queue-add-actions"><button className="button button--add" type="button" disabled={busy} onClick={openLinkDialog}>+ Paste link</button><button className="button button--add" type="button" disabled={busy} onClick={() => inputRef.current?.click()}>+ Add files</button></div><input ref={inputRef} className="sr-only" type="file" multiple accept={ACCEPT} aria-label="Add image, audio, or video files" tabIndex={-1} onChange={(event) => { void addFiles(Array.from(event.target.files ?? [])); event.target.value = '' }} /></div>
           <div className="queue-list" role="list" aria-label="Conversion queue">
             {items.map((item) => (
               <article key={item.id} className={`queue-card queue-card--${item.detected.kind}`} role="listitem">
@@ -473,6 +511,23 @@ function App() {
 
       {notice && <div className="notice" role="alert"><span>{notice}</span><button type="button" onClick={() => setNotice('')} aria-label="Dismiss message">×</button></div>}
       </div>
+
+      {linkOpen && (
+        <div className="modal-layer" role="presentation" onMouseDown={(event) => { if (event.currentTarget === event.target) closeLinkDialog() }}>
+          <section ref={dialogRef} className="link-dialog" role="dialog" aria-modal="true" aria-labelledby="link-heading" aria-describedby="link-description">
+            <header><div><p className="eyebrow">Import media</p><h2 id="link-heading">Paste a link</h2></div><button type="button" className="modal-close" onClick={closeLinkDialog} aria-label="Close link importer">×</button></header>
+            <div className="link-body">
+              <form onSubmit={(event) => { event.preventDefault(); void submitLink() }}>
+                <label htmlFor="media-link">Media link</label>
+                <div className="link-field"><input id="media-link" type="url" inputMode="url" autoComplete="url" required placeholder="https://…" value={linkUrl} disabled={linkState.status === 'loading'} onChange={(event) => { setLinkUrl(event.target.value); if (linkState.status !== 'idle') setLinkState({ status: 'idle' }) }} /><button className="button button--primary" type="submit" disabled={linkState.status === 'loading' || !linkUrl.trim()}>{linkState.status === 'loading' ? 'Checking…' : 'Add link'}</button></div>
+                <p id="link-description">Paste a direct HTTPS media link, SoundCloud track, share link, or unlisted track link. SoundCloud imports work when the uploader enabled downloads.</p>
+              </form>
+              {linkState.status === 'loading' && <div className="link-progress" role="status"><span>Fetching link{linkState.total ? ` · ${Math.round(linkState.loaded / linkState.total * 100)}%` : linkState.loaded ? ` · ${formatBytes(linkState.loaded)}` : '…'}</span>{linkState.total && <progress max={linkState.total} value={linkState.loaded} aria-label="Link download progress" />}</div>}
+              {linkState.status === 'error' && <p className="link-error" role="alert">{linkState.message}</p>}
+            </div>
+          </section>
+        </div>
+      )}
 
       {selected && optionsOpen && (
         <div className="modal-layer" role="presentation" onMouseDown={(event) => { if (event.currentTarget === event.target) setOptionsOpen(false) }}>

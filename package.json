@@ -11,6 +11,7 @@
   "scripts": {
     "predev": "node scripts/ffmpeg/copy-assets.mjs",
     "dev": "vite",
+    "dev:links": "concurrently --kill-others --names site,resolver \"pnpm dev\" \"pnpm --dir proxy dev\"",
     "prebuild": "node scripts/ffmpeg/copy-assets.mjs",
     "build": "tsc -b && vite build",
     "lint": "oxlint --ignore-pattern public/ffmpeg/**",
@@ -40,6 +41,7 @@
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^6.0.4",
     "@vitest/browser-playwright": "4.1.10",
+    "concurrently": "^10.0.4",
     "jsdom": "^30.0.1",
     "oxlint": "^1.75.0",
     "playwright": "1.55.0",
