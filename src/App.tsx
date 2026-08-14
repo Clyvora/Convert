@@ -485,7 +485,7 @@ function App() {
         <nav className="site-nav" aria-label="Clyvora sites">
           <a href="https://www.clyvora.tech/about/">About Clyvora</a>
           <a href="https://www.lens.clyvora.tech/">Clyvora Lens</a>
-          <a href="https://github.com/ClyvoraTech/Convert" target="_blank" rel="noreferrer">GitHub</a>
+          <a href="https://github.com/Clyvora/Convert" target="_blank" rel="noreferrer">GitHub</a>
         </nav>
       </header>
 

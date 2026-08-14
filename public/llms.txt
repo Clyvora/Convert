@@ -21,6 +21,6 @@ Selected files are processed on the user's device and are not uploaded to a Clyv
 ## Official links
 
 - [Use Clyvora Convert](https://www.convert.clyvora.tech/)
-- [Clyvora Convert source code](https://github.com/ClyvoraTech/Convert)
+- [Clyvora Convert source code](https://github.com/Clyvora/Convert)
 - [Clyvora](https://www.clyvora.tech/)
 - [Clyvora Lens](https://www.lens.clyvora.tech/)

@@ -1,4 +1,4 @@
-{
+﻿{
   "name": "clyvora-convert",
   "private": true,
   "version": "1.0.0",
@@ -7,10 +7,10 @@
   "homepage": "https://www.convert.clyvora.tech/",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/ClyvoraTech/Convert.git"
+    "url": "git+https://github.com/Clyvora/Convert.git"
   },
   "bugs": {
-    "url": "https://github.com/ClyvoraTech/Convert/issues"
+    "url": "https://github.com/Clyvora/Convert/issues"
   },
   "keywords": [
     "image-converter",
