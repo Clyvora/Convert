@@ -6,7 +6,7 @@ Thank you for helping improve Clyvora Convert.
 
 - Keep conversion local. Selected files, filenames, and file contents must never be transmitted or logged.
 - Keep the format list focused. A format is not supported until detection, conversion, naming, errors, cleanup, and tests are complete.
-- Avoid adding accounts, analytics, cloud storage, external conversion APIs, or unrelated product features.
+- Avoid adding accounts, custom analytics events, behavioural tracking, cloud storage, external conversion APIs, or unrelated product features.
 - Discuss large dependencies or architectural changes in an issue before implementing them.
 
 ## Development

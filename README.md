@@ -10,7 +10,7 @@ Clyvora Convert is a source-available image, audio, and video converter that run
 
 ## Why Clyvora Convert?
 
-- **Private conversion:** no accounts, analytics, cloud storage, or external conversion API. Optional link resolution sends only the pasted URL to the configured resolver.
+- **Private conversion:** no accounts, cloud storage, behavioural profiling, or external conversion API. Optional link resolution sends only the pasted URL to the configured resolver. Anonymous, cookie-free Vercel Web Analytics measures standard page views without filenames or file contents.
 - **Local-first:** native browser image tools and a self-hosted FFmpeg WebAssembly worker do the work.
 - **Focused:** only deliberately supported conversion pairs are shown.
 - **Batch-friendly:** multiple files, sequential processing, retry, cancellation, collision-safe names, and ZIP export.
@@ -99,9 +99,11 @@ Audio and video conversion dynamically import `@ffmpeg/ffmpeg`. Audio uses the m
 
 Clyvora Convert does not contain an upload path. Object URLs, canvases, local buffers, and FFmpeg's in-browser virtual filesystem keep selected media on the device. When a user explicitly imports a direct link, the browser contacts that link's original host.
 
+The deployed site uses Vercel Web Analytics for anonymous, cookie-free page-view statistics. A standard page view may include the visited path, referrer, coarse location, browser, operating system, and device type. No custom analytics events are configured, and filenames and media contents are never included. Page-view data is transmitted to and processed by Vercel.
+
 When the optional SoundCloud resolver is configured, the pasted SoundCloud URL is sent to that Worker. The Worker resolves a public non-encrypted playback stream and returns a short-lived SoundCloud CDN address; the browser downloads the audio directly from SoundCloud, so file contents do not pass through or get stored by the Worker. The service worker fetches and caches only same-origin application assets.
 
-Contributions must not add telemetry containing filenames or file contents. Any future network feature must be isolated from selected media and receive an explicit privacy review.
+Contributions must not add custom analytics events or telemetry containing filenames or file contents. Any future network feature must be isolated from selected media and receive an explicit privacy review.
 
 ## Hosting requirements
 

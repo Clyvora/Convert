@@ -2,7 +2,7 @@
 
 > Clyvora Convert is Clyvora's free, source-available, local-first image, audio, and video converter for the browser.
 
-Selected files are processed on the user's device and are not uploaded to a Clyvora conversion server. Clyvora Convert has no accounts, analytics, cloud storage, or external conversion API. Optional link importing contacts the source host; SoundCloud link resolution sends only the pasted URL to the configured resolver, not the media bytes.
+Selected files are processed on the user's device and are not uploaded to a Clyvora conversion server. Clyvora Convert has no accounts, cloud storage, behavioural profiling, or external conversion API. The deployed site uses anonymous, cookie-free Vercel Web Analytics for standard page views only; filenames and media contents are not included. Optional link importing contacts the source host; SoundCloud link resolution sends only the pasted URL to the configured resolver, not the media bytes.
 
 ## Supported formats
 
