@@ -6,7 +6,7 @@ describe('cached media-engine cleanup', () => {
   it('removes only FFmpeg runtime entries and preserves the offline app shell', async () => {
     const shell = new Request('https://convert.example/')
     const script = new Request('https://convert.example/assets/index.js')
-    const ffmpeg = new Request('https://convert.example/ffmpeg/runtime/single/ffmpeg-core.wasm')
+    const ffmpeg = new Request('https://convert.example/ffmpeg/runtime/v0.12.10/single/ffmpeg-core.wasm')
     const deleteEntry = vi.fn(async () => true)
     const cache = { keys: vi.fn(async () => [shell, script, ffmpeg]), delete: deleteEntry }
     const storage = {

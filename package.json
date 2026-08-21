@@ -1,7 +1,7 @@
-﻿{
+{
   "name": "clyvora-convert",
   "private": true,
-  "version": "1.0.0",
+  "version": "0.2.0-beta.1",
   "description": "A private, local-first image, audio, and video converter for the browser.",
   "license": "SEE LICENSE IN LICENSE",
   "homepage": "https://www.convert.clyvora.tech/",
@@ -34,6 +34,7 @@
     "prepreview": "node scripts/ffmpeg/copy-assets.mjs",
     "preview": "vite preview",
     "prepare:ffmpeg": "node scripts/ffmpeg/copy-assets.mjs",
+    "pretest": "node scripts/ffmpeg/copy-assets.mjs",
     "test": "vitest run && vitest run --config vitest.browser.config.ts",
     "test:unit": "vitest run src/core src/engines",
     "test:integration": "vitest run src/App.test.tsx src/engines/image/image.integration.test.ts",
@@ -61,7 +62,7 @@
     "concurrently": "^10.0.4",
     "jsdom": "^30.0.1",
     "oxlint": "^1.75.0",
-    "playwright": "1.55.0",
+    "playwright": "1.55.1",
     "typescript": "~6.0.2",
     "vite": "^8.2.0",
     "vitest": "^4.1.10"

@@ -1,13 +1,13 @@
 # Security policy
 
-## Reporting a vulnerability
+## Supported version
 
-Use the repository's private vulnerability-reporting feature when it is enabled. If private reporting is unavailable, open a minimal issue asking the maintainers for a private contact channel; do not publish exploit details or private media in the issue.
+Clyvora Convert is public beta software. Security fixes are applied to the latest code on `main`; no stable release is supported yet.
 
-Please include the affected version, browser, reproduction conditions, and potential impact. Use generated test media rather than personal files.
+## Report privately
 
-## Privacy-sensitive areas
+Email **security@clyvora.tech** or use [GitHub private vulnerability reporting](https://github.com/Clyvora/Convert/security/advisories/new). Do not publish exploit details in an issue. Use synthetic media and include the affected browser, reproduction steps, impact, and any suggested mitigation.
 
-Reports involving unexpected network requests, filename or file-content exposure, unsafe object-URL handling, service-worker cache behavior, or conversion-worker isolation are treated as security and privacy issues.
+We aim to acknowledge reports within five business days, provide a severity assessment after initial reproduction, and coordinate a fix before public disclosure. A 90-day disclosure window is the default, but it may be shortened for active exploitation or extended by mutual agreement.
 
-Supported releases will be listed here after the first public release is tagged.
+Severity is based on impact and exploitability: **Critical** means practical compromise of file confidentiality or arbitrary code execution; **High** means significant unauthorized access or persistent compromise; **Medium** means limited security or privacy impact requiring specific conditions; **Low** means defense-in-depth or minor information exposure.

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'r
 import type { ReactNode } from 'react'
 import './App.css'
 import { detectFile, FileDetectionError } from './core/detection'
+import { resetOfflineApplication } from './core/cache'
 import { formatBytes } from './core/format'
 import { importMediaLink } from './core/linkImport'
 import { assessMemoryRisk, calculateSizeChange, formatDuration } from './core/metrics'
@@ -481,7 +482,7 @@ function App() {
       <div className="ambient" aria-hidden="true"><i /><i /></div>
       <div ref={backgroundRef} inert={hasOpenDialog ? true : undefined} aria-hidden={hasOpenDialog || undefined}>
       <header className="site-header">
-        <button type="button" className="brand" aria-label="Clyvora Convert home" disabled={busy} onClick={returnHome}><img src="/favicon.png" alt="" width="32" height="32" /><span>Clyvora <strong>Convert</strong></span></button>
+        <button type="button" className="brand" aria-label="Clyvora Convert home" disabled={busy} onClick={returnHome}><img src="/favicon.png" alt="" width="32" height="32" /><span>Clyvora <strong>Convert</strong></span><small>Beta</small></button>
         <nav className="site-nav" aria-label="Clyvora sites">
           <a href="https://www.clyvora.tech/about/">About Clyvora</a>
           <a href="https://www.lens.clyvora.tech/">Clyvora Lens</a>
@@ -530,7 +531,7 @@ function App() {
               </details>
               <details>
                 <summary>Can the converter work offline?</summary>
-                <p>Yes, after the interface and required conversion assets have been loaded and cached once. Clearing browser site data removes that cache.</p>
+                <p>Yes, after the interface and required conversion assets have been loaded and cached once. <button type="button" className="inline-action" onClick={() => void resetOfflineApplication(caches).then((count) => setNotice({ message: count ? 'Offline files cleared. Reload to install a fresh copy.' : 'No Clyvora offline files were stored.', tone: 'info' })).catch(() => setNotice({ message: 'Offline files could not be cleared. Use your browser site-data controls instead.', tone: 'error' }))}>Reset offline files</button></p>
               </details>
               <details>
                 <summary>Are there browser conversion limits?</summary>

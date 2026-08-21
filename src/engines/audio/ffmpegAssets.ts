@@ -6,6 +6,8 @@ interface FfmpegAssetUrls {
   workerURL?: string
 }
 
+export const FFMPEG_RUNTIME_VERSION = '0.12.10'
+
 function assetUrl(relativePath: string): string {
   const basePath = import.meta.env.BASE_URL.endsWith('/')
     ? import.meta.env.BASE_URL
@@ -20,12 +22,12 @@ export function canUseMultithreadCore(): boolean {
 export function getFfmpegAssetUrls(mode: AudioEngineMode): FfmpegAssetUrls {
   const folder = mode === 'multi-thread' ? 'multi' : 'single'
   const urls: FfmpegAssetUrls = {
-    coreURL: assetUrl(`ffmpeg/runtime/${folder}/ffmpeg-core.js`),
-    wasmURL: assetUrl(`ffmpeg/runtime/${folder}/ffmpeg-core.wasm`),
+    coreURL: assetUrl(`ffmpeg/runtime/v${FFMPEG_RUNTIME_VERSION}/${folder}/ffmpeg-core.js`),
+    wasmURL: assetUrl(`ffmpeg/runtime/v${FFMPEG_RUNTIME_VERSION}/${folder}/ffmpeg-core.wasm`),
   }
 
   if (mode === 'multi-thread') {
-    urls.workerURL = assetUrl('ffmpeg/runtime/multi/ffmpeg-core.worker.js')
+    urls.workerURL = assetUrl(`ffmpeg/runtime/v${FFMPEG_RUNTIME_VERSION}/multi/ffmpeg-core.worker.js`)
   }
 
   return urls

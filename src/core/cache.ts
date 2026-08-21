@@ -11,3 +11,13 @@ export async function clearCachedMediaEngineFiles(storage: CacheStorage): Promis
   }))
   return removed
 }
+
+export async function resetOfflineApplication(storage: CacheStorage): Promise<number> {
+  const cacheNames = (await storage.keys()).filter((name) => name.startsWith('clyvora-convert'))
+  const results = await Promise.all(cacheNames.map((name) => storage.delete(name)))
+  if ('serviceWorker' in navigator) {
+    const registrations = await navigator.serviceWorker.getRegistrations()
+    await Promise.all(registrations.map((registration) => registration.unregister()))
+  }
+  return results.filter(Boolean).length
+}
