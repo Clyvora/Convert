@@ -1,8 +1,7 @@
-export type ImageFormat = 'png' | 'jpg' | 'webp'
 export type AudioFormat = 'mp3' | 'wav' | 'ogg' | 'opus'
 export type VideoFormat = 'mp4' | 'webm'
-export type MediaFormat = ImageFormat | AudioFormat | VideoFormat
-export type MediaKind = 'image' | 'audio' | 'video'
+export type MediaFormat = AudioFormat | VideoFormat
+export type MediaKind = 'audio' | 'video'
 export type AudioBitrate = 96 | 128 | 192 | 256 | 320
 export type AudioChannels = 'source' | 1 | 2
 export type AudioSampleRate = 'source' | 44_100 | 48_000
@@ -27,12 +26,6 @@ export interface DetectedFile {
 
 export interface ConversionOptions {
   outputFormat: MediaFormat
-  quality: number
-  width?: number
-  height?: number
-  lockAspectRatio: boolean
-  preventUpscale: boolean
-  jpgBackgroundColor: string
   audioBitrate: AudioBitrate
   audioChannels: AudioChannels
   audioSampleRate: AudioSampleRate
@@ -56,8 +49,6 @@ export interface QueueItem {
   warning?: string
   sourceWidth?: number
   sourceHeight?: number
-  resultWidth?: number
-  resultHeight?: number
   sourceDurationSeconds?: number
   durationMs?: number
 }

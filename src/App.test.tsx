@@ -1,133 +1,104 @@
 // @vitest-environment jsdom
 import '@testing-library/jest-dom/vitest'
-import { render, screen, waitFor } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-
 import App from './App'
 
-vi.mock('./engines/image', () => ({
-  ImageConversionEngine: class {
-    async convert() { return new Blob([new Uint8Array([0xff, 0xd8, 0xff, 0xd9])], { type: 'image/jpeg' }) }
+const engineState = vi.hoisted(() => ({ cancelFirst: false, calls: 0 }))
+
+vi.mock('./engines/audio', () => ({
+  MediaConversionEngine: class {
+    async convert(_file: File, _detected: unknown, _options: unknown, signal: AbortSignal, progress: (value: number, label: string) => void) {
+      engineState.calls += 1
+      progress(0.2, 'Converting audio')
+      if (engineState.cancelFirst && engineState.calls === 1) {
+        await new Promise<void>((_resolve, reject) => signal.addEventListener('abort', () => reject(new DOMException('Cancelled', 'AbortError')), { once: true }))
+      }
+      return new Blob([new Uint8Array([1, 2, 3])], { type: 'audio/mpeg' })
+    }
+    cancel() {}
+    dispose() {}
   },
 }))
 
-function pngFile(name = 'sample.png'): File {
-  const header = new ArrayBuffer(8)
-  new Uint8Array(header).set([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])
-  return new File([header], name, { type: 'image/png' })
+function wavFile(name = 'sample.wav'): File {
+  const bytes = new Uint8Array(16)
+  bytes.set([0x52, 0x49, 0x46, 0x46], 0)
+  bytes.set([0x57, 0x41, 0x56, 0x45], 8)
+  return new File([bytes], name, { type: 'audio/wav' })
 }
 
-describe('Clyvora Convert interface', () => {
+function pngFile(): File {
+  return new File([new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])], 'image.png', { type: 'image/png' })
+}
+
+describe('Clyvora Convert', () => {
   beforeEach(() => {
     localStorage.clear()
+    engineState.cancelFirst = false
+    engineState.calls = 0
     Object.defineProperty(URL, 'createObjectURL', { configurable: true, value: vi.fn(() => 'blob:clyvora-result') })
     Object.defineProperty(URL, 'revokeObjectURL', { configurable: true, value: vi.fn() })
   })
 
-  it('keeps the initial UI focused on the product promise and file picker', () => {
+  it('presents only the local audio and video journey', () => {
     render(<App />)
-
     expect(screen.getByRole('heading', { level: 1, name: /convert media without uploading it/i })).toBeVisible()
-    expect(screen.getByText(/file contents and names stay on this device/i)).toBeVisible()
-    expect(screen.getByRole('button', { name: /choose files/i })).toBeEnabled()
-    expect(screen.getByRole('button', { name: /paste link/i })).toBeEnabled()
-    expect(screen.queryByRole('button', { name: /^settings$/i })).not.toBeInTheDocument()
-    expect(screen.queryByText(/private by design/i)).not.toBeInTheDocument()
-    expect(screen.queryByRole('link', { name: /source/i })).not.toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: /try a sample image/i })).not.toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: /paste an image/i })).not.toBeInTheDocument()
-    expect(screen.queryByLabelText(/supported formats and privacy/i)).not.toBeInTheDocument()
-    expect(screen.queryByLabelText(/automatic input detection and output selection/i)).not.toBeInTheDocument()
+    expect(screen.getByText(/mp3, wav, ogg, opus, mp4, or webm/i)).toBeVisible()
+    expect(screen.queryByRole('button', { name: /paste link/i })).not.toBeInTheDocument()
+    expect(screen.queryByText(/png|jpeg|image resizing/i)).not.toBeInTheDocument()
   })
 
-  it('adds a signature-validated file to an operable conversion workspace', async () => {
+  it('adds an audio file and exposes compatible output formats', async () => {
     const user = userEvent.setup()
     const { container } = render(<App />)
-    const input = container.querySelector<HTMLInputElement>('input[type="file"]')
-    expect(input).not.toBeNull()
-
-    await user.upload(input!, pngFile())
-
-    expect(await screen.findByRole('heading', { name: /1 file in queue/i })).toBeVisible()
-    expect(screen.getByLabelText(/output format for sample\.png/i)).toHaveValue('jpg')
-    expect(screen.getByRole('button', { name: /^options$/i })).toBeEnabled()
-    expect(screen.getByRole('button', { name: /^convert/i })).toBeEnabled()
-    expect(screen.queryByRole('heading', { name: /convert media without uploading/i })).not.toBeInTheDocument()
+    await user.upload(container.querySelector<HTMLInputElement>('input[type="file"]')!, wavFile())
+    expect(await screen.findByRole('heading', { name: /1 file ready/i })).toBeVisible()
+    expect(screen.getByLabelText(/output format for sample.wav/i)).toHaveValue('mp3')
+    expect(screen.getByRole('button', { name: /options for sample.wav/i })).toBeEnabled()
   })
 
-  it('automatically downloads the converted result when conversion finishes', async () => {
+  it('rejects image files instead of retaining hidden image conversion', async () => {
+    const { container } = render(<App />)
+    fireEvent.change(container.querySelector<HTMLInputElement>('input[type="file"]')!, { target: { files: [pngFile()] } })
+    expect(await screen.findByRole('alert')).toHaveTextContent(/supported audio or video format/i)
+    expect(screen.queryByText(/file ready/i)).not.toBeInTheDocument()
+  })
+
+  it('downloads a completed conversion automatically', async () => {
     const user = userEvent.setup()
     const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => undefined)
     const { container } = render(<App />)
-    await user.upload(container.querySelector<HTMLInputElement>('input[type="file"]')!, pngFile())
-    await user.click(await screen.findByRole('button', { name: /^convert/i }))
-    await screen.findByText(/^complete$/i)
+    await user.upload(container.querySelector<HTMLInputElement>('input[type="file"]')!, wavFile())
+    await user.click(await screen.findByRole('button', { name: /^convert 1$/i }))
+    expect(await screen.findByText(/^complete$/i)).toBeVisible()
     expect(click).toHaveBeenCalledOnce()
-    expect((click.mock.instances[0] as HTMLAnchorElement).download).toBe('sample.jpg')
+    expect((click.mock.instances[0] as HTMLAnchorElement).download).toBe('sample.mp3')
   })
 
-  it('describes link imports as conversion sources rather than original-file downloads', async () => {
-    const user = userEvent.setup()
-    render(<App />)
-    await user.click(screen.getByRole('button', { name: /paste link/i }))
-    expect(screen.getByRole('button', { name: /add link/i })).toBeDisabled()
-    expect(screen.getByText(/converted result downloads automatically/i)).toBeVisible()
-  })
-
-  it('opens contextual image options without duplicating the output selector', async () => {
+  it('can cancel a conversion and immediately retry successfully', async () => {
+    engineState.cancelFirst = true
     const user = userEvent.setup()
     const { container } = render(<App />)
-    const input = container.querySelector<HTMLInputElement>('input[type="file"]')
-    await user.upload(input!, pngFile())
-    await user.click(await screen.findByRole('button', { name: /^options$/i }))
-    expect(screen.getByRole('dialog', { name: /sample\.png/i })).toBeVisible()
-    expect(screen.getAllByRole('group')[0].querySelectorAll('button').length).toBeGreaterThan(1)
-    expect(container.querySelectorAll('select')).toHaveLength(1)
+    await user.upload(container.querySelector<HTMLInputElement>('input[type="file"]')!, wavFile())
+    await user.click(await screen.findByRole('button', { name: /^convert 1$/i }))
+    await user.click(await screen.findByRole('button', { name: /cancel conversion/i }))
+    expect(await screen.findByText(/^cancelled$/i)).toBeVisible()
+    await user.click(screen.getByRole('button', { name: /^convert 1$/i }))
+    expect(await screen.findByText(/^complete$/i)).toBeVisible()
+    expect(engineState.calls).toBe(2)
   })
 
-  it('remembers compatible conversion choices automatically', async () => {
+  it('moves focus into options and restores it when closed', async () => {
     const user = userEvent.setup()
     const { container } = render(<App />)
-    const input = container.querySelector<HTMLInputElement>('input[type="file"]')!
-    await user.upload(input, pngFile('first.png'))
-    await user.selectOptions(screen.getByLabelText(/output format for first\.png/i), 'webp')
-    await user.click(screen.getByRole('button', { name: /remove first\.png/i }))
-    await user.upload(container.querySelector<HTMLInputElement>('input[type="file"]')!, pngFile('second.png'))
-    expect(await screen.findByLabelText(/output format for second\.png/i)).toHaveValue('webp')
-  })
-
-  it('moves focus into dialogs, restores it on close, and hides background controls', async () => {
-    const user = userEvent.setup()
-    render(<App />)
-    const trigger = screen.getByRole('button', { name: /paste link/i })
+    await user.upload(container.querySelector<HTMLInputElement>('input[type="file"]')!, wavFile())
+    const trigger = await screen.findByRole('button', { name: /options for sample.wav/i })
     await user.click(trigger)
-    const close = screen.getByRole('button', { name: /close link importer/i })
+    const close = screen.getByRole('button', { name: /close options/i })
     await waitFor(() => expect(close).toHaveFocus())
-    expect(screen.queryByRole('button', { name: /choose files/i })).not.toBeInTheDocument()
     await user.keyboard('{Escape}')
     await waitFor(() => expect(trigger).toHaveFocus())
-  })
-
-  it('uses the brand control to leave the queue and return home', async () => {
-    const user = userEvent.setup()
-    const { container } = render(<App />)
-    await user.upload(container.querySelector<HTMLInputElement>('input[type="file"]')!, pngFile())
-    expect(await screen.findByRole('heading', { name: /1 file in queue/i })).toBeVisible()
-    await user.click(screen.getByRole('button', { name: /clyvora convert home/i }))
-    expect(await screen.findByRole('heading', { name: /convert media without uploading/i })).toBeVisible()
-  })
-
-  it('announces a renamed-file rejection and allows dismissing it', async () => {
-    const user = userEvent.setup()
-    const { container } = render(<App />)
-    const input = container.querySelector<HTMLInputElement>('input[type="file"]')
-
-    await user.upload(input!, pngFile('renamed.jpg'))
-
-    const alert = await screen.findByRole('alert')
-    expect(alert).toHaveTextContent(/filename says/i)
-    await user.click(screen.getByRole('button', { name: /dismiss message/i }))
-    await waitFor(() => expect(screen.queryByRole('alert')).not.toBeInTheDocument())
   })
 })

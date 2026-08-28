@@ -1,8 +1,8 @@
 {
   "name": "clyvora-convert",
   "private": true,
-  "version": "0.2.0-beta.1",
-  "description": "A private, local-first image, audio, and video converter for the browser.",
+  "version": "0.3.0-beta.1",
+  "description": "A private, local-first audio and video converter for the browser.",
   "license": "SEE LICENSE IN LICENSE",
   "homepage": "https://www.convert.clyvora.tech/",
   "repository": {
@@ -13,7 +13,6 @@
     "url": "https://github.com/Clyvora/Convert/issues"
   },
   "keywords": [
-    "image-converter",
     "audio-converter",
     "video-converter",
     "local-first",
@@ -27,7 +26,6 @@
   "scripts": {
     "predev": "node scripts/ffmpeg/copy-assets.mjs",
     "dev": "vite",
-    "dev:links": "concurrently --kill-others --names site,resolver \"pnpm dev\" \"pnpm --dir proxy dev\"",
     "prebuild": "node scripts/ffmpeg/copy-assets.mjs",
     "build": "tsc -b && vite build",
     "lint": "oxlint --ignore-pattern public/ffmpeg/**",
@@ -37,16 +35,13 @@
     "pretest": "node scripts/ffmpeg/copy-assets.mjs",
     "test": "vitest run && vitest run --config vitest.browser.config.ts",
     "test:unit": "vitest run src/core src/engines",
-    "test:integration": "vitest run src/App.test.tsx src/engines/image/image.integration.test.ts",
+    "test:integration": "vitest run src/App.test.tsx",
     "test:media": "vitest run --config vitest.browser.config.ts"
   },
   "dependencies": {
     "@ffmpeg/core": "^0.12.10",
     "@ffmpeg/core-mt": "^0.12.10",
     "@ffmpeg/ffmpeg": "^0.12.15",
-    "@ffmpeg/util": "^0.12.2",
-    "@vercel/analytics": "^2.0.1",
-    "jszip": "^3.10.1",
     "react": "^19.2.8",
     "react-dom": "^19.2.8"
   },
@@ -59,7 +54,6 @@
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^6.0.4",
     "@vitest/browser-playwright": "4.1.10",
-    "concurrently": "^10.0.4",
     "jsdom": "^30.0.1",
     "oxlint": "^1.75.0",
     "playwright": "1.55.1",

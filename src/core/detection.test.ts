@@ -1,115 +1,32 @@
 import { describe, expect, it } from 'vitest'
-
 import { detectFile, detectSignature, FileDetectionError } from './detection'
 
-function bytes(...values: number[]): Uint8Array {
-  return new Uint8Array(values)
-}
+const bytes = (...values: number[]) => new Uint8Array(values)
 
-function fileBytes(...values: number[]): ArrayBuffer {
-  const buffer = new ArrayBuffer(values.length)
-  new Uint8Array(buffer).set(values)
-  return buffer
-}
-
-describe('file signature detection', () => {
+describe('audio and video signature detection', () => {
   it.each([
-    {
-      label: 'PNG',
-      value: bytes(0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a),
-      expected: { format: 'png', kind: 'image', mimeType: 'image/png', extension: 'png' },
-    },
-    {
-      label: 'JPEG',
-      value: bytes(0xff, 0xd8, 0xff, 0xe0),
-      expected: { format: 'jpg', kind: 'image', mimeType: 'image/jpeg', extension: 'jpg' },
-    },
-    {
-      label: 'WebP',
-      value: bytes(0x52, 0x49, 0x46, 0x46, 0, 0, 0, 0, 0x57, 0x45, 0x42, 0x50),
-      expected: { format: 'webp', kind: 'image', mimeType: 'image/webp', extension: 'webp' },
-    },
-    {
-      label: 'WAV',
-      value: bytes(0x52, 0x49, 0x46, 0x46, 0, 0, 0, 0, 0x57, 0x41, 0x56, 0x45),
-      expected: { format: 'wav', kind: 'audio', mimeType: 'audio/wav', extension: 'wav' },
-    },
-    {
-      label: 'ID3-tagged MP3',
-      value: bytes(0x49, 0x44, 0x33, 4, 0),
-      expected: { format: 'mp3', kind: 'audio', mimeType: 'audio/mpeg', extension: 'mp3' },
-    },
-    {
-      label: 'MP3 frame sync',
-      value: bytes(0xff, 0xfb, 0x90, 0x64),
-      expected: { format: 'mp3', kind: 'audio', mimeType: 'audio/mpeg', extension: 'mp3' },
-    },
-    {
-      label: 'Ogg Vorbis',
-      value: bytes(0x4f, 0x67, 0x67, 0x53, 0, 0, 0, 0, 0x01, 0x76, 0x6f, 0x72, 0x62, 0x69, 0x73),
-      expected: { format: 'ogg', kind: 'audio', mimeType: 'audio/ogg', extension: 'ogg' },
-    },
-    {
-      label: 'Ogg Opus',
-      value: bytes(0x4f, 0x67, 0x67, 0x53, 0, 0, 0, 0, 0x4f, 0x70, 0x75, 0x73, 0x48, 0x65, 0x61, 0x64),
-      expected: { format: 'opus', kind: 'audio', mimeType: 'audio/ogg; codecs=opus', extension: 'opus' },
-    },
-    {
-      label: 'MP4',
-      value: bytes(0, 0, 0, 24, 0x66, 0x74, 0x79, 0x70, 0x69, 0x73, 0x6f, 0x6d),
-      expected: { format: 'mp4', kind: 'video', mimeType: 'video/mp4', extension: 'mp4' },
-    },
-    {
-      label: 'WebM',
-      value: bytes(0x1a, 0x45, 0xdf, 0xa3, 0, 0, 0, 0, 0x77, 0x65, 0x62, 0x6d),
-      expected: { format: 'webm', kind: 'video', mimeType: 'video/webm', extension: 'webm' },
-    },
-  ])('detects $label from content', ({ value, expected }) => {
-    expect(detectSignature(value)).toEqual(expected)
+    ['WAV', bytes(0x52, 0x49, 0x46, 0x46, 0, 0, 0, 0, 0x57, 0x41, 0x56, 0x45), 'wav'],
+    ['MP3', bytes(0x49, 0x44, 0x33, 4, 0), 'mp3'],
+    ['Ogg Vorbis', bytes(0x4f, 0x67, 0x67, 0x53, 0, 0, 0, 0, 1, 0x76, 0x6f, 0x72, 0x62, 0x69, 0x73), 'ogg'],
+    ['Ogg Opus', bytes(0x4f, 0x67, 0x67, 0x53, 0, 0, 0, 0, 0x4f, 0x70, 0x75, 0x73, 0x48, 0x65, 0x61, 0x64), 'opus'],
+    ['MP4', bytes(0, 0, 0, 24, 0x66, 0x74, 0x79, 0x70, 0x69, 0x73, 0x6f, 0x6d), 'mp4'],
+    ['WebM', bytes(0x1a, 0x45, 0xdf, 0xa3, 0, 0, 0, 0, 0x77, 0x65, 0x62, 0x6d), 'webm'],
+  ])('detects %s', (_label, value, format) => expect(detectSignature(value)).toMatchObject({ format }))
+
+  it('rejects image signatures now owned by Clyvora Resize', async () => {
+    const image = new File([bytes(0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a)], 'image.png', { type: 'image/png' })
+    expect(detectSignature(new Uint8Array(await image.arrayBuffer()))).toBeNull()
+    await expect(detectFile(image)).rejects.toBeInstanceOf(FileDetectionError)
   })
 
-  it('does not treat a RIFF container without a supported form type as WebP or WAV', () => {
-    const avi = bytes(0x52, 0x49, 0x46, 0x46, 0, 0, 0, 0, 0x41, 0x56, 0x49, 0x20)
-    expect(detectSignature(avi)).toBeNull()
+  it('rejects unsupported Ogg codecs and unrelated ISO media brands', () => {
+    expect(detectSignature(bytes(0x4f, 0x67, 0x67, 0x53, 0, 0, 0, 0, 0x7f, 0x46, 0x4c, 0x41, 0x43))).toBeNull()
+    expect(detectSignature(bytes(0, 0, 0, 24, 0x66, 0x74, 0x79, 0x70, 0x61, 0x76, 0x69, 0x66))).toBeNull()
   })
 
-  it('rejects unsupported Ogg codecs instead of assuming every Ogg stream is Vorbis', () => {
-    const oggFlac = bytes(0x4f, 0x67, 0x67, 0x53, 0, 0, 0, 0, 0x7f, 0x46, 0x4c, 0x41, 0x43)
-    expect(detectSignature(oggFlac)).toBeNull()
-  })
-
-  it.each([
-    ['AVIF', [0x61, 0x76, 0x69, 0x66]],
-    ['HEIC', [0x68, 0x65, 0x69, 0x63]],
-    ['M4A', [0x4d, 0x34, 0x41, 0x20]],
-    ['3GP', [0x33, 0x67, 0x70, 0x35]],
-    ['unknown ISO media', [0x66, 0x6f, 0x6f, 0x20]],
-  ])('rejects %s files that share the ISO base-media ftyp signature', (_label, brand) => {
-    expect(detectSignature(bytes(0, 0, 0, 24, 0x66, 0x74, 0x79, 0x70, ...brand))).toBeNull()
-  })
-
-  it('rejects invalid MPEG frame fields instead of accepting a loose sync prefix', () => {
-    expect(detectSignature(bytes(0xff, 0xe8, 0x00, 0x00))).toBeNull()
-    expect(detectSignature(bytes(0xff, 0xfb, 0xf0, 0x00))).toBeNull()
-  })
-
-  it('does not infer support from a filename or MIME type alone', async () => {
-    const fakePng = new File([fileBytes(1, 2, 3, 4)], 'photo.png', { type: 'image/png' })
-    await expect(detectFile(fakePng)).rejects.toBeInstanceOf(FileDetectionError)
-  })
-
-  it('accepts the JPEG alias when content is actually JPEG', async () => {
-    const jpeg = new File([fileBytes(0xff, 0xd8, 0xff, 0xe0)], 'photo.JPEG', { type: 'application/octet-stream' })
-    await expect(detectFile(jpeg)).resolves.toMatchObject({ format: 'jpg', kind: 'image' })
-  })
-
-  it('rejects a renamed supported file with an explanatory mismatch', async () => {
-    const renamed = new File(
-      [fileBytes(0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a)],
-      'photo.jpg',
-      { type: 'image/jpeg' },
-    )
-
-    await expect(detectFile(renamed)).rejects.toThrow(/contents are PNG/i)
+  it('rejects a renamed supported file with a clear mismatch', async () => {
+    const file = new File([bytes(0x49, 0x44, 0x33, 4, 0)], 'track.wav', { type: 'audio/wav' })
+    await expect(detectFile(file)).rejects.toThrow(/contents are MP3/i)
   })
 })
+

@@ -1,11 +1,10 @@
 # Third-party notices
 
-Clyvora Convert depends on open-source packages whose licenses remain with their respective authors. Package names, versions, integrity hashes, and declared licenses are recorded in `package-lock.json` and the installed package metadata.
+Clyvora Convert depends on open-source packages whose licenses remain with their respective authors. Package names, versions, integrity hashes, and declared licenses are recorded in `pnpm-lock.yaml` and the installed package metadata.
 
 ## FFmpeg WebAssembly runtime
 
 - `@ffmpeg/ffmpeg` — MIT
-- `@ffmpeg/util` — MIT
 - `@ffmpeg/core` 0.12.10 — GPL-2.0-or-later
 - `@ffmpeg/core-mt` 0.12.10 — GPL-2.0-or-later
 

@@ -1,5 +1,5 @@
 const CACHE_PREFIX = 'clyvora-convert-'
-const CACHE = `${CACHE_PREFIX}0.2.0-beta.1`
+const CACHE = `${CACHE_PREFIX}0.3.0-beta.1`
 const SHELL = ['/', '/manifest.webmanifest', '/favicon.png', '/apple-touch-icon.png']
 
 async function cacheSuccessful(request, response) {

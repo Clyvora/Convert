@@ -36,9 +36,9 @@ export class LocalMediaFfmpegEngine {
       throw new AudioConversionError('invalid-options', 'The selected file is not supported by the local media engine.')
     }
 
+    this.cancelled = false
     this.throwIfAborted(options.signal)
     this.active = true
-    this.cancelled = false
     let jobDirectory: string | null = null
     let mountedDirectory: string | null = null
     let outputPath: string | null = null

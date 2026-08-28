@@ -8,8 +8,7 @@ export function mergePreferences(input: MediaFormat, saved: SavedPreferences): C
   const defaults = defaultOptions(input)
   const candidate = { ...defaults, ...saved[input] }
   if (!isSupportedPair(input, candidate.outputFormat)) candidate.outputFormat = defaults.outputFormat
-  // Codec selection is derived from the output container. This also safely
-  // migrates preferences saved by older builds that exposed VP9 as a choice.
+  // Codec selection is derived from the output container.
   candidate.videoCodec = 'auto'
   return candidate
 }
@@ -17,10 +16,6 @@ export function mergePreferences(input: MediaFormat, saved: SavedPreferences): C
 export function preferenceSubset(options: ConversionOptions): Partial<ConversionOptions> {
   return {
     outputFormat: options.outputFormat,
-    quality: options.quality,
-    lockAspectRatio: options.lockAspectRatio,
-    preventUpscale: options.preventUpscale,
-    jpgBackgroundColor: options.jpgBackgroundColor,
     audioBitrate: options.audioBitrate,
     audioChannels: options.audioChannels,
     audioSampleRate: options.audioSampleRate,
@@ -35,22 +30,9 @@ export function applyCompatibleSettings(
   input: MediaFormat,
   target: ConversionOptions,
 ): ConversionOptions {
-  const kind = input === 'png' || input === 'jpg' || input === 'webp'
-    ? 'image'
-    : input === 'mp4' || input === 'webm' ? 'video' : 'audio'
+  const kind = input === 'mp4' || input === 'webm' ? 'video' : 'audio'
   const outputFormat = isSupportedPair(input, source.outputFormat) ? source.outputFormat : target.outputFormat
-  return kind === 'image'
-    ? {
-        ...target,
-        outputFormat,
-        quality: source.quality,
-        width: source.width,
-        height: source.height,
-        lockAspectRatio: source.lockAspectRatio,
-        preventUpscale: source.preventUpscale,
-        jpgBackgroundColor: source.jpgBackgroundColor,
-      }
-    : kind === 'video'
+  return kind === 'video'
       ? {
           ...target,
           outputFormat,
@@ -61,7 +43,7 @@ export function applyCompatibleSettings(
           videoResolution: source.videoResolution,
           videoCodec: 'auto',
         }
-      : {
+    : {
           ...target,
           outputFormat,
           audioBitrate: source.audioBitrate,

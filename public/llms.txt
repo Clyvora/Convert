@@ -1,26 +1,10 @@
 # Clyvora Convert
 
-> Clyvora Convert is Clyvora's free, source-available, local-first image, audio, and video converter for the browser.
+> Convert audio and video privately in your browser.
 
-Selected files are processed on the user's device and are not uploaded to a Clyvora conversion server. Clyvora Convert has no accounts, cloud storage, behavioural profiling, or external conversion API. The deployed site uses anonymous, cookie-free Vercel Web Analytics for standard page views only; filenames and media contents are not included. Optional link importing contacts the source host; SoundCloud link resolution sends only the pasted URL to the configured resolver, not the media bytes.
+Clyvora Convert accepts local MP3, WAV, OGG, Opus, MP4, and WebM files. It does not accept images or remote URLs. Selected files are processed with a self-hosted FFmpeg WebAssembly runtime and are not uploaded to a conversion server.
 
-## Supported formats
+- Use: https://www.convert.clyvora.tech/
+- Product family: https://www.clyvora.tech/
+- Source: https://github.com/Clyvora/Convert
 
-- Images: PNG, JPG/JPEG, and WebP.
-- Audio: MP3, WAV, OGG, and Opus.
-- Video: MP4 and WebM, including conversion to supported audio formats.
-
-## Capabilities
-
-- Batch conversion, per-file settings, and ZIP export.
-- Image resize, quality, aspect-ratio, and transparency controls.
-- Audio bitrate, channel, and sample-rate controls.
-- Video quality, resolution, codec, and audio-bitrate controls.
-- Offline use after the required application assets have been cached.
-
-## Official links
-
-- [Use Clyvora Convert](https://www.convert.clyvora.tech/)
-- [Clyvora Convert source code](https://github.com/Clyvora/Convert)
-- [Clyvora](https://www.clyvora.tech/)
-- [Clyvora Lens](https://www.lens.clyvora.tech/)

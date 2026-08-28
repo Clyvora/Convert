@@ -1,9 +1,6 @@
 import type { DetectedFile } from './types'
 
 const MIME_BY_FORMAT = {
-  png: 'image/png',
-  jpg: 'image/jpeg',
-  webp: 'image/webp',
   mp3: 'audio/mpeg',
   wav: 'audio/wav',
   ogg: 'audio/ogg',
@@ -38,15 +35,6 @@ function isSupportedMp4Brand(brand: string): boolean {
 }
 
 export function detectSignature(bytes: Uint8Array): DetectedFile | null {
-  if (startsWith(bytes, [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])) {
-    return { format: 'png', kind: 'image', mimeType: MIME_BY_FORMAT.png, extension: 'png' }
-  }
-  if (startsWith(bytes, [0xff, 0xd8, 0xff])) {
-    return { format: 'jpg', kind: 'image', mimeType: MIME_BY_FORMAT.jpg, extension: 'jpg' }
-  }
-  if (startsWith(bytes, [0x52, 0x49, 0x46, 0x46]) && startsWith(bytes, [0x57, 0x45, 0x42, 0x50], 8)) {
-    return { format: 'webp', kind: 'image', mimeType: MIME_BY_FORMAT.webp, extension: 'webp' }
-  }
   if (startsWith(bytes, [0x52, 0x49, 0x46, 0x46]) && startsWith(bytes, [0x57, 0x41, 0x56, 0x45], 8)) {
     return { format: 'wav', kind: 'audio', mimeType: MIME_BY_FORMAT.wav, extension: 'wav' }
   }
@@ -81,11 +69,11 @@ export async function detectFile(file: File): Promise<DetectedFile> {
   const bytes = new Uint8Array(await file.slice(0, 512).arrayBuffer())
   const detected = detectSignature(bytes)
   if (!detected) {
-    throw new FileDetectionError('This file’s contents do not match a supported image, audio, or video format.')
+    throw new FileDetectionError('This file’s contents do not match a supported audio or video format.')
   }
 
   const extension = file.name.split('.').pop()?.toLowerCase()
-  const acceptedExtensions = detected.format === 'jpg' ? ['jpg', 'jpeg'] : [detected.extension]
+  const acceptedExtensions = [detected.extension]
   if (extension && !acceptedExtensions.includes(extension)) {
     throw new FileDetectionError(
       `The filename says “.${extension}”, but the file contents are ${detected.format.toUpperCase()}. Rename the file correctly and try again.`,

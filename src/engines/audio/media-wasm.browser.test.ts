@@ -19,9 +19,9 @@ function conversionOptions(outputFormat: LocalMediaFormat): LocalMediaConversion
   }
 }
 
-function createWavFixture(): File {
+function createWavFixture(durationSeconds = 0.2): File {
   const sampleRate = 44_100
-  const sampleCount = Math.round(sampleRate / 5)
+  const sampleCount = Math.round(sampleRate * durationSeconds)
   const buffer = new ArrayBuffer(44 + sampleCount * 2)
   const view = new DataView(buffer)
   const writeText = (offset: number, value: string) => Array.from(value).forEach((character, index) => view.setUint8(offset + index, character.charCodeAt(0)))
@@ -95,6 +95,47 @@ describe.sequential('real FFmpeg WebAssembly media conversions', () => {
     expect(detectSignature(new Uint8Array(await restored.blob.slice(0, 512).arrayBuffer()))?.format).toBe('wav')
     expect(detectSignature(new Uint8Array(await ogg.blob.slice(0, 512).arrayBuffer()))?.format).toBe('ogg')
     expect(detectSignature(new Uint8Array(await opus.blob.slice(0, 512).arrayBuffer()))?.format).toBe('opus')
+  })
+
+  it('can cancel an active conversion and immediately retry on the same engine', async () => {
+    const controller = new AbortController()
+    let cancellationScheduled = false
+    const conversion = audioEngine.convert(createWavFixture(8), 'wav', {
+      ...conversionOptions('mp3'),
+      signal: controller.signal,
+      onProgress: ({ phase }) => {
+        if (phase !== 'converting' || cancellationScheduled) return
+        cancellationScheduled = true
+        setTimeout(() => {
+          controller.abort()
+          audioEngine.cancel()
+        }, 10)
+      },
+    })
+
+    await expect(conversion).rejects.toMatchObject({ code: 'cancelled' })
+    const retried = await audioEngine.convert(createWavFixture(), 'wav', conversionOptions('mp3'))
+    expect(retried.blob.size).toBeGreaterThan(100)
+    expect(retried.format).toBe('mp3')
+  })
+
+  it('keeps file processing inside the application network boundary', async () => {
+    const privacyEngine = new LocalMediaFfmpegEngine()
+    const marker = 'private-audio-marker.wav'
+    performance.clearResourceTimings()
+    try {
+      const source = new File([await createWavFixture().arrayBuffer()], marker, { type: 'audio/wav' })
+      const result = await privacyEngine.convert(source, 'wav', conversionOptions('mp3'))
+      expect(result.blob.size).toBeGreaterThan(100)
+      const requests = performance.getEntriesByType('resource').map((entry) => entry.name)
+      expect(requests.some((url) => url.includes(marker))).toBe(false)
+      expect(requests.every((value) => {
+        const url = new URL(value, location.href)
+        return url.origin === location.origin || url.protocol === 'blob:'
+      })).toBe(true)
+    } finally {
+      privacyEngine.dispose()
+    }
   })
 
   it('transcodes a real WebM fixture to MP4 and back to WebM', async () => {

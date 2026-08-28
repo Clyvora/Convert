@@ -4,10 +4,6 @@ import type { ConversionOptions, MediaFormat } from './types'
 export function defaultOptions(input: MediaFormat): ConversionOptions {
   return {
     outputFormat: getOutputFormats(input)[0],
-    quality: 0.9,
-    lockAspectRatio: true,
-    preventUpscale: true,
-    jpgBackgroundColor: '#ffffff',
     audioBitrate: 192,
     audioChannels: 'source',
     audioSampleRate: 'source',
