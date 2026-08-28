@@ -27,7 +27,7 @@ button:disabled { cursor: not-allowed; opacity: .45; }
   border-bottom: 1px solid var(--line);
 }
 .brand { display: inline-flex; padding: 8px; align-items: center; gap: 10px; border: 0; background: transparent; cursor: pointer; font-size: 15px; }
-.brand-mark { display: grid; width: 34px; height: 34px; place-items: center; border-radius: 10px; color: var(--accent-ink); background: var(--accent); font-weight: 800; }
+.brand img { display: block; width: 34px; height: 34px; object-fit: contain; }
 .brand strong { font-weight: 650; }
 .local-pill, .eyebrow { color: var(--muted); font: 11px/1.2 'DM Mono', ui-monospace, monospace; letter-spacing: .08em; text-transform: uppercase; }
 .local-pill { padding: 8px 11px; border: 1px solid var(--line); border-radius: 999px; }

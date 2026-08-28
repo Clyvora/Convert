@@ -4,6 +4,8 @@
 
 Clyvora Convert is the focused local audio/video member of the Clyvora product family. It does not accept images or URLs and has no media-upload backend.
 
+![Clyvora Convert social preview](public/clyvora-convert-card.png)
+
 ## Supported conversions
 
 | Input | Output |

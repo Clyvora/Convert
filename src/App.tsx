@@ -272,7 +272,7 @@ export default function App() {
   return <main>
     <header className="site-header">
       <button className="brand" type="button" onClick={reset} aria-label="Clyvora Convert home">
-        <span className="brand-mark" aria-hidden="true">C</span>
+        <img src="/favicon.png" alt="" width="34" height="34" decoding="async" />
         <span>Clyvora <strong>Convert</strong></span>
       </button>
       <span className="local-pill">Local processing</span>
