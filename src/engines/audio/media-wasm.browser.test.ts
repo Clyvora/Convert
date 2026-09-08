@@ -86,7 +86,7 @@ describe.sequential('real FFmpeg WebAssembly media conversions', () => {
     const source = createWavFixture()
     const mp3 = await audioEngine.convert(source, 'wav', conversionOptions('mp3'))
     const ogg = await audioEngine.convert(source, 'wav', conversionOptions('ogg'))
-    const opus = await audioEngine.convert(source, 'wav', conversionOptions('opus'))
+    const opus = await audioEngine.convert(source, 'wav', { ...conversionOptions('opus'), audioSampleRate: 44100 })
     const restored = await audioEngine.convert(new File([mp3.blob], 'tone.mp3', { type: mp3.mimeType }), 'mp3', conversionOptions('wav'))
 
     expect(mp3.blob.size).toBeGreaterThan(100)

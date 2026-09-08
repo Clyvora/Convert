@@ -35,7 +35,7 @@ button:disabled { cursor: not-allowed; opacity: .45; }
 .hero, .workspace { width: min(1180px, calc(100% - 40px)); margin: 0 auto; }
 .hero { display: grid; min-height: calc(100vh - 155px); padding: 85px 0 70px; align-content: center; justify-items: center; text-align: center; }
 .hero h1, .workspace h1 { margin: 12px 0 18px; font-size: clamp(42px, 6vw, 78px); line-height: .98; letter-spacing: -.055em; }
-.hero-copy { max-width: 680px; margin: 0; color: #c5c7c0; font-size: clamp(17px, 2vw, 20px); line-height: 1.55; }
+.hero-copy { max-width: 680px; margin: 0; color: var(--text); font-size: clamp(17px, 2vw, 20px); line-height: 1.55; }
 .drop-zone { display: grid; width: min(720px, 100%); margin-top: 42px; padding: 46px 24px; place-items: center; border: 1px dashed rgba(188, 211, 215, .38); border-radius: var(--radius); background: rgba(17, 20, 17, .78); transition: border-color .2s ease, background .2s ease, transform .2s ease; }
 .drop-zone.drop-active { border-color: var(--accent); background: rgba(188, 211, 215, .08); transform: scale(1.01); }
 .drop-icon { display: grid; width: 52px; height: 52px; place-items: center; border-radius: 16px; color: var(--accent-ink); background: var(--accent); font-size: 25px; }
@@ -53,10 +53,10 @@ button:disabled { cursor: not-allowed; opacity: .45; }
   font-weight: 650;
 }
 .primary-button { color: var(--accent-ink); background: var(--accent); }
-.primary-button:hover:not(:disabled) { background: #d5e5e7; }
+.primary-button:hover:not(:disabled) { background: var(--text); }
 .secondary-button, .icon-button { border-color: var(--line); background: var(--panel-2); }
 .secondary-button:hover:not(:disabled), .icon-button:hover:not(:disabled) { border-color: rgba(242, 239, 231, .3); }
-.danger-button { color: #1d0805; background: var(--danger); }
+.danger-button { color: var(--bg); background: var(--danger); }
 .download-button { min-height: 36px; padding: 8px 12px; color: var(--accent-ink); background: var(--accent); }
 
 .workspace { min-height: calc(100vh - 155px); padding: 64px 0 80px; }
@@ -69,14 +69,14 @@ button:disabled { cursor: not-allowed; opacity: .45; }
 .file-details { min-width: 0; }
 .file-details h2 { margin: 0; overflow: hidden; font-size: 16px; text-overflow: ellipsis; white-space: nowrap; }
 .file-details p { margin: 5px 0 0; color: var(--muted); font-size: 12px; }
-.file-details .warning { color: #e9c98e; }
+.file-details .warning { color: var(--muted); }
 .file-details .error-text { color: var(--danger); white-space: normal; }
 .format-select select, .option-grid select { width: 100%; min-height: 42px; padding: 9px 34px 9px 11px; color: var(--text); border: 1px solid var(--line); border-radius: 11px; background: var(--panel-2); }
 .icon-button { min-height: 42px; padding: 9px 12px; font-size: 12px; }
-.item-status { display: grid; justify-items: end; gap: 6px; color: #ced0ca; font-size: 12px; }
+.item-status { display: grid; justify-items: end; gap: 6px; color: var(--text); font-size: 12px; }
 .item-status small { color: var(--muted); }
-.item-status progress { width: 125px; height: 5px; overflow: hidden; border: 0; border-radius: 5px; background: #252925; }
-.item-status progress::-webkit-progress-bar { background: #252925; }
+.item-status progress { width: 125px; height: 5px; overflow: hidden; border: 0; border-radius: 5px; background: var(--line); }
+.item-status progress::-webkit-progress-bar { background: var(--line); }
 .item-status progress::-webkit-progress-value { background: var(--accent); }
 .item-status progress::-moz-progress-bar { background: var(--accent); }
 .remove-button { display: grid; width: 34px; height: 34px; place-items: center; border: 0; border-radius: 10px; background: transparent; cursor: pointer; color: var(--muted); font-size: 20px; }
@@ -84,16 +84,16 @@ button:disabled { cursor: not-allowed; opacity: .45; }
 .queue-actions { display: flex; margin-top: 18px; padding: 18px; align-items: center; justify-content: space-between; gap: 20px; border: 1px solid var(--line); border-radius: 16px; background: var(--panel); }
 .queue-actions p { margin: 0; color: var(--muted); font-size: 13px; }
 
-.notice { position: fixed; z-index: 50; top: 88px; left: 50%; display: flex; width: min(620px, calc(100% - 32px)); padding: 14px 16px; align-items: center; justify-content: space-between; gap: 16px; border: 1px solid var(--line); border-radius: 14px; background: #171a17; box-shadow: 0 18px 50px rgba(0, 0, 0, .4); transform: translateX(-50%); }
+.notice { position: fixed; z-index: 50; top: 88px; left: 50%; display: flex; width: min(620px, calc(100% - 32px)); padding: 14px 16px; align-items: center; justify-content: space-between; gap: 16px; border: 1px solid var(--line); border-radius: 14px; background: var(--panel); box-shadow: 0 18px 50px rgba(0, 0, 0, .4); transform: translateX(-50%); }
 .notice-error { border-color: rgba(239, 155, 145, .55); }
 .notice button { border: 0; background: transparent; cursor: pointer; font-size: 20px; }
 
 .dialog-backdrop { position: fixed; z-index: 40; inset: 0; display: grid; padding: 20px; place-items: center; background: rgba(0, 0, 0, .72); backdrop-filter: blur(8px); }
-.options-dialog { width: min(680px, 100%); max-height: calc(100vh - 40px); padding: 26px; overflow: auto; border: 1px solid var(--line); border-radius: 22px; background: #121512; box-shadow: 0 24px 90px rgba(0, 0, 0, .55); }
+.options-dialog { width: min(680px, 100%); max-height: calc(100vh - 40px); padding: 26px; overflow: auto; border: 1px solid var(--line); border-radius: 22px; background: var(--panel); box-shadow: 0 24px 90px rgba(0, 0, 0, .55); }
 .dialog-heading { display: flex; align-items: start; justify-content: space-between; gap: 20px; }
 .dialog-heading h2 { margin: 8px 0 0; font-size: 25px; letter-spacing: -.035em; overflow-wrap: anywhere; }
 .option-grid { display: grid; margin: 28px 0 20px; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
-.option-grid label { display: grid; gap: 8px; color: #d1d2cd; font-size: 13px; }
+.option-grid label { display: grid; gap: 8px; color: var(--text); font-size: 13px; }
 .dialog-note { margin: 0 0 22px; color: var(--muted); font-size: 12px; }
 
 footer { display: flex; width: min(1180px, calc(100% - 40px)); min-height: 79px; margin: 0 auto; align-items: center; justify-content: space-between; gap: 20px; border-top: 1px solid var(--line); color: var(--muted); font-size: 11px; }

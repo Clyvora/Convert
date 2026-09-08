@@ -1,10 +1,10 @@
 import { defaultOptions } from './defaults'
 import { isSupportedPair } from './registry'
-import type { ConversionOptions, MediaFormat } from './types'
+import type { ConversionOptions, InputMediaFormat } from './types'
 
-export type SavedPreferences = Partial<Record<MediaFormat, Partial<ConversionOptions>>>
+export type SavedPreferences = Partial<Record<InputMediaFormat, Partial<ConversionOptions>>>
 
-export function mergePreferences(input: MediaFormat, saved: SavedPreferences): ConversionOptions {
+export function mergePreferences(input: InputMediaFormat, saved: SavedPreferences): ConversionOptions {
   const defaults = defaultOptions(input)
   const candidate = { ...defaults, ...saved[input] }
   if (!isSupportedPair(input, candidate.outputFormat)) candidate.outputFormat = defaults.outputFormat
@@ -27,7 +27,7 @@ export function preferenceSubset(options: ConversionOptions): Partial<Conversion
 
 export function applyCompatibleSettings(
   source: ConversionOptions,
-  input: MediaFormat,
+  input: InputMediaFormat,
   target: ConversionOptions,
 ): ConversionOptions {
   const kind = input === 'mp4' || input === 'webm' ? 'video' : 'audio'

@@ -1,6 +1,8 @@
 export type AudioFormat = 'mp3' | 'wav' | 'ogg' | 'opus'
 export type VideoFormat = 'mp4' | 'webm'
 export type MediaFormat = AudioFormat | VideoFormat
+export type ImportedAudioFormat = 'aac' | 'm4a' | 'ts'
+export type InputMediaFormat = MediaFormat | ImportedAudioFormat
 export type MediaKind = 'audio' | 'video'
 export type AudioBitrate = 96 | 128 | 192 | 256 | 320
 export type AudioChannels = 'source' | 1 | 2
@@ -18,7 +20,7 @@ export type QueueStatus =
   | 'cancelled'
 
 export interface DetectedFile {
-  format: MediaFormat
+  format: InputMediaFormat
   kind: MediaKind
   mimeType: string
   extension: string

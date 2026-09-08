@@ -13,6 +13,20 @@ const defaults: LocalMediaConversionOptions = {
 }
 
 describe('local media FFmpeg arguments', () => {
+  it('resamples 44.1 kHz to an Opus-supported rate for audio and WebM', () => {
+    for (const outputFormat of ['opus', 'webm'] as const) {
+      const args = buildMediaArguments('/input.mp4', `/output.${outputFormat}`, 'mp4', { ...defaults, outputFormat, audioSampleRate: 44100 })
+      expect(args[args.indexOf('-ar') + 1]).toBe('48000')
+    }
+  })
+  it('honors channel and sample-rate controls in both video containers', () => {
+    for (const outputFormat of ['mp4', 'webm'] as const) {
+      const inputFormat = outputFormat === 'mp4' ? 'webm' : 'mp4'
+      const args = buildMediaArguments(`/input.${inputFormat}`, `/output.${outputFormat}`, inputFormat, { ...defaults, outputFormat, audioChannels: 1, audioSampleRate: 48000 })
+      expect(args[args.indexOf('-ac') + 1]).toBe('1')
+      expect(args[args.indexOf('-ar') + 1]).toBe('48000')
+    }
+  })
   it('extracts MP3 audio with the selected bitrate', () => {
     const args = buildMediaArguments('/input.mp4', '/output.mp3', 'mp4', defaults)
     expect(args).toContain('libmp3lame')

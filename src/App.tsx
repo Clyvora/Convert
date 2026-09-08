@@ -1,3 +1,7 @@
+import PublicLinks from './components/PublicLinks'
+import { MorphText } from './MorphText'
+import { ChoiceGroup } from './ChoiceGroup'
+import { ThemeToggle } from './ThemeToggle'
 import { useCallback, useEffect, useReducer, useRef, useState } from 'react'
 import './App.css'
 import { detectFile, FileDetectionError } from './core/detection'
@@ -133,11 +137,11 @@ export default function App() {
   const completedCount = items.filter((item) => item.status === 'completed').length
 
   useEffect(() => {
-    if (!selected) return
+    if (!selectedId) return
     returnFocusRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null
     const dialog = optionsRef.current
-    const selector = 'button:not([disabled]), input:not([disabled]), select:not([disabled])'
-    const focusables = () => Array.from(dialog?.querySelectorAll<HTMLElement>(selector) ?? [])
+    const selector = 'button:not([disabled]), input:not([disabled]), select:not([disabled]), summary'
+    const focusables = () => Array.from(dialog?.querySelectorAll<HTMLElement>(selector) ?? []).filter(element => !element.closest('details:not([open])') || element.tagName === 'SUMMARY')
     requestAnimationFrame(() => focusables()[0]?.focus())
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') { event.preventDefault(); setSelectedId(null); return }
@@ -154,7 +158,7 @@ export default function App() {
       window.removeEventListener('keydown', onKeyDown)
       requestAnimationFrame(() => returnFocusRef.current?.focus())
     }
-  }, [selected])
+  }, [selectedId])
 
   const apply = (action: QueueAction) => {
     itemsRef.current = queueReducer(itemsRef.current, action)
@@ -193,6 +197,7 @@ export default function App() {
     }
     if (additions.length) apply({ type: 'add', items: additions })
     if (errors.length) setNotice({ message: errors.join(' '), tone: 'error' })
+    return additions.length
   }, [])
 
   const runOne = async (id: string, usedNames: Set<string>): Promise<void> => {
@@ -272,10 +277,10 @@ export default function App() {
   return <main>
     <header className="site-header">
       <button className="brand" type="button" onClick={reset} aria-label="Clyvora Convert home">
-        <img src="/favicon.png" alt="" width="34" height="34" decoding="async" />
-        <span>Clyvora <strong>Convert</strong></span>
+        <img src="/app-icon.webp" alt="" width="34" height="34" decoding="async" />
+        <span>Convert</span>
       </button>
-      <span className="local-pill">Local processing</span>
+      <nav className="site-nav" aria-label="Clyvora sites"><a href="https://www.lens.clyvora.tech/">Lens</a><a href="https://www.clyvora.tech/">Clyvora</a><ThemeToggle /></nav>
     </header>
 
     {notice && <div className={`notice notice-${notice.tone}`} role={notice.tone === 'error' ? 'alert' : 'status'}>
@@ -284,9 +289,9 @@ export default function App() {
     </div>}
 
     {items.length === 0 ? <section className="hero" aria-labelledby="hero-title">
-      <p className="eyebrow">Audio + video</p>
-      <h1 id="hero-title">Convert media without uploading it.</h1>
-      <p className="hero-copy">Convert audio and video privately in your browser. Your selected files and filenames stay on this device.</p>
+      <div className="convert-introduction"><img className="app-art" src="/app-icon.webp" alt="" width="160" height="160" />
+      <h1 id="hero-title">Convert</h1>
+      <p className="hero-copy">Audio and video, in the format you need.</p></div>
       <div
         className={`drop-zone ${dropActive ? 'drop-active' : ''}`}
         onDragEnter={(event) => { event.preventDefault(); setDropActive(true) }}
@@ -294,10 +299,8 @@ export default function App() {
         onDragLeave={(event) => { if (!event.currentTarget.contains(event.relatedTarget as Node)) setDropActive(false) }}
         onDrop={(event) => { event.preventDefault(); setDropActive(false); void addFiles(Array.from(event.dataTransfer.files)) }}
       >
-        <span className="drop-icon" aria-hidden="true">↓</span>
-        <h2>Choose audio or video</h2>
-        <p>MP3, WAV, OGG, Opus, MP4, or WebM</p>
-        <button className="primary-button" type="button" onClick={() => inputRef.current?.click()}>Choose files</button>
+
+        <PublicLinks onFile={async file => { if (!await addFiles([file])) throw new Error('The retrieved file could not be added. Try another track.') }} onChooseFiles={() => inputRef.current?.click()} />
         <input ref={inputRef} type="file" accept={ACCEPT} multiple hidden onChange={(event) => { void addFiles(Array.from(event.target.files ?? [])); event.currentTarget.value = '' }} />
       </div>
       <p className="limit-copy">Audio up to {formatBytes(MAX_AUDIO_BYTES)} and video up to {formatBytes(MAX_VIDEO_BYTES)}. The FFmpeg engine downloads on first use and remains in your browser cache.</p>
@@ -305,7 +308,7 @@ export default function App() {
       <div className="workspace-heading">
         <div>
           <p className="eyebrow">Conversion queue</p>
-          <h1 id="queue-title">{items.length} {items.length === 1 ? 'file' : 'files'} ready.</h1>
+          <h1 id="queue-title"><MorphText>{`${items.length} ${items.length === 1 ? 'file' : 'files'} ready.`}</MorphText></h1>
         </div>
         <button className="secondary-button" type="button" disabled={busy} onClick={() => inputRef.current?.click()}>Add files</button>
         <input ref={inputRef} type="file" accept={ACCEPT} multiple hidden onChange={(event) => { void addFiles(Array.from(event.target.files ?? [])); event.currentTarget.value = '' }} />
@@ -328,7 +331,7 @@ export default function App() {
           </label>
           <button className="icon-button" type="button" disabled={busy || item.status === 'completed'} onClick={() => setSelectedId(item.id)} aria-label={`Options for ${item.file.name}`}>Options</button>
           <div className="item-status" aria-live="polite">
-            <span>{statusLabel(item)}</span>
+            <MorphText>{statusLabel(item)}</MorphText>
             {(item.status === 'converting' || item.status === 'loading-engine') && <progress value={item.progress} max={1} aria-label={`Conversion progress for ${item.file.name}`} />}
             {item.status === 'completed' && item.outputUrl && item.outputName && <>
               <small>{formatBytes(item.outputBlob?.size ?? 0)} · {formatDuration(item.durationMs)}</small>
@@ -340,16 +343,16 @@ export default function App() {
       </div>
 
       <div className="queue-actions">
-        <p aria-live="polite">{completedCount} complete · {activeCount} available to convert</p>
+        <p aria-live="polite"><MorphText>{`${completedCount} complete · ${activeCount} available to convert`}</MorphText></p>
         <div>
           {busy ? <button className="danger-button" type="button" onClick={cancel}>Cancel conversion</button>
-            : <button className="primary-button" type="button" disabled={activeCount === 0} onClick={() => void convertAll()}>Convert {activeCount || ''}</button>}
+            : <button className="primary-button" type="button" disabled={activeCount === 0} onClick={() => void convertAll()}><MorphText>{activeCount ? `Convert ${activeCount}` : 'Convert'}</MorphText></button>}
         </div>
       </div>
     </section>}
 
     <footer>
-      <p>Files are processed locally. No account, upload queue, or conversion server.</p>
+      <p>Files convert on this device. SoundCloud links use server-assisted retrieval.</p>
       <a href="https://www.clyvora.tech/">Clyvora products</a>
     </footer>
 
@@ -359,37 +362,51 @@ export default function App() {
           <div><p className="eyebrow">Conversion options</p><h2 id="options-title">{selected.file.name}</h2></div>
           <button className="remove-button" type="button" onClick={() => setSelectedId(null)} aria-label="Close options">×</button>
         </div>
-        <div className="option-grid">
-          <label>Audio bitrate
-            <select value={selected.options.audioBitrate} onChange={(event) => updateOptions(selected, { audioBitrate: Number(event.target.value) as AudioBitrate })}>
-              {AUDIO_BITRATES.map((bitrate) => <option key={bitrate} value={bitrate}>{bitrate} kbps</option>)}
-            </select>
-          </label>
-          <label>Channels
-            <select value={selected.options.audioChannels} onChange={(event) => updateOptions(selected, { audioChannels: (event.target.value === 'source' ? 'source' : Number(event.target.value)) as AudioChannels })}>
-              <option value="source">Keep source</option><option value="1">Mono</option><option value="2">Stereo</option>
-            </select>
-          </label>
-          <label>Sample rate
-            <select value={selected.options.audioSampleRate} onChange={(event) => updateOptions(selected, { audioSampleRate: (event.target.value === 'source' ? 'source' : Number(event.target.value)) as AudioSampleRate })}>
-              <option value="source">Keep source</option><option value="44100">44.1 kHz</option><option value="48000">48 kHz</option>
-            </select>
-          </label>
+        <div className="settings-body">
+          <ChoiceGroup label="Output format" value={selected.options.outputFormat}
+            choices={getOutputFormats(selected.detected.format).map(format => ({ value: format, label: format.toUpperCase() }))}
+            onChange={value => updateOptions(selected, { outputFormat: value as ConversionOptions['outputFormat'] })} />
+          <ChoiceGroup label="Audio quality" value={String(selected.options.audioBitrate)}
+            choices={[
+              { value: '128', label: 'Smaller', description: '128 kbps' },
+              { value: '192', label: 'Balanced', description: '192 kbps' },
+              { value: '320', label: 'Higher', description: '320 kbps' },
+              ...(![128, 192, 320].includes(selected.options.audioBitrate) ? [{ value: String(selected.options.audioBitrate), label: 'Custom', description: `${selected.options.audioBitrate} kbps` }] : []),
+            ]}
+            onChange={value => updateOptions(selected, { audioBitrate: Number(value) as AudioBitrate })} />
           {isVideoFormat(selected.options.outputFormat) && <>
-            <label>Video quality
-              <select value={selected.options.videoQuality} onChange={(event) => updateOptions(selected, { videoQuality: event.target.value as VideoQuality })}>
-                {VIDEO_QUALITIES.map((quality) => <option key={quality.value} value={quality.value}>{quality.label}</option>)}
-              </select>
-            </label>
-            <label>Maximum resolution
+            <ChoiceGroup label="Video quality" value={selected.options.videoQuality}
+              choices={VIDEO_QUALITIES.map(quality => ({ value: quality.value, label: quality.label }))}
+              onChange={value => updateOptions(selected, { videoQuality: value as VideoQuality })} />
+            <label className="setting-field">Maximum resolution
               <select value={selected.options.videoResolution} onChange={(event) => updateOptions(selected, { videoResolution: event.target.value === 'original' ? 'original' : Number(event.target.value) as VideoResolution })}>
                 {VIDEO_RESOLUTIONS.map((resolution) => <option key={resolution.value} value={resolution.value}>{resolution.label}</option>)}
               </select>
             </label>
           </>}
+          <details className="advanced-settings">
+            <summary>Advanced audio <span aria-hidden="true">+</span></summary>
+            <div className="option-grid">
+              <label>Audio bitrate
+                <select value={selected.options.audioBitrate} onChange={(event) => updateOptions(selected, { audioBitrate: Number(event.target.value) as AudioBitrate })}>
+                  {AUDIO_BITRATES.map((bitrate) => <option key={bitrate} value={bitrate}>{bitrate} kbps</option>)}
+                </select>
+              </label>
+              <label>Channels
+                <select value={selected.options.audioChannels} onChange={(event) => updateOptions(selected, { audioChannels: (event.target.value === 'source' ? 'source' : Number(event.target.value)) as AudioChannels })}>
+                  <option value="source">Keep source</option><option value="1">Mono</option><option value="2">Stereo</option>
+                </select>
+              </label>
+              <label>Sample rate
+                <select value={selected.options.audioSampleRate} onChange={(event) => updateOptions(selected, { audioSampleRate: (event.target.value === 'source' ? 'source' : Number(event.target.value)) as AudioSampleRate })}>
+                  <option value="source">Keep source</option><option value="44100">{['opus', 'webm'].includes(selected.options.outputFormat) ? '44.1 → 48 kHz (Opus)' : '44.1 kHz'}</option><option value="48000">48 kHz</option>
+                </select>
+              </label>
+            </div>
+          </details>
         </div>
-        <p className="dialog-note">Settings are remembered for this input format on this device.</p>
-        <button className="primary-button" type="button" onClick={() => setSelectedId(null)}>Done</button>
+        <div className="settings-footer"><p className="dialog-note">Saved automatically on this device.</p>
+        <button className="primary-button" type="button" onClick={() => setSelectedId(null)}>Done</button></div>
       </div>
     </div>}
   </main>

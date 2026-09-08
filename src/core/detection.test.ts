@@ -4,6 +4,10 @@ import { detectFile, detectSignature, FileDetectionError } from './detection'
 const bytes = (...values: number[]) => new Uint8Array(values)
 
 describe('audio and video signature detection', () => {
+  it('accepts Opus audio in an Ogg-named container', async () => {
+    const file = new File([new TextEncoder().encode('OggS\0\0\0\0OpusHead')], 'audio.ogg')
+    await expect(detectFile(file)).resolves.toMatchObject({ format: 'opus' })
+  })
   it.each([
     ['WAV', bytes(0x52, 0x49, 0x46, 0x46, 0, 0, 0, 0, 0x57, 0x41, 0x56, 0x45), 'wav'],
     ['MP3', bytes(0x49, 0x44, 0x33, 4, 0), 'mp3'],
@@ -29,4 +33,3 @@ describe('audio and video signature detection', () => {
     await expect(detectFile(file)).rejects.toThrow(/contents are MP3/i)
   })
 })
-

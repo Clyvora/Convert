@@ -4,10 +4,20 @@
   "description": "Private, local-first audio and video conversion.",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#090a0a",
-  "theme_color": "#090a0a",
+  "background_color": "#151515",
+  "theme_color": "#151515",
   "icons": [
-    { "src": "/favicon.png", "sizes": "any", "type": "image/png" },
-    { "src": "/apple-touch-icon.png", "sizes": "180x180", "type": "image/png" }
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    }
   ]
 }

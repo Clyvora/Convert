@@ -1,6 +1,6 @@
-import type { MediaFormat } from '../../core/types'
+import type { InputMediaFormat } from '../../core/types'
 import { canUseMultithreadCore, getFfmpegAssetUrls } from './ffmpegAssets'
-import { buildMediaArguments, getMediaMimeType, isLocalMediaFormat } from './options'
+import { buildMediaArguments, getMediaMimeType, isLocalInputFormat } from './options'
 import { AudioConversionError } from './types'
 import type {
   LocalMediaConversionOptions,
@@ -26,13 +26,13 @@ export class LocalMediaFfmpegEngine {
 
   async convert(
     file: File,
-    inputFormat: MediaFormat,
+    inputFormat: InputMediaFormat,
     options: LocalMediaConversionOptions,
   ): Promise<LocalMediaConversionResult> {
     if (this.active) {
       throw new AudioConversionError('conversion-failed', 'The local media engine is already processing another file.')
     }
-    if (!isLocalMediaFormat(inputFormat)) {
+    if (!isLocalInputFormat(inputFormat)) {
       throw new AudioConversionError('invalid-options', 'The selected file is not supported by the local media engine.')
     }
 

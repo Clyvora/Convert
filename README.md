@@ -63,3 +63,7 @@ Multithreaded FFmpeg requires `Cross-Origin-Opener-Policy: same-origin` and `Cro
 - Cancellation terminates the active runtime; the next conversion loads a clean runtime and can retry immediately.
 
 See [SECURITY.md](SECURITY.md), [NETWORK.md](NETWORK.md), and [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+
+## Clyvora appearance
+
+The interface matches ClyvoraMain: neutral surfaces, dimensional app artwork, dark by default, and a complete light theme. The header theme control saves `clyvora-theme` locally for this site. Theme preferences are independent across subdomains. Colors and responsive presentation live in `src/clyvora-theme.css`; processing behavior remains in the existing tool components. Entrance and hover animations respect reduced-motion preferences.

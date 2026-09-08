@@ -35,6 +35,12 @@ function isSupportedMp4Brand(brand: string): boolean {
 }
 
 export function detectSignature(bytes: Uint8Array): DetectedFile | null {
+  if (bytes.length >= 376 && bytes[0] === 0x47 && bytes[188] === 0x47) {
+    return { format: 'ts', kind: 'audio', mimeType: 'video/mp2t', extension: 'ts' }
+  }
+  if (bytes.length >= 7 && bytes[0] === 0xff && (bytes[1] & 0xf6) === 0xf0) {
+    return { format: 'aac', kind: 'audio', mimeType: 'audio/aac', extension: 'aac' }
+  }
   if (startsWith(bytes, [0x52, 0x49, 0x46, 0x46]) && startsWith(bytes, [0x57, 0x41, 0x56, 0x45], 8)) {
     return { format: 'wav', kind: 'audio', mimeType: MIME_BY_FORMAT.wav, extension: 'wav' }
   }
@@ -45,6 +51,7 @@ export function detectSignature(bytes: Uint8Array): DetectedFile | null {
   }
   if (bytes.length >= 12 && startsWith(bytes, [0x66, 0x74, 0x79, 0x70], 4)) {
     const majorBrand = ascii(bytes, 8, 4)
+    if (majorBrand.toLowerCase() === 'm4a ') return { format: 'm4a', kind: 'audio', mimeType: 'audio/mp4', extension: 'm4a' }
     if (!isSupportedMp4Brand(majorBrand)) return null
     return { format: 'mp4', kind: 'video', mimeType: MIME_BY_FORMAT.mp4, extension: 'mp4' }
   }
@@ -66,14 +73,22 @@ export function detectSignature(bytes: Uint8Array): DetectedFile | null {
 }
 
 export async function detectFile(file: File): Promise<DetectedFile> {
-  const bytes = new Uint8Array(await file.slice(0, 512).arrayBuffer())
-  const detected = detectSignature(bytes)
+  const bytes = new Uint8Array(await file.slice(0, 4096).arrayBuffer())
+  let detected = detectSignature(bytes)
+  const extension = file.name.split('.').pop()?.toLowerCase()
+  // Fragmented AAC MP4 often uses an ISO brand; keep it an audio-only input.
+  if (detected?.format === 'mp4' && extension === 'm4a') detected = { format: 'm4a', kind: 'audio', mimeType: 'audio/mp4', extension: 'm4a' }
+  // HLS AAC may start with an ID3 timestamp tag before its ADTS frames.
+  if (extension === 'aac' && ascii(bytes, 0, 3) === 'ID3' && bytes.length >= 10) {
+    const offset = 10 + ((bytes[6] & 127) << 21) + ((bytes[7] & 127) << 14) + ((bytes[8] & 127) << 7) + (bytes[9] & 127)
+    const header = new Uint8Array(await file.slice(offset, offset + 7).arrayBuffer())
+    detected = detectSignature(header)
+  }
   if (!detected) {
     throw new FileDetectionError('This file’s contents do not match a supported audio or video format.')
   }
 
-  const extension = file.name.split('.').pop()?.toLowerCase()
-  const acceptedExtensions = [detected.extension]
+  const acceptedExtensions = detected.format === 'opus' ? ['opus', 'ogg'] : [detected.extension]
   if (extension && !acceptedExtensions.includes(extension)) {
     throw new FileDetectionError(
       `The filename says “.${extension}”, but the file contents are ${detected.format.toUpperCase()}. Rename the file correctly and try again.`,

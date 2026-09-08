@@ -1,7 +1,7 @@
 import { getOutputFormats } from './registry'
-import type { ConversionOptions, MediaFormat } from './types'
+import type { ConversionOptions, InputMediaFormat } from './types'
 
-export function defaultOptions(input: MediaFormat): ConversionOptions {
+export function defaultOptions(input: InputMediaFormat): ConversionOptions {
   return {
     outputFormat: getOutputFormats(input)[0],
     audioBitrate: 192,

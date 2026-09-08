@@ -12,12 +12,14 @@ function productionSources(directory: string): string[] {
 }
 
 describe('Convert network boundary', () => {
-  it('contains no direct browser network client', () => {
+  it('isolates browser network requests to the public-link client', () => {
     const matches = productionSources(join(root, 'src')).filter((path) => /\b(?:fetch|XMLHttpRequest|WebSocket|EventSource|sendBeacon)\b/.test(readFileSync(path, 'utf8')))
-    expect(matches.map((path) => relative(root, path))).toEqual([])
+    expect(matches.map((path) => relative(root, path).replaceAll('\\', '/'))).toEqual(['src/core/mediaClient.ts'])
   })
-  it('does not mention remote imports or SoundCloud in production files', () => {
-    const production = productionSources(join(root, 'src')).map((path) => readFileSync(path, 'utf8')).join('\n')
-    expect(production).not.toMatch(/soundcloud|paste link|link import/i)
+  it('submits only the validated URL to the resolver', () => {
+    const client = readFileSync(join(root, 'src/core/mediaClient.ts'), 'utf8')
+    expect(client).toContain('const url = validatePublicUrl(input)')
+    expect(client).toContain('body: JSON.stringify({ url: url.href })')
+    expect(client).not.toMatch(/new FormData|readAsDataURL|arrayBuffer\(\)/)
   })
 })

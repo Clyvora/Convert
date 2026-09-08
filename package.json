@@ -21,7 +21,7 @@
   ],
   "type": "module",
   "engines": {
-    "node": ">=20"
+    "node": ">=22.12.0"
   },
   "scripts": {
     "predev": "node scripts/ffmpeg/copy-assets.mjs",
@@ -43,7 +43,8 @@
     "@ffmpeg/core-mt": "^0.12.10",
     "@ffmpeg/ffmpeg": "^0.12.15",
     "react": "^19.2.8",
-    "react-dom": "^19.2.8"
+    "react-dom": "^19.2.8",
+    "torph": "^0.1.3"
   },
   "devDependencies": {
     "@testing-library/jest-dom": "^7.0.1",
@@ -60,5 +61,6 @@
     "typescript": "~6.0.2",
     "vite": "^8.2.0",
     "vitest": "^4.1.10"
-  }
+  },
+  "packageManager": "pnpm@11.19.0"
 }

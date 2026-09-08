@@ -14,7 +14,7 @@ function sanitizeStem(name: string): string {
   return safe || 'converted'
 }
 
-export function outputFilename(inputName: string, output: MediaFormat): string {
+export function outputFilename(inputName: string, output: MediaFormat | 'png' | 'jpg' | 'webp'): string {
   return `${sanitizeStem(inputName)}.${output}`
 }
 

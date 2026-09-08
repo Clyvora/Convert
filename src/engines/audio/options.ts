@@ -1,5 +1,5 @@
 import { isSupportedPair } from '../../core/registry'
-import type { AudioFormat, MediaFormat, VideoFormat } from '../../core/types'
+import type { AudioFormat, InputMediaFormat, VideoFormat } from '../../core/types'
 import { AUDIO_BITRATE_PRESETS, MP3_BITRATE_PRESETS } from './types'
 import type { LocalMediaConversionOptions, LocalMediaFormat, Mp3Bitrate } from './types'
 
@@ -25,6 +25,10 @@ export function isLocalMediaFormat(value: unknown): value is LocalMediaFormat {
   return isAudioFormat(value) || isVideoFormat(value)
 }
 
+export function isLocalInputFormat(value: unknown): value is InputMediaFormat {
+  return isLocalMediaFormat(value) || value === 'aac' || value === 'm4a' || value === 'ts'
+}
+
 export function getAudioMimeType(format: AudioFormat): string {
   return { mp3: 'audio/mpeg', wav: 'audio/wav', ogg: 'audio/ogg', opus: 'audio/ogg; codecs=opus' }[format]
 }
@@ -32,6 +36,16 @@ export function getAudioMimeType(format: AudioFormat): string {
 export function getMediaMimeType(format: LocalMediaFormat): string {
   if (isAudioFormat(format)) return getAudioMimeType(format)
   return format === 'mp4' ? 'video/mp4' : 'video/webm'
+}
+
+function audioSettings(options: LocalMediaConversionOptions): string[] {
+  const args: string[] = []
+  if (options.audioChannels !== 'source') args.push('-ac', String(options.audioChannels))
+  // Opus (including WebM's audio track) cannot encode 44.1 kHz.
+  const sampleRate = (options.outputFormat === 'opus' || options.outputFormat === 'webm') && options.audioSampleRate === 44100
+    ? 48000 : options.audioSampleRate
+  if (sampleRate !== 'source') args.push('-ar', String(sampleRate))
+  return args
 }
 
 function audioArguments(options: LocalMediaConversionOptions): string[] {
@@ -44,8 +58,7 @@ function audioArguments(options: LocalMediaConversionOptions): string[] {
   }[options.outputFormat as AudioFormat]
   args.push('-c:a', codec)
   if (options.outputFormat !== 'wav') args.push('-b:a', `${options.audioBitrate}k`)
-  if (options.audioChannels !== 'source') args.push('-ac', String(options.audioChannels))
-  if (options.audioSampleRate !== 'source') args.push('-ar', String(options.audioSampleRate))
+  args.push(...audioSettings(options))
   return args
 }
 
@@ -65,7 +78,7 @@ function videoArguments(options: LocalMediaConversionOptions): string[] {
   const crf = options.outputFormat === 'mp4'
     ? { smaller: '32', balanced: '26', high: '20' }[options.videoQuality]
     : { smaller: '42', balanced: '34', high: '27' }[options.videoQuality]
-  const shared = ['-map', '0:v:0', '-map', '0:a?', ...videoScaleFilter(options.videoResolution)]
+  const shared = ['-map', '0:v:0', '-map', '0:a?', ...videoScaleFilter(options.videoResolution), ...audioSettings(options)]
   if (codec === 'h264') {
     return [...shared, '-c:v', 'libx264', '-preset', 'veryfast', '-crf', crf, '-pix_fmt', 'yuv420p', '-c:a', 'aac', '-b:a', `${options.audioBitrate}k`, '-movflags', '+faststart']
   }
@@ -76,10 +89,10 @@ function videoArguments(options: LocalMediaConversionOptions): string[] {
 export function buildMediaArguments(
   inputPath: string,
   outputPath: string,
-  inputFormat: MediaFormat,
+  inputFormat: InputMediaFormat,
   options: LocalMediaConversionOptions,
 ): string[] {
-  if (!isLocalMediaFormat(inputFormat) || !isLocalMediaFormat(options.outputFormat) || !isSupportedPair(inputFormat, options.outputFormat)) {
+  if (!isLocalInputFormat(inputFormat) || !isLocalMediaFormat(options.outputFormat) || !isSupportedPair(inputFormat, options.outputFormat)) {
     throw new TypeError('Choose a supported output format for this media file.')
   }
   if (!isAudioBitrate(options.audioBitrate)) throw new TypeError('Choose a supported audio bitrate.')
