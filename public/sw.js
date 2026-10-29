@@ -1,5 +1,5 @@
 const CACHE_PREFIX = 'clyvora-convert-'
-const CACHE = `${CACHE_PREFIX}polish-popovers-v3-2026-10-29`
+const CACHE = `${CACHE_PREFIX}mewvi-brand-v5-2026-10-29`
 const SHELL = ['/', '/manifest.webmanifest', '/brand-cat-transparent.svg', '/favicon.svg', '/brand-cat.webp', '/app-icon.webp', '/theme-init.js', '/apple-touch-icon.png']
 const MASCOTS = ['sitting', 'working', 'confused', 'ready', 'sleeping', 'local', 'curious', 'pounce'].map(pose => `/mascot/${pose}.png`)
 

@@ -3,6 +3,7 @@ import { remoteMedia } from './mediaClient'
 import type { Capabilities, Discovery, Inspection, Item, Job, Page } from './mediaClient'
 import type { Mode } from './remoteContracts'
 import { loadRemotePreferences, outputFor, REMOTE_PREFERENCE_KEY } from './remotePreferences'
+import { readInterfacePreferences } from './interfacePreferences'
 
 export type Panel = 'settings' | 'queue' | 'services' | 'collection' | 'about' | 'updates' | null
 const terminal = new Set(['ready', 'partial', 'failed', 'cancelled', 'expired'])
@@ -118,9 +119,9 @@ export function useRemoteMedia() {
     if (submission.current?.body !== body) submission.current = { body, key: crypto.randomUUID() }
     const job = await remoteMedia.create(input, submission.current.key)
     if (!mounted.current) return
-    pendingDownloads.current.add(job.id)
+    if (readInterfacePreferences().autoDownload) pendingDownloads.current.add(job.id)
     setJobs(current => [job, ...current.filter(j => j.id !== job.id)])
-    setStatus('Added to your queue. Your download will start when ready.'); setPanel('queue'); setNeedsChoice(false); submission.current = null
+    setStatus(readInterfacePreferences().autoDownload ? 'Added to your queue. Your download will start when ready.' : 'Added to your queue. Open it to download when ready.'); if (readInterfacePreferences().autoOpenQueue) setPanel('queue'); setNeedsChoice(false); submission.current = null
   }
   const submit = () => action(async () => {
     edited.current = true; controller.current = new AbortController(); setStatus('Checking your link…')
@@ -153,7 +154,7 @@ export function useRemoteMedia() {
     if (job) deliveryClickedAt.current.set(`${job.id}:${id}`, Date.now())
   })
   const cancel = (id: string) => action(async () => { pendingDownloads.current.delete(id); await remoteMedia.cancel(id); setJobs((await remoteMedia.jobs()).items) })
-  const retry = (id: string) => action(async () => { const job = await remoteMedia.retry(id); pendingDownloads.current.add(id); setJobs(current => [job, ...current.filter(j => j.id !== id)]) })
+  const retry = (id: string) => action(async () => { const job = await remoteMedia.retry(id); if (readInterfacePreferences().autoDownload) pendingDownloads.current.add(id); setJobs(current => [job, ...current.filter(j => j.id !== id)]) })
   const remove = (id: string) => action(async () => { pendingDownloads.current.delete(id); await remoteMedia.remove(id); setJobs(current => current.filter(j => j.id !== id)); setResults(current => current?.id === id ? null : current) })
   const itemResults = (id: string, next = '') => action(async () => { setResults({ id, page: await remoteMedia.items(id, next) }) })
   const paste = () => action(async () => { setURL(await navigator.clipboard.readText()) })

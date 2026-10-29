@@ -1,7 +1,7 @@
 {
-  "name": "Clyvora Convert",
-  "short_name": "Convert",
-  "description": "Private, local-first audio and video conversion.",
+  "name": "mewvi by Clyvora",
+  "short_name": "mewvi",
+  "description": "Public media downloads and on-device audio and video conversion.",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#151515",

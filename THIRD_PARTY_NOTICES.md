@@ -18,4 +18,8 @@ This notice is informational and is not legal advice.
 
 The independently deployed media service uses yt-dlp 2026.10.26 and yt-dlp-ejs 0.8.0. Their own licenses and bundled-component notices apply; review upstream THIRD_PARTY_LICENSES before distributing container images. Native FFmpeg licensing depends on its build and enabled codecs. The container includes the Debian FFmpeg package; preserve its copyright/license files and provide corresponding source where required. Python dependency versions are pinned in the service's requirements.txt.
 
-Cobalt is used only as an interaction-design reference. No cobalt code, branding, fonts or other assets have been copied. Cobalt web and API have different licenses.
+Cobalt is used as an interaction and layout reference. The React components are original; no cobalt source code, branding, mascot artwork or copy is included. Cobalt web and API have different licenses.
+
+## Typography
+
+IBM Plex Mono is distributed through `@fontsource/ibm-plex-mono` 5.3.0 under the SIL Open Font License 1.1. Copyright 2017 IBM Corp. The fonts are self-hosted; no Google Fonts or other external font request is made. The full license is shipped at `/ibm-plex-mono-OFL.txt`. This independently licensed typeface is also used by cobalt; the files here come from Fontsource, not the cobalt repository.

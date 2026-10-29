@@ -1,4 +1,6 @@
-# Clyvora Convert
+# mewvi by Clyvora
+
+Previously Clyvora Convert. The canonical production address is `https://mewvi.xyz/`; repository paths, API routes and saved-preference keys remain compatible. Existing Convert domains are retained during the migration. Browser preferences and anonymous job sessions are scoped to each domain and do not automatically transfer to the new address.
 
 Download public media and convert local audio/video with Clyvora’s interface.
 
@@ -11,6 +13,8 @@ Original preserves source audio without applying saved bitrate, sample-rate or c
 Vercel rewrites and the supplied `_redirects` map these page URLs to the application entry without changing API routing. Other static hosts must serve `index.html` for those paths so direct visits and refresh work.
 
 The queue and service browser use compact popovers. The service browser starts with twenty common discovery shortcuts; search reads the backend catalog for actual capability labels. These shortcuts are not verified-provider claims. The transparent navigation mark and theme-aware SVG favicon use a luminance mask of the supplied monochrome cat artwork. Recreate them with `node scripts/prepare-transparent-icon.mjs` after updating `public/brand-cat.webp`.
+
+Settings and About use grouped category navigation with direct URLs such as `/settings/audio` and `/about/privacy`. Settings includes accessibility preferences, automatic light/dark appearance, bounded settings import/export, and confirmed preference reset. Read the [interface reference audit](docs/INTERFACE_REFERENCE.md) for the cobalt comparison, deliberate feature differences, licensing and verification scope.
 
 Local files are processed on-device using lazy-loaded FFmpeg WebAssembly. Supported local formats include MP3, WAV, Vorbis/OGG, Opus, AAC/M4A, FLAC, MP4, WebM and MKV. Codec availability depends on the pinned runtime. Existing size limits remain 300 MiB audio and 500 MiB video. Remote processing supports more source formats and is limited separately by the service.
 

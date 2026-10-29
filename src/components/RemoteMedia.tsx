@@ -11,6 +11,7 @@ import Panel from './Panel'
 import { Icon } from './Icon'
 import Mascot from './Mascot'
 import Updates from './Updates'
+import { MorphText } from '../MorphText'
 
 const modeLabels = { auto: 'Auto', audio: 'Audio', video: 'Video only' } as const
 export default function RemoteMedia({ controller: r, active }: { controller: RemoteController; active: boolean }) {
@@ -23,14 +24,14 @@ export default function RemoteMedia({ controller: r, active }: { controller: Rem
           <label className="sr-only" htmlFor="remote-url">Public media link</label>
           <div className={`url-field ${r.checking ? 'is-checking' : ''}`}><Icon name="link"/><input id="remote-url" type="url" value={r.url} onChange={e => r.setURL(e.target.value)} placeholder="Paste the link here" autoComplete="off" spellCheck={false} disabled={r.busy} aria-describedby="download-feedback" />{r.url && !r.busy && <button type="button" className="clear-input" onClick={() => r.setURL('')} aria-label="Clear link">×</button>}</div>
           <div className="omnibox-actions"><fieldset className="mode-switch"><legend className="sr-only">Download mode</legend>{(['auto', 'audio', 'video'] as const).map(mode => <label key={mode} className={r.preferences.mode === mode ? 'selected' : ''}><input type="radio" name="download-mode" aria-label={modeLabels[mode]} value={mode} checked={r.preferences.mode === mode} onChange={() => r.setPreferences(current => ({ ...current, mode }))} /><span className="mode-symbol" aria-hidden="true">{mode === 'auto' ? '✧' : mode === 'audio' ? '♫' : '◫'}</span>{modeLabels[mode]}</label>)}</fieldset>
-            <button className="primary-button quick-action" type="submit" disabled={r.busy}>{r.busy ? 'Working…' : r.url.trim() ? 'Download' : 'Paste'}<Icon name={r.url.trim() ? 'arrow' : 'link'}/></button></div>
+            <button className="primary-button quick-action" type="submit" disabled={r.busy}><MorphText>{r.busy ? 'Working…' : r.url.trim() ? 'Download' : 'Paste'}</MorphText><Icon name={r.url.trim() ? 'arrow' : 'link'}/></button></div>
         </form>
         <div id="download-feedback" className="download-feedback" aria-live="polite">{r.error && <p className="error-message" role="alert">{r.error}</p>}{!r.error && r.status && <p role="status">{r.status}</p>}{r.checking && <button className="text-button" type="button" onClick={r.cancelCheck}>Cancel check</button>}{r.discovery && r.panel !== 'collection' && <button className="text-button" type="button" onClick={() => r.setPanel('collection')}>Open collection · {r.discovery.count} discovered</button>}</div>
         {r.needsChoice && r.inspection && <div className="choice-preview"><Metadata controller={r}/><p>Adjust your output settings, then choose Download again.</p><button className="secondary-button" type="button" onClick={() => r.setPanel('settings')}>Choose output settings</button></div>}
       </div>
       <p className="workspace-note"><button type="button" className="text-button" onClick={() => r.setPanel('about')}>About &amp; privacy</button></p>
     </section>
-    {r.panel && <Panel key={r.panel} placement={r.panel === 'queue' || r.panel === 'services' ? r.panel : 'drawer'} title={{ settings: 'Settings', queue: 'Downloads', services: 'Supported services', collection: 'Choose collection items', about: 'About Convert', updates: 'Updates' }[r.panel]} onClose={() => r.setPanel(null)}>
+    {r.panel && <Panel key={r.panel} placement={r.panel === 'queue' || r.panel === 'services' ? r.panel : 'drawer'} title={{ settings: 'Settings', queue: 'Downloads', services: 'Supported services', collection: 'Choose collection items', about: 'About mewvi', updates: 'Updates' }[r.panel]} onClose={() => r.setPanel(null)}>
       {r.panel === 'settings' && <Settings controller={r}/>}{r.panel === 'queue' && <Downloads controller={r}/>}{r.panel === 'services' && <Services/>}{r.panel === 'collection' && <Collection controller={r}/>}{r.panel === 'about' && <About/>}{r.panel === 'updates' && <Updates/>}
     </Panel>}
   </>
@@ -81,10 +82,10 @@ function Downloads({ controller: r }: { controller: RemoteController }) {
     {r.error && <p className="error-message" role="alert">{r.error}</p>}
     {r.queueJobs.map(job => <article className="download-item" key={job.id}>
       <div className="job-heading"><h3>{job.title || (job.total === 1 ? 'Media download' : `${job.total} collection items`)}</h3><span className={`state-badge state-${job.state}`}>{job.state}</span></div>
-      <p role="status">{job.stage}</p><p className="muted">{job.output.container.toUpperCase()} · {job.completed}/{job.total} completed{job.failed ? ` · ${job.failed} failed` : ''}</p>
+      <p role="status"><MorphText>{job.stage}</MorphText></p><p className="muted">{job.output.container.toUpperCase()} · <MorphText>{`${job.completed}/${job.total} completed${job.failed ? ` · ${job.failed} failed` : ''}`}</MorphText></p>
       {job.bytes > 0 && !['ready','partial','failed','cancelled','expired'].includes(job.state) && <p className="muted">{formatBytes(job.bytes)}{job.totalBytes ? ` / ${formatBytes(job.totalBytes)}` : ''}</p>}
       {!!job.totalBytes && job.state === 'downloading' && <progress value={job.bytes} max={job.totalBytes} aria-label="Download progress"/>}{job.state === 'processing' && <progress aria-label="Processing media"/>}{job.error && <p className="error-message">{job.error.message}</p>}
-      {r.downloadNeedsAction.has(job.id) && <p role="status">If your download did not start, select Download file or allow automatic downloads for Convert.</p>}
+      {r.downloadNeedsAction.has(job.id) && <p role="status">If your download did not start, select Download file or allow automatic downloads for mewvi.</p>}
       <div className="job-actions">{job.artifactId && ['ready','partial'].includes(job.state) && <button type="button" className="primary-button" disabled={r.busy} onClick={() => void r.download(job.artifactId!)}>Download {job.total > 1 ? 'ZIP' : 'file'}</button>}
         {!['ready','partial','failed','cancelled','expired'].includes(job.state) && <button className="secondary-button" type="button" disabled={r.busy} onClick={() => void r.cancel(job.id)}>Cancel</button>}{['failed','partial','cancelled','interrupted'].includes(job.state) && <button className="secondary-button" type="button" disabled={r.busy} onClick={() => void r.retry(job.id)}>Retry failed items</button>}
         <button type="button" className="text-button" onClick={() => void r.itemResults(job.id)}>Item results</button>{['ready','partial','failed','cancelled','expired'].includes(job.state) && <button type="button" className="text-button" disabled={r.busy} onClick={() => void r.remove(job.id)}>Remove</button>}

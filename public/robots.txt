@@ -4,4 +4,4 @@ Allow: /
 User-agent: OAI-SearchBot
 Allow: /
 
-Sitemap: https://www.convert.clyvora.tech/sitemap.xml
+Sitemap: https://mewvi.xyz/sitemap.xml

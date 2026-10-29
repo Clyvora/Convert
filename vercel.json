@@ -50,8 +50,10 @@
   "rewrites": [
     { "source": "/local", "destination": "/index.html" },
     { "source": "/settings", "destination": "/index.html" },
+    { "source": "/settings/:path*", "destination": "/index.html" },
     { "source": "/updates", "destination": "/index.html" },
     { "source": "/about", "destination": "/index.html" },
+    { "source": "/about/:path*", "destination": "/index.html" },
     {
       "source": "/api/v1/convert/media/resolve",
       "destination": "https://api.clyvora.tech/v1/media/resolve"

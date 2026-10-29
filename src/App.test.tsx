@@ -33,7 +33,7 @@ function pngFile(): File {
   return new File([new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])], 'image.png', { type: 'image/png' })
 }
 
-describe('Clyvora Convert', () => {
+describe('mewvi', () => {
   beforeEach(() => {
     localStorage.clear()
     engineState.cancelFirst = false
@@ -44,7 +44,7 @@ describe('Clyvora Convert', () => {
 
   it('presents local files and public link entry', () => {
     render(<App />)
-    expect(screen.getByRole('heading', { level: 1, name: /^convert$/i })).toBeVisible()
+    expect(screen.getByRole('heading', { level: 1, name: /^mewvi$/i })).toBeVisible()
     expect(screen.getByRole('textbox', { name: 'Public media link' })).toBeVisible()
     expect(screen.getByRole('button', { name: 'Paste' })).toBeVisible()
     expect(screen.queryByText(/png|jpeg|image resizing/i)).not.toBeInTheDocument()

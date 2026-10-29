@@ -1,5 +1,6 @@
 import { MorphText } from './MorphText'
 import Mascot from './components/Mascot'
+import { Icon } from './components/Icon'
 import { ChoiceGroup } from './ChoiceGroup'
 import { useCallback, useEffect, useReducer, useRef, useState } from 'react'
 import './App.css'
@@ -298,6 +299,7 @@ export default function LocalConverter({ active, onShow }: { active: boolean; on
         <input ref={inputRef} type="file" accept={ACCEPT} multiple hidden onChange={(event) => { void addFiles(Array.from(event.target.files ?? [])); event.currentTarget.value = '' }} />
       </div>
       <p className="field-note">Audio up to {formatBytes(MAX_AUDIO_BYTES)} · Video up to {formatBytes(MAX_VIDEO_BYTES)}</p>
+      <div className="local-explainer"><h3><Icon name="convert"/> A format that fits</h3><p>Convert your audio and video into a format your player or editor supports. Choose output settings after selecting your files.</p><h3><Icon name="about"/> Source quality matters</h3><p>Conversion can change quality. Bigger files and higher bitrates cannot restore detail missing from the original.</p><h3><Icon name="settings"/> On-device processing</h3><p>Your files stay in this browser. The conversion engine loads when needed, and processing speed depends on your device.</p></div>
     </section> : <section className="workspace" aria-labelledby="queue-title">
       <div className="workspace-heading">
         <Mascot className="local-queue-companion" pose={busy ? 'working' : items.some(item => item.status === 'failed') ? 'confused' : completedCount === items.length ? 'ready' : 'sitting'}/>

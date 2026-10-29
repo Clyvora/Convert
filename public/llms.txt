@@ -1,10 +1,10 @@
-# Clyvora Convert
+# mewvi by Clyvora
 
-> Convert audio and video privately in your browser.
+> Download public media and convert local audio and video.
 
-Clyvora Convert accepts local MP3, WAV, OGG, Opus, MP4, and WebM files. It does not accept images or remote URLs. Selected files are processed with a self-hosted FFmpeg WebAssembly runtime and are not uploaded to a conversion server.
+mewvi (formerly Clyvora Convert) supports public-link media downloading through Clyvora's media service, plus local audio/video conversion with self-hosted FFmpeg WebAssembly. Local files stay on the device; submitted public links contact Clyvora infrastructure and the source platform. Provider support varies. The product remains in beta.
 
-- Use: https://www.convert.clyvora.tech/
+- Use: https://mewvi.xyz/
 - Product family: https://www.clyvora.tech/
 - Source: https://github.com/Clyvora/Convert
 

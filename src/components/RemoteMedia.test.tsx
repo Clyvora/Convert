@@ -26,6 +26,26 @@ beforeEach(() => {
 })
 afterEach(() => { vi.restoreAllMocks(); vi.useRealTimers() })
 
+it('respects disabled automatic queue opening without disabling background delivery', async () => {
+  localStorage.setItem('clyvora-convert-interface-v1',JSON.stringify({autoOpenQueue:false}))
+  vi.mocked(remoteMedia.create).mockResolvedValue({...job,state:'ready',artifactId:'artifact'})
+  const user=userEvent.setup();render(<Harness/>)
+  await user.type(screen.getByLabelText('Public media link'),'https://example.com/video{Enter}')
+  await waitFor(()=>expect(anchorClick).toHaveBeenCalledOnce())
+  expect(screen.queryByRole('dialog',{name:'Downloads'})).not.toBeInTheDocument()
+})
+
+it('keeps ready work available for manual delivery when automatic downloading is disabled', async () => {
+  localStorage.setItem('clyvora-convert-interface-v1',JSON.stringify({autoDownload:false}))
+  vi.mocked(remoteMedia.create).mockResolvedValue({...job,state:'ready',artifactId:'artifact'})
+  const user=userEvent.setup();render(<Harness/>)
+  await user.type(screen.getByLabelText('Public media link'),'https://example.com/video{Enter}')
+  await screen.findByRole('button',{name:'Download file'})
+  expect(anchorClick).not.toHaveBeenCalled()
+  await user.click(screen.getByRole('button',{name:'Download file'}))
+  await waitFor(()=>expect(anchorClick).toHaveBeenCalledOnce())
+})
+
 it('inspects only on Download and preserves failed input', async () => {
   const user = userEvent.setup(); vi.mocked(remoteMedia.inspect).mockRejectedValue(new Error('Source unavailable'))
   render(<Harness/>)
