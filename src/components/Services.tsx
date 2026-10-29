@@ -16,13 +16,12 @@ export default function Services() {
   }
   return <div className="services-popover-content">
     <div className="service-chip-list" aria-label="Common providers">{popular.map(name => <button key={name} type="button" onClick={() => { setPage(null); void search(name === 'X / Twitter' ? 'twitter' : name) }} aria-label={`Search ${name}`}>{name}</button>)}</div>
-    <p className="services-caption">Common sources to explore. Availability varies; a listing does not guarantee a working download or profile.</p>
+    <p className="services-caption">Availability varies by source.</p>
     {!searching ? <button className="catalog-search-trigger" type="button" onClick={() => setSearching(true)}><span aria-hidden="true">⌕</span> Search all services <span aria-hidden="true">↗</span></button> : <>
       <form className="service-search" onSubmit={e => { e.preventDefault(); void search(query) }}><label>Search services<input autoFocus value={query} placeholder="Find a provider…" onChange={e => { setQuery(e.target.value); setPage(null); ++request.current; setBusy(false) }}/></label><button className="secondary-button" disabled={busy}>{busy ? 'Searching…' : 'Search'}</button></form>
       {error && <p className="error-message" role="alert">{error}</p>}
       <div className="catalog-results" aria-live="polite">{page?.items.map(s => <article className="service-item" key={s.id}><h3>{s.id}<span className="muted">{s.enabled ? 'enabled' : 'disabled'}</span></h3><p>Downloads: {s.single} · Playlists: {s.playlist} · Profiles: {s.profile}</p></article>)}{page && !page.items.length && <p>No matching services.</p>}</div>
       {page?.next && <button className="text-button" type="button" disabled={busy} onClick={() => void search(query, page.next!)}>More results</button>}
     </>}
-    <p className="services-ethics">Public media only. No affiliation with the listed providers.</p>
   </div>
 }

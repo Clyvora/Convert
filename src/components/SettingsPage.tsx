@@ -36,6 +36,7 @@ function Select({ label, children, value, onChange, hint }: { label: string; chi
 
 export default function SettingsPage({ controller: r }: { controller: RemoteController }) {
   const [section, setSection] = useState(currentSection)
+  const [showHelp, setShowHelp] = useState(false)
   const [theme, setTheme] = useState(() => document.documentElement.dataset.theme === 'light' ? 'light' : 'dark')
   useEffect(() => {
     const changed = () => setSection(currentSection())
@@ -55,15 +56,13 @@ export default function SettingsPage({ controller: r }: { controller: RemoteCont
     document.querySelector('meta[name="theme-color"]')?.setAttribute('content', value === 'dark' ? '#151515' : '#fafafa')
     try { localStorage.setItem('clyvora-theme', value) } catch { /* Optional device preference. */ }
   }
-  return <div className="settings-studio">
-    <aside className="settings-directory"><p className="settings-caption">YOUR CONVERT</p><nav aria-label="Settings categories">{sections.map(s => <a key={s.id} href={`#${s.id}`} aria-current={section === s.id ? 'location' : undefined} onClick={() => setSection(s.id)}><span aria-hidden="true" className={`category-glyph category-${s.id}`}>{s.icon}</span>{s.title}</a>)}</nav><div className="settings-saved"><span aria-hidden="true">✓</span> Preferences saved on this device</div><Mascot pose="local" className="settings-cat"/></aside>
+  return <div className={`settings-studio ${showHelp ? 'show-explanations' : ''}`}>
+    <aside className="settings-directory"><nav aria-label="Settings categories">{sections.map(s => <a key={s.id} href={`#${s.id}`} aria-current={section === s.id ? 'location' : undefined} onClick={() => setSection(s.id)}><span aria-hidden="true" className={`category-glyph category-${s.id}`}>{s.icon}</span>{s.title}</a>)}</nav><Mascot pose="local" className="settings-cat"/></aside>
     <section key={section} className="settings-detail" data-category={section} aria-label={`${selected.title} settings`}>
-      <header className="settings-detail-heading"><span aria-hidden="true" className={`category-glyph category-${section}`}>{selected.icon}</span><div><h2>{selected.title}</h2><p>{selected.description}</p></div></header>
-      {['video','audio','metadata'].includes(section) && <div className="output-peek" key={`${p.videoContainer}-${p.audioContainer}-${o.preset}-${o.metadata}-${o.chapters}-${o.cover}`}><div className="output-file" aria-hidden="true"><span>{section === 'audio' ? '♫' : section === 'metadata' ? '≡' : '▷'}</span><small>{section === 'audio' ? p.audioContainer === 'original' ? 'SOURCE' : p.audioContainer.toUpperCase() : p.videoContainer === 'original' ? 'SOURCE' : p.videoContainer.toUpperCase()}</small></div><div><span className="output-peek-label">YOUR NEXT DOWNLOAD</span><strong>{section === 'metadata' ? 'Keep the whole story.' : section === 'audio' ? 'Just the sound you came for.' : 'A picture worth keeping.'}</strong><p>{section === 'metadata' ? `${[o.metadata && 'Metadata', o.chapters && 'Chapters', o.cover && 'Cover art', o.subtitle && 'Subtitles'].filter(Boolean).join(' · ') || 'No extras selected'}` : `${o.preset === 'smaller' ? 'Smaller file' : 'Best available'} · ${section === 'audio' ? o.audioBitrate ? `${o.audioBitrate} kbps` : 'Source bitrate' : o.height ? `${o.height}p` : 'Source resolution'}`}</p></div><span className="preview-saved" aria-label="Preferences save automatically">✓</span></div>}
+      <header className="settings-detail-heading"><span aria-hidden="true" className={`category-glyph category-${section}`}>{selected.icon}</span><div><h2>{selected.title}</h2></div><button className="settings-help-button" type="button" aria-pressed={showHelp} onClick={() => setShowHelp(value => !value)}>Help</button></header>
       {section === 'appearance' && <>
         <Choices label="Theme" value={theme} onChange={chooseTheme} values={[[ 'dark', 'Dark' ], [ 'light', 'Light' ]]} hint="A little easier on the eyes. Your choice stays with this browser."/>
         <div className="theme-sample" aria-hidden="true"><div className="sample-top"><span/><span/><span/></div><div className="sample-content"><Mascot pose="sitting"/><div className="sample-input">Paste the link here <span>↗</span></div><div className="sample-bottom"><span>Auto</span><span>Audio</span><strong>Download</strong></div></div></div>
-        <p className="setting-hint">A preview of your workspace. Convert follows your device’s reduced-motion preference.</p>
       </>}
       {section === 'video' && <>
         <Choices label="Video format" value={p.videoContainer} values={formats('video')} onChange={value => r.setPreferences(previous => ({ ...previous, videoContainer: value as Container }))} hint="Original keeps a suitable source container. MP4 offers broad playback compatibility; WebM favors modern codecs."/>
@@ -76,7 +75,7 @@ export default function SettingsPage({ controller: r }: { controller: RemoteCont
       {section === 'audio' && <>
         <Choices label="Audio format" value={p.audioContainer} values={formats('audio')} onChange={value => r.setPreferences(previous => ({ ...previous, audioContainer: value as Container }))} hint="MP3 is widely supported. WAV and FLAC preserve decoded audio without restoring quality missing from the source."/>
         <Choices label="Audio quality" value={o.preset} values={[[ 'best', 'Best available' ], [ 'smaller', 'Smaller file' ]]} onChange={value => update({ preset: value as Output['preset'] })} hint="The quality preset is shared with video downloads."/>
-        <Choices label="Audio bitrate" value={String(o.audioBitrate || '')} values={[[ '', 'Source' ], ...[96,128,192,256,320].map(n => [String(n), String(n)] as [string,string])]} onChange={value => update({ audioBitrate: Number(value) || undefined })} hint="Values are in kbps. Applies to encoders with a bitrate setting; lossless formats ignore it."/>
+        <Choices label="Audio bitrate (kbps)" value={String(o.audioBitrate || '')} values={[[ '', 'Source' ], ...[96,128,192,256,320].map(n => [String(n), String(n)] as [string,string])]} onChange={value => update({ audioBitrate: Number(value) || undefined })} hint="Values are in kbps. Applies to encoders with a bitrate setting; lossless formats ignore it."/>
         <Choices label="Sample rate" value={String(o.sampleRate || '')} values={[[ '', 'Source' ], [ '44100', '44.1 kHz' ], [ '48000', '48 kHz' ]]} onChange={value => update({ sampleRate: Number(value) || undefined })}/>
         <Choices label="Channels" value={String(o.channels || '')} values={[[ '', 'Source' ], [ '1', 'Mono' ], [ '2', 'Stereo' ]]} onChange={value => update({ channels: Number(value) || undefined })}/>
         <Select label="Audio language" value={o.language || ''} onChange={value => update({ language: value || undefined })} hint="Available tracks appear after inspecting a link."><option value="">Source default</option>{[...new Set([...(o.language ? [o.language] : []), ...languages])].map(l => <option key={l}>{l}</option>)}</Select>
@@ -84,12 +83,12 @@ export default function SettingsPage({ controller: r }: { controller: RemoteCont
       {section === 'metadata' && <>
         <Toggle label="Include metadata" checked={!!o.metadata} onChange={metadata => update({ metadata })} hint="Keep available title and creator information in the output file."/>
         <Toggle label="Include chapters" checked={!!o.chapters} onChange={chapters => update({ chapters })} hint="Preserve source chapters when supported by the chosen format."/>
-        <Toggle label="Include cover art" checked={!!o.cover} onChange={cover => update({ cover })} hint="Add artwork to MP3 or M4A files when the source provides it."/>
+        <Toggle label="Include cover art (MP3 / M4A)" checked={!!o.cover} onChange={cover => update({ cover })} hint="Add artwork to MP3 or M4A files when the source provides it."/>
         <Select label="Subtitles" value={o.subtitle || ''} onChange={value => update({ subtitle: value || undefined })} hint="Inspect a link to see available subtitle languages."><option value="">None</option>{[...new Set([...(o.subtitle ? [o.subtitle] : []), ...(i?.subtitles || [])])].map(l => <option key={l}>{l}</option>)}</Select>
         {o.subtitle && <Choices label="Subtitle format" value={o.subtitleFormat || 'embedded'} values={[[ 'embedded', 'Embedded' ], [ 'srt', 'SRT' ], [ 'vtt', 'WebVTT' ]]} onChange={value => update({ subtitleFormat: value as Output['subtitleFormat'] })}/>}
       </>}
       {section === 'privacy' && <div className="settings-privacy"><div><h3>Local means local.</h3><p>Files chosen from your device are converted in your browser. They are not uploaded. Reselect them after a refresh.</p></div><div><h3>Public links use our service.</h3><p>Submitted links contact Clyvora infrastructure and the source platform. Remote files expire after 24 hours; job and session metadata after seven days.</p></div><div><h3>Your preferences stay here.</h3><p>Theme and output choices are saved in this browser. Remote jobs use an anonymous session. Private, authenticated, paid, and DRM-protected content is unsupported.</p></div></div>}
-      {section !== 'privacy' && <footer className="settings-footnote">These defaults apply to new public-link jobs. Local conversion has its own file options.</footer>}
+      {section !== 'privacy' && <footer className="setting-hint">These defaults apply to new public-link jobs. Local conversion has its own file options.</footer>}
     </section>
   </div>
 }

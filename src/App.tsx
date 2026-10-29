@@ -7,6 +7,7 @@ import { Icon } from './components/Icon'
 import { useRemoteMedia, type Panel } from './core/useRemoteMedia'
 import { useNavigation, type Route } from './core/navigation'
 import './polish.css'
+import './clean-interface.css'
 
 const titles = { '/': 'Convert', '/local': 'Local conversion', '/settings': 'Settings', '/updates': 'Updates', '/about': 'About Convert', missing: 'Page not found' }
 
@@ -22,7 +23,7 @@ export default function App() {
   const controller = { ...remote, setPanel }
   const showLocal = useCallback(() => navigate('/local'), [navigate])
   useEffect(() => {
-    document.title = `${titles[route]} · Clyvora`
+    document.title = route === '/' ? 'Convert' : `${route === '/about' ? 'About' : titles[route]} · Convert`
     closePanel(null)
     window.scrollTo(0, 0)
     heading.current?.focus({ preventScroll: true })
@@ -48,7 +49,7 @@ export default function App() {
       <LocalConverter active={route === '/local'} onShow={showLocal}/>
       {infoPage && <div className={`content-page ${route === '/settings' ? 'settings-page' : ''}`}>
         {route === '/settings' && <SettingsPage controller={controller}/>}
-        {route === '/updates' && <Updates/>}{route === '/about' && <About/>}
+        {route === '/updates' && <Updates/>}{route === '/about' && <About onUpdates={() => navigate('/updates')}/>}
         {route === 'missing' && <p>This page isn’t available. <a href="/" onClick={event => visit(event, '/')}>Return to downloads</a>.</p>}
       </div>}
     </main>

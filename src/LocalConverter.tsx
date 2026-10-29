@@ -297,12 +297,12 @@ export default function LocalConverter({ active, onShow }: { active: boolean; on
         <p className="field-note">or drop audio and video here</p>
         <input ref={inputRef} type="file" accept={ACCEPT} multiple hidden onChange={(event) => { void addFiles(Array.from(event.target.files ?? [])); event.currentTarget.value = '' }} />
       </div>
-      <p className="field-note">Audio up to {formatBytes(MAX_AUDIO_BYTES)} · Video up to {formatBytes(MAX_VIDEO_BYTES)}<br/>Local files stay on this device. Reselect them after a refresh.</p>
+      <p className="field-note">Audio up to {formatBytes(MAX_AUDIO_BYTES)} · Video up to {formatBytes(MAX_VIDEO_BYTES)}</p>
     </section> : <section className="workspace" aria-labelledby="queue-title">
       <div className="workspace-heading">
         <Mascot className="local-queue-companion" pose={busy ? 'working' : items.some(item => item.status === 'failed') ? 'confused' : completedCount === items.length ? 'ready' : 'sitting'}/>
         <div>
-          <p className="eyebrow">Conversion queue</p>
+
           <h2 id="queue-title"><MorphText>{`${items.length} ${items.length === 1 ? 'file' : 'files'} ready.`}</MorphText></h2>
         </div>
         <button className="secondary-button" type="button" disabled={busy} onClick={() => inputRef.current?.click()}>Add files</button>
