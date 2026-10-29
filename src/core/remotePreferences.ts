@@ -37,7 +37,12 @@ export function outputFor(preferences: RemotePreferences, inspection?: Inspectio
     const audio = inspection.formats.some(f => f.audio)
     mode = video ? audio ? 'combined' : 'video' : 'audio'
   }
-  const output = parseOutput({ ...preferences.options, mode, container: mode === 'audio' ? preferences.audioContainer : preferences.videoContainer })
+  const container = mode === 'audio' ? preferences.audioContainer : preferences.videoContainer
+  const options = { ...preferences.options }
+  // Original preserves source audio instead of re-encoding it using a saved
+  // bitrate from another output format. Explicit formats retain those choices.
+  if (container === 'original' || preferences.audioContainer === 'original') { delete options.audioBitrate; delete options.sampleRate; delete options.channels }
+  const output = parseOutput({ ...options, mode, container })
   if (mode === 'audio') { delete output.height; delete output.fps; delete output.videoCodec; delete output.subtitle; delete output.subtitleFormat }
   if (mode === 'video') { delete output.audioBitrate; delete output.sampleRate; delete output.channels; delete output.language; delete output.cover }
   if (['wav', 'flac'].includes(output.container)) delete output.audioBitrate

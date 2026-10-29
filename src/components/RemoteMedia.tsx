@@ -77,18 +77,23 @@ export function Settings({ controller: r, expanded = false }: { controller: Remo
 }
 function Downloads({ controller: r }: { controller: RemoteController }) {
   return <div className="download-list">
-    {!r.jobs.length && <div className="panel-empty"><Mascot pose="sleeping"/><h3>Nothing here yet</h3><p>Your downloads will appear here, ready when you are.</p></div>}
+    {!r.queueJobs.length && <div className="panel-empty"><Mascot pose="sleeping"/><h3>{r.recentJobs.length ? 'All caught up' : 'Nothing here yet'}</h3>{!r.recentJobs.length && <p>Your downloads will appear here, ready when you are.</p>}</div>}
     {r.error && <p className="error-message" role="alert">{r.error}</p>}
-    {r.jobs.map(job => <article className="download-item" key={job.id}>
-      <div className="job-heading"><h3>{job.total === 1 ? 'Media download' : `${job.total} collection items`}</h3><span className={`state-badge state-${job.state}`}>{job.state}</span></div>
+    {r.queueJobs.map(job => <article className="download-item" key={job.id}>
+      <div className="job-heading"><h3>{job.title || (job.total === 1 ? 'Media download' : `${job.total} collection items`)}</h3><span className={`state-badge state-${job.state}`}>{job.state}</span></div>
       <p role="status">{job.stage}</p><p className="muted">{job.output.container.toUpperCase()} · {job.completed}/{job.total} completed{job.failed ? ` · ${job.failed} failed` : ''}</p>
       {job.bytes > 0 && !['ready','partial','failed','cancelled','expired'].includes(job.state) && <p className="muted">{formatBytes(job.bytes)}{job.totalBytes ? ` / ${formatBytes(job.totalBytes)}` : ''}</p>}
-      {!!job.totalBytes && ['downloading','processing'].includes(job.state) && <progress value={job.bytes} max={job.totalBytes} aria-label="Download progress"/>}{job.error && <p className="error-message">{job.error.message}</p>}
+      {!!job.totalBytes && job.state === 'downloading' && <progress value={job.bytes} max={job.totalBytes} aria-label="Download progress"/>}{job.state === 'processing' && <progress aria-label="Processing media"/>}{job.error && <p className="error-message">{job.error.message}</p>}
+      {r.downloadNeedsAction.has(job.id) && <p role="status">If your download did not start, select Download file or allow automatic downloads for Convert.</p>}
       <div className="job-actions">{job.artifactId && ['ready','partial'].includes(job.state) && <button type="button" className="primary-button" disabled={r.busy} onClick={() => void r.download(job.artifactId!)}>Download {job.total > 1 ? 'ZIP' : 'file'}</button>}
         {!['ready','partial','failed','cancelled','expired'].includes(job.state) && <button className="secondary-button" type="button" disabled={r.busy} onClick={() => void r.cancel(job.id)}>Cancel</button>}{['failed','partial','cancelled','interrupted'].includes(job.state) && <button className="secondary-button" type="button" disabled={r.busy} onClick={() => void r.retry(job.id)}>Retry failed items</button>}
         <button type="button" className="text-button" onClick={() => void r.itemResults(job.id)}>Item results</button>{['ready','partial','failed','cancelled','expired'].includes(job.state) && <button type="button" className="text-button" disabled={r.busy} onClick={() => void r.remove(job.id)}>Remove</button>}
       </div>
     </article>)}
+    {r.recentJobs.length > 0 && <details className="recent-downloads"><summary>Recent downloads ({r.recentJobs.length})</summary>{r.recentJobs.map(job => <article className="download-item" key={job.id}>
+      <div className="job-heading"><h3>{job.title || (job.total === 1 ? 'Media download' : `${job.total} collection items`)}</h3>{job.state === 'expired' && <span className="state-badge">expired</span>}</div>
+      <div className="job-actions">{job.state === 'ready' && job.artifactId && <button type="button" className="secondary-button" disabled={r.busy} onClick={() => void r.download(job.artifactId!)}>Download again</button>}<button type="button" className="text-button" onClick={() => void r.itemResults(job.id)}>Item results</button><button type="button" className="text-button" disabled={r.busy} onClick={() => void r.remove(job.id)}>Remove</button></div>
+    </article>)}</details>}
     {r.results && <section className="item-results"><div className="job-heading"><h3>Item results</h3><button type="button" className="text-button" onClick={() => r.setResults(null)}>Close results</button></div>{r.results.page.items.map(item => <article key={item.id}><p>{item.title}</p><p className="muted">{item.state}{item.error ? ` · ${item.error.message}` : ''}</p><div className="job-actions">{item.artifactId && <button className="secondary-button" type="button" onClick={() => void r.download(item.artifactId!)}>Download file</button>}{item.subtitleArtifactId && <button className="secondary-button" type="button" onClick={() => void r.download(item.subtitleArtifactId!)}>Download subtitles</button>}</div></article>)}{r.results.page.next && <button type="button" className="secondary-button" onClick={() => void r.itemResults(r.results!.id, r.results!.page.next!)}>Next results</button>}</section>}
     {r.jobs.length > 0 && <p className="field-note">Files expire after 24 hours. If a download doesn’t start automatically, use its download button.</p>}
   </div>

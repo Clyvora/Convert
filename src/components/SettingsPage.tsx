@@ -23,9 +23,9 @@ function currentSection(): Section {
   return sections.find(s => s.id === hash)?.id || 'appearance'
 }
 
-function Choices({ label, value, values, onChange, hint }: { label: string; value: string; values: [string, string][]; onChange: (value: string) => void; hint?: string }) {
+function Choices({ label, value, values, onChange, hint, disabled = false }: { label: string; value: string; values: [string, string][]; onChange: (value: string) => void; hint?: string; disabled?: boolean }) {
   const name = useId()
-  return <div className="setting-block"><fieldset className="setting-choices"><legend>{label}</legend><div className="setting-segments">{values.map(([id, text]) => <label key={id} className={id === value ? 'is-selected' : ''}><input type="radio" name={name} value={id} checked={value === id} onChange={() => onChange(id)}/><span>{text}</span></label>)}</div></fieldset>{hint && <p className="setting-hint">{hint}</p>}</div>
+  return <div className="setting-block"><fieldset className="setting-choices" disabled={disabled}><legend>{label}</legend><div className="setting-segments">{values.map(([id, text]) => <label key={id} className={id === value ? 'is-selected' : ''}><input type="radio" name={name} value={id} checked={value === id} onChange={() => onChange(id)}/><span>{text}</span></label>)}</div></fieldset>{hint && <p className="setting-hint">{hint}</p>}</div>
 }
 function Toggle({ label, checked, onChange, hint }: { label: string; checked: boolean; onChange: (checked: boolean) => void; hint: string }) {
   return <div className="setting-block"><label className="setting-toggle"><span>{label}</span><input type="checkbox" role="switch" checked={checked} onChange={e => onChange(e.target.checked)}/><span className="toggle-track" aria-hidden="true"/></label><p className="setting-hint">{hint}</p></div>
@@ -75,9 +75,9 @@ export default function SettingsPage({ controller: r }: { controller: RemoteCont
       {section === 'audio' && <>
         <Choices label="Audio format" value={p.audioContainer} values={formats('audio')} onChange={value => r.setPreferences(previous => ({ ...previous, audioContainer: value as Container }))} hint="MP3 is widely supported. WAV and FLAC preserve decoded audio without restoring quality missing from the source."/>
         <Choices label="Audio quality" value={o.preset} values={[[ 'best', 'Best available' ], [ 'smaller', 'Smaller file' ]]} onChange={value => update({ preset: value as Output['preset'] })} hint="The quality preset is shared with video downloads."/>
-        <Choices label="Audio bitrate (kbps)" value={String(o.audioBitrate || '')} values={[[ '', 'Source' ], ...[96,128,192,256,320].map(n => [String(n), String(n)] as [string,string])]} onChange={value => update({ audioBitrate: Number(value) || undefined })} hint="Values are in kbps. Applies to encoders with a bitrate setting; lossless formats ignore it."/>
-        <Choices label="Sample rate" value={String(o.sampleRate || '')} values={[[ '', 'Source' ], [ '44100', '44.1 kHz' ], [ '48000', '48 kHz' ]]} onChange={value => update({ sampleRate: Number(value) || undefined })}/>
-        <Choices label="Channels" value={String(o.channels || '')} values={[[ '', 'Source' ], [ '1', 'Mono' ], [ '2', 'Stereo' ]]} onChange={value => update({ channels: Number(value) || undefined })}/>
+        <Choices label="Audio bitrate (kbps)" disabled={p.audioContainer === 'original'} value={String(p.audioContainer === 'original' ? '' : o.audioBitrate || '')} values={[[ '', 'Source' ], ...[96,128,192,256,320].map(n => [String(n), String(n)] as [string,string])]} onChange={value => update({ audioBitrate: Number(value) || undefined })} hint="Original preserves source audio for faster downloads. Choose another format to change bitrate, sample rate or channels."/>
+        <Choices label="Sample rate" disabled={p.audioContainer === 'original'} value={String(p.audioContainer === 'original' ? '' : o.sampleRate || '')} values={[[ '', 'Source' ], [ '44100', '44.1 kHz' ], [ '48000', '48 kHz' ]]} onChange={value => update({ sampleRate: Number(value) || undefined })}/>
+        <Choices label="Channels" disabled={p.audioContainer === 'original'} value={String(p.audioContainer === 'original' ? '' : o.channels || '')} values={[[ '', 'Source' ], [ '1', 'Mono' ], [ '2', 'Stereo' ]]} onChange={value => update({ channels: Number(value) || undefined })}/>
         <Select label="Audio language" value={o.language || ''} onChange={value => update({ language: value || undefined })} hint="Available tracks appear after inspecting a link."><option value="">Source default</option>{[...new Set([...(o.language ? [o.language] : []), ...languages])].map(l => <option key={l}>{l}</option>)}</Select>
       </>}
       {section === 'metadata' && <>

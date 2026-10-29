@@ -95,6 +95,47 @@ it('never automatically downloads restored jobs', async () => {
   await user.click(screen.getByRole('button',{name:'Open queue'}));await screen.findByRole('button',{name:'Download file'})
   expect(remoteMedia.access).not.toHaveBeenCalled();expect(anchorClick).not.toHaveBeenCalled()
 })
+
+it('keeps clicked downloads queued until transfer confirmation, then moves them to Recent', async () => {
+  const ready = {...job,state:'ready' as const,artifactId:'artifact',completed:1,stage:'Ready'}
+  vi.mocked(remoteMedia.create).mockResolvedValue(ready)
+  const user=userEvent.setup();render(<Harness/>);await user.type(screen.getByLabelText('Public media link'),'https://example.com/video{Enter}')
+  await waitFor(()=>expect(anchorClick).toHaveBeenCalledOnce())
+  expect(screen.getByRole('button',{name:'Download file'})).toBeVisible()
+  expect(screen.queryByText(/Recent downloads/)).not.toBeInTheDocument()
+  vi.mocked(remoteMedia.jobs).mockResolvedValue({items:[{...ready,deliveredAt:Date.now()}],next:null})
+  await waitFor(()=>expect(screen.getByText('Recent downloads (1)')).toBeVisible(),{timeout:4000})
+  expect(screen.queryByRole('button',{name:'Download file'})).not.toBeInTheDocument()
+  await user.click(screen.getByText('Recent downloads (1)'));await user.click(screen.getByRole('button',{name:'Download again'}))
+  expect(anchorClick).toHaveBeenCalledTimes(2)
+})
+
+it('retries a transient access failure without duplicating the actual download', async () => {
+  const ready={...job,state:'ready' as const,artifactId:'artifact',completed:1,stage:'Ready'}
+  vi.mocked(remoteMedia.jobs).mockResolvedValue({items:[ready],next:null});vi.mocked(remoteMedia.create).mockResolvedValue(ready)
+  vi.mocked(remoteMedia.access).mockRejectedValueOnce(Object.assign(new Error('Try again'),{retryable:true}))
+  const user=userEvent.setup();render(<Harness/>);await user.type(screen.getByLabelText('Public media link'),'https://example.com/video{Enter}')
+  await waitFor(()=>expect(anchorClick).toHaveBeenCalledOnce(),{timeout:6000})
+  expect(remoteMedia.access).toHaveBeenCalledTimes(2)
+},10000)
+
+it('keeps partial batches in the queue after their archive was transferred', async () => {
+  vi.mocked(remoteMedia.jobs).mockResolvedValue({items:[{...job,state:'partial',total:2,completed:1,failed:1,artifactId:'archive',deliveredAt:Date.now()}],next:null})
+  const user=userEvent.setup();render(<Harness/>);await user.click(screen.getByRole('button',{name:'Open queue'}))
+  expect(await screen.findByRole('button',{name:'Retry failed items'})).toBeVisible()
+  expect(screen.queryByText(/Recent downloads/)).not.toBeInTheDocument()
+})
+
+it('does not start a late automatic download after its job was removed', async () => {
+  let finishAccess: (value: {url:string;name:string;expires:number}) => void = () => undefined
+  vi.mocked(remoteMedia.access).mockImplementationOnce(()=>new Promise(resolve=>{finishAccess=resolve}))
+  vi.mocked(remoteMedia.remove).mockResolvedValue({removed:true})
+  vi.mocked(remoteMedia.create).mockResolvedValue({...job,state:'ready',artifactId:'artifact',completed:1})
+  const user=userEvent.setup();render(<Harness/>);await user.type(screen.getByLabelText('Public media link'),'https://example.com/video{Enter}')
+  await user.click(await screen.findByRole('button',{name:'Remove'}))
+  await act(async()=>finishAccess({url:'https://media.example/artifact',name:'clip.mp4',expires:Date.now()+60000}))
+  expect(anchorClick).not.toHaveBeenCalled()
+})
 it('opens selection for a collection and never enqueues it implicitly', async () => {
   vi.mocked(remoteMedia.inspect).mockResolvedValue({...inspection,kind:'playlist',formats:[]})
   const user = userEvent.setup();render(<Harness/>)

@@ -12,7 +12,7 @@ async function remoteSession(): Promise<string> {
     method: 'POST', credentials: 'same-origin', headers: { 'content-type': 'application/json' }, body: '{}', signal: AbortSignal.timeout(15_000),
   }).then(async response => {
     const body = await response.json()
-    if (!response.ok || typeof body.csrf !== 'string') throw new FetchError(body.error?.code || 'SERVICE_UNAVAILABLE', body.error?.message || 'The download service is unavailable. Local files still work.')
+    if (!response.ok || typeof body.csrf !== 'string') throw new FetchError(body.error?.code || 'SERVICE_UNAVAILABLE', body.error?.message || 'The download service is unavailable. Local files still work.', body.error?.retryable ?? response.status >= 500, Number(response.headers.get('retry-after')) || undefined)
     return body.csrf as string
   }).catch(error => { sessionPromise = null; throw error })
   return sessionPromise
@@ -30,7 +30,7 @@ async function remote<T>(path: string, body?: unknown, key?: string, signal?: Ab
   if (!response.ok) {
     if (response.status === 401) sessionPromise = null
     const error = (value as { error?: ServiceError })?.error
-    throw new FetchError(error?.code || 'REQUEST_FAILED', error?.message || 'The download service could not complete this request.')
+    throw new FetchError(error?.code || 'REQUEST_FAILED', error?.message || 'The download service could not complete this request.', error?.retryable ?? response.status >= 500, error?.retryAfter || Number(response.headers.get('retry-after')) || undefined)
   }
   if (!value || typeof value !== 'object') throw new FetchError('INVALID_RESPONSE', 'The download service returned an invalid response.')
   return value as T
@@ -74,9 +74,13 @@ export interface ResolvedMedia {
 
 export class FetchError extends Error {
   readonly code: string
-  constructor(code: string, message: string) {
+  readonly retryable: boolean
+  readonly retryAfter?: number
+  constructor(code: string, message: string, retryable = false, retryAfter?: number) {
     super(message)
     this.code = code
+    this.retryable = retryable
+    this.retryAfter = retryAfter && Number.isFinite(retryAfter) ? Math.min(300, Math.max(0, retryAfter)) : undefined
     this.name = 'FetchError'
   }
 }
