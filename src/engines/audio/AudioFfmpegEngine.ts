@@ -48,7 +48,8 @@ export class LocalMediaFfmpegEngine {
     let currentFfmpeg: FfmpegInstance | null = null
 
     try {
-      const requiresVideoCore = inputFormat === 'mp4' || inputFormat === 'webm' || options.outputFormat === 'mp4' || options.outputFormat === 'webm'
+      // The bundled multithreaded AAC build can stall. Use the verified single-thread core.
+      const requiresVideoCore = ['mp4', 'webm', 'mkv', 'm4a', 'flac'].includes(inputFormat) || ['mp4', 'webm', 'mkv', 'm4a', 'flac'].includes(options.outputFormat)
       await this.ensureLoaded(options.signal, options.onProgress, requiresVideoCore ? 'single-thread' : undefined)
       this.throwIfAborted(options.signal)
       currentFfmpeg = this.ffmpeg

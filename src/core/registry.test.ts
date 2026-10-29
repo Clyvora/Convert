@@ -12,8 +12,8 @@ describe('media conversion registry', () => {
 
   it('exposes no image formats', () => {
     expect(Object.keys({ mp3: 1, wav: 1, ogg: 1, opus: 1, mp4: 1, webm: 1 })).toHaveLength(6)
-    expect(getOutputFormats('wav')).toEqual(['mp3', 'ogg', 'opus'])
-    expect(getOutputFormats('mp4')).toEqual(['webm', 'mp3', 'wav', 'ogg', 'opus'])
+    expect(getOutputFormats('wav')).toEqual(['mp3', 'ogg', 'opus', 'm4a', 'flac'])
+    expect(getOutputFormats('mp4')).toEqual(['webm', 'mp3', 'wav', 'ogg', 'opus', 'mkv', 'm4a', 'flac'])
     expect(isAudioFormat('wav')).toBe(true)
     expect(isVideoFormat('mp4')).toBe(true)
   })

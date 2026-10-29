@@ -2,7 +2,7 @@
   "name": "clyvora-convert",
   "private": true,
   "version": "0.3.0-beta.1",
-  "description": "A private, local-first audio and video converter for the browser.",
+  "description": "Public media downloading and private on-device audio/video conversion.",
   "license": "SEE LICENSE IN LICENSE",
   "homepage": "https://www.convert.clyvora.tech/",
   "repository": {
@@ -36,7 +36,8 @@
     "test": "vitest run && vitest run --config vitest.browser.config.ts",
     "test:unit": "vitest run src/core src/engines",
     "test:integration": "vitest run src/App.test.tsx",
-    "test:media": "vitest run --config vitest.browser.config.ts"
+    "test:media": "vitest run --config vitest.browser.config.ts",
+    "test:remote": "node tests/remote-flow.mjs"
   },
   "dependencies": {
     "@ffmpeg/core": "^0.12.10",
@@ -54,13 +55,13 @@
     "@types/react": "^19.2.17",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^6.0.4",
-    "@vitest/browser-playwright": "4.1.10",
+    "@vitest/browser-playwright": "4.1.12",
     "jsdom": "^30.0.1",
     "oxlint": "^1.75.0",
     "playwright": "1.55.1",
     "typescript": "~6.0.2",
-    "vite": "^8.2.0",
-    "vitest": "^4.1.10"
+    "vite": "^8.2.4",
+    "vitest": "^4.1.12"
   },
   "packageManager": "pnpm@11.19.0"
 }

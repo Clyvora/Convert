@@ -14,7 +14,7 @@ export class MediaConversionEngine implements ConversionEngine {
   ): Promise<Blob> {
     const engine = detected.kind === 'video' ? this.videoEngine : this.audioEngine
     const result = await engine.convert(file, detected.format, {
-      outputFormat: options.outputFormat as 'mp3' | 'wav' | 'ogg' | 'opus' | 'mp4' | 'webm',
+      outputFormat: options.outputFormat,
       audioBitrate: options.audioBitrate,
       audioChannels: options.audioChannels,
       audioSampleRate: options.audioSampleRate,

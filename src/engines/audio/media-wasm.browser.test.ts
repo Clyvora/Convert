@@ -82,6 +82,21 @@ async function createWebmFixture(): Promise<File> {
 afterAll(() => { audioEngine.dispose(); videoEngine.dispose() })
 
 describe.sequential('real FFmpeg WebAssembly media conversions', () => {
+  it('encodes an actual Matroska file and converts it back to MP4', async () => {
+    const source = await createWebmFixture()
+    const mkv = await videoEngine.convert(source, 'webm', conversionOptions('mkv'))
+    expect(detectSignature(new Uint8Array(await mkv.blob.slice(0, 4096).arrayBuffer()))?.format).toBe('mkv')
+    const mp4 = await videoEngine.convert(new File([mkv.blob], 'motion.mkv', { type: mkv.mimeType }), 'mkv', conversionOptions('mp4'))
+    expect(detectSignature(new Uint8Array(await mp4.blob.slice(0, 512).arrayBuffer()))?.format).toBe('mp4')
+  })
+  it('encodes actual AAC/M4A and FLAC locally and decodes them back to WAV', async () => {
+    for (const format of ['m4a', 'flac'] as const) {
+      const result = await audioEngine.convert(createWavFixture(), 'wav', conversionOptions(format))
+      expect(result.blob.size).toBeGreaterThan(100)
+      const restored = await audioEngine.convert(new File([result.blob], `tone.${format}`, { type: result.mimeType }), format, conversionOptions('wav'))
+      expect(detectSignature(new Uint8Array(await restored.blob.slice(0, 512).arrayBuffer()))?.format).toBe('wav')
+    }
+  })
   it('encodes WAV to MP3, OGG, and Opus and decodes the MP3 result back to WAV', async () => {
     const source = createWavFixture()
     const mp3 = await audioEngine.convert(source, 'wav', conversionOptions('mp3'))

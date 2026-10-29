@@ -26,7 +26,7 @@ it('never intercepts or caches retrieved media and API requests', () => {
     URL, fetch: network, caches: { open },
     self: { location: { origin: 'https://convert.example' }, addEventListener: (name: string, handler: (event: unknown) => void) => { handlers[name] = handler } },
   })
-  for (const path of ['/api', '/api/v1/convert/media/download/0123456789abcdef0123456789abcdef']) {
+  for (const path of ['/api', '/api/v1/convert/media/download/0123456789abcdef0123456789abcdef', '/api/v1/convert/jobs', '/v1/convert/artifacts/id/preview', '/artifacts/id?signature=secret']) {
     const respondWith = vi.fn()
     handlers.fetch({ request: { method: 'GET', url: `https://convert.example${path}` }, respondWith })
     expect(respondWith).not.toHaveBeenCalled()

@@ -35,6 +35,7 @@ function isSupportedMp4Brand(brand: string): boolean {
 }
 
 export function detectSignature(bytes: Uint8Array): DetectedFile | null {
+  if (startsWith(bytes, [0x66, 0x4c, 0x61, 0x43])) return { format: 'flac', kind: 'audio', mimeType: 'audio/flac', extension: 'flac' }
   if (bytes.length >= 376 && bytes[0] === 0x47 && bytes[188] === 0x47) {
     return { format: 'ts', kind: 'audio', mimeType: 'video/mp2t', extension: 'ts' }
   }
@@ -58,6 +59,7 @@ export function detectSignature(bytes: Uint8Array): DetectedFile | null {
   if (startsWith(bytes, [0x1a, 0x45, 0xdf, 0xa3]) && containsAscii(bytes, 'webm')) {
     return { format: 'webm', kind: 'video', mimeType: MIME_BY_FORMAT.webm, extension: 'webm' }
   }
+  if (startsWith(bytes, [0x1a, 0x45, 0xdf, 0xa3]) && containsAscii(bytes, 'matroska')) return { format: 'mkv', kind: 'video', mimeType: 'video/x-matroska', extension: 'mkv' }
   const hasMp3Frame = bytes.length >= 4
     && bytes[0] === 0xff
     && (bytes[1] & 0xe0) === 0xe0

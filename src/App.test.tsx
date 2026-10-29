@@ -45,8 +45,8 @@ describe('Clyvora Convert', () => {
   it('presents local files and public link entry', () => {
     render(<App />)
     expect(screen.getByRole('heading', { level: 1, name: /^convert$/i })).toBeVisible()
-    expect(screen.getByRole('textbox', { name: 'SoundCloud link' })).toBeVisible()
-    expect(screen.queryByRole('button', { name: /paste link/i })).not.toBeInTheDocument()
+    expect(screen.getByRole('textbox', { name: 'Public media link' })).toBeVisible()
+    expect(screen.getByRole('button', { name: 'Paste' })).toBeVisible()
     expect(screen.queryByText(/png|jpeg|image resizing/i)).not.toBeInTheDocument()
   })
 

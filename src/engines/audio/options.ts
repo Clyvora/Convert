@@ -14,11 +14,11 @@ export function isAudioBitrate(value: unknown): boolean {
 }
 
 export function isAudioFormat(value: unknown): value is AudioFormat {
-  return value === 'mp3' || value === 'wav' || value === 'ogg' || value === 'opus'
+  return value === 'mp3' || value === 'wav' || value === 'ogg' || value === 'opus' || value === 'm4a' || value === 'flac'
 }
 
 export function isVideoFormat(value: unknown): value is VideoFormat {
-  return value === 'mp4' || value === 'webm'
+  return value === 'mp4' || value === 'webm' || value === 'mkv'
 }
 
 export function isLocalMediaFormat(value: unknown): value is LocalMediaFormat {
@@ -30,12 +30,12 @@ export function isLocalInputFormat(value: unknown): value is InputMediaFormat {
 }
 
 export function getAudioMimeType(format: AudioFormat): string {
-  return { mp3: 'audio/mpeg', wav: 'audio/wav', ogg: 'audio/ogg', opus: 'audio/ogg; codecs=opus' }[format]
+  return { mp3: 'audio/mpeg', wav: 'audio/wav', ogg: 'audio/ogg', opus: 'audio/ogg; codecs=opus', m4a: 'audio/mp4', flac: 'audio/flac' }[format]
 }
 
 export function getMediaMimeType(format: LocalMediaFormat): string {
   if (isAudioFormat(format)) return getAudioMimeType(format)
-  return format === 'mp4' ? 'video/mp4' : 'video/webm'
+  return format === 'mp4' ? 'video/mp4' : format === 'mkv' ? 'video/x-matroska' : 'video/webm'
 }
 
 function audioSettings(options: LocalMediaConversionOptions): string[] {
@@ -55,9 +55,11 @@ function audioArguments(options: LocalMediaConversionOptions): string[] {
     wav: 'pcm_s16le',
     ogg: 'libvorbis',
     opus: 'libopus',
+    m4a: 'aac',
+    flac: 'flac',
   }[options.outputFormat as AudioFormat]
   args.push('-c:a', codec)
-  if (options.outputFormat !== 'wav') args.push('-b:a', `${options.audioBitrate}k`)
+  if (options.outputFormat !== 'wav' && options.outputFormat !== 'flac') args.push('-b:a', `${options.audioBitrate}k`)
   args.push(...audioSettings(options))
   return args
 }
@@ -70,12 +72,12 @@ function videoScaleFilter(resolution: LocalMediaConversionOptions['videoResoluti
 
 function videoArguments(options: LocalMediaConversionOptions): string[] {
   const codec = options.videoCodec === 'auto'
-    ? options.outputFormat === 'mp4' ? 'h264' : 'vp8'
+    ? options.outputFormat === 'webm' ? 'vp8' : 'h264'
     : options.videoCodec
   if ((options.outputFormat === 'mp4' && codec !== 'h264') || (options.outputFormat === 'webm' && codec !== 'vp8')) {
     throw new TypeError(`The ${codec.toUpperCase()} codec is not available for ${options.outputFormat.toUpperCase()} output.`)
   }
-  const crf = options.outputFormat === 'mp4'
+  const crf = options.outputFormat !== 'webm'
     ? { smaller: '32', balanced: '26', high: '20' }[options.videoQuality]
     : { smaller: '42', balanced: '34', high: '27' }[options.videoQuality]
   const shared = ['-map', '0:v:0', '-map', '0:a?', ...videoScaleFilter(options.videoResolution), ...audioSettings(options)]

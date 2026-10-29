@@ -30,7 +30,7 @@ export function applyCompatibleSettings(
   input: InputMediaFormat,
   target: ConversionOptions,
 ): ConversionOptions {
-  const kind = input === 'mp4' || input === 'webm' ? 'video' : 'audio'
+  const kind = input === 'mp4' || input === 'webm' || input === 'mkv' ? 'video' : 'audio'
   const outputFormat = isSupportedPair(input, source.outputFormat) ? source.outputFormat : target.outputFormat
   return kind === 'video'
       ? {

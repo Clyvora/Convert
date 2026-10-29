@@ -3,6 +3,63 @@ const SHORT_HOSTS = new Set(['on.soundcloud.com', 'snd.sc'])
 const MAX_DOWNLOAD_BYTES = 256 * 1024 * 1024
 const REQUEST_TIMEOUT_MS = 25_000
 
+import type { Capabilities, Discovery, Inspection, Item, Job, Page, ServiceError } from './remoteContracts'
+export type { Capabilities, Discovery, Inspection, Item, Job, Output, Page } from './remoteContracts'
+
+let sessionPromise: Promise<string> | null = null
+async function remoteSession(): Promise<string> {
+  if (!sessionPromise) sessionPromise = fetch(`${apiBase()}/v1/convert/session`, {
+    method: 'POST', credentials: 'same-origin', headers: { 'content-type': 'application/json' }, body: '{}', signal: AbortSignal.timeout(15_000),
+  }).then(async response => {
+    const body = await response.json()
+    if (!response.ok || typeof body.csrf !== 'string') throw new FetchError(body.error?.code || 'SERVICE_UNAVAILABLE', body.error?.message || 'The download service is unavailable. Local files still work.')
+    return body.csrf as string
+  }).catch(error => { sessionPromise = null; throw error })
+  return sessionPromise
+}
+
+async function remote<T>(path: string, body?: unknown, key?: string, signal?: AbortSignal): Promise<T> {
+  const csrf = await remoteSession()
+  const response = await fetch(`${apiBase()}/v1/convert${path}`, {
+    method: body === undefined ? 'GET' : 'POST', credentials: 'same-origin',
+    headers: { 'content-type': 'application/json', 'x-clyvora-csrf': csrf, ...(key ? { 'idempotency-key': key } : {}) },
+    ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+    signal: signal ? AbortSignal.any([signal, AbortSignal.timeout(40_000)]) : AbortSignal.timeout(40_000),
+  })
+  const value: unknown = await response.json()
+  if (!response.ok) {
+    if (response.status === 401) sessionPromise = null
+    const error = (value as { error?: ServiceError })?.error
+    throw new FetchError(error?.code || 'REQUEST_FAILED', error?.message || 'The download service could not complete this request.')
+  }
+  if (!value || typeof value !== 'object') throw new FetchError('INVALID_RESPONSE', 'The download service returned an invalid response.')
+  return value as T
+}
+
+function checkedInspection(value: Inspection): Inspection {
+  if (typeof value.id !== 'string' || typeof value.title !== 'string' || !Array.isArray(value.formats) || value.formats.length > 1000 || !Array.isArray(value.subtitles)) throw new FetchError('INVALID_RESPONSE', 'The source metadata is incomplete.')
+  if (value.thumbnail && !/^\/v1\/convert\/artifacts\/[\w-]{36}\/preview$/.test(value.thumbnail)) value.thumbnail = null
+  return value
+}
+
+export const remoteMedia = {
+  capabilities: () => remote<Capabilities>('/capabilities'),
+  inspect: async (url: string, signal?: AbortSignal) => checkedInspection(await remote<Inspection>('/inspections', { url }, undefined, signal)),
+  discover: (input: { url: string; limit: number; after?: string; before?: string }) => remote<Discovery>('/discoveries', input),
+  discovery: (id: string) => remote<Discovery>(`/discoveries/${encodeURIComponent(id)}`),
+  discoveries: () => remote<Page<Discovery>>('/discoveries'),
+  discoveryItems: (id: string, cursor = '') => remote<Page<Item>>(`/discoveries/${encodeURIComponent(id)}/items?cursor=${encodeURIComponent(cursor || '0')}`),
+  jobs: () => remote<Page<Job>>('/jobs'),
+  items: (id: string, cursor = '') => remote<Page<Item>>(`/jobs/${encodeURIComponent(id)}/items?cursor=${encodeURIComponent(cursor || '0')}`),
+  create: (input: unknown, key: string) => remote<Job>('/jobs', input, key),
+  cancel: (id: string, discovery = false) => remote<Job | Discovery>(`/${discovery ? 'discoveries' : 'jobs'}/${encodeURIComponent(id)}/cancel`, {}),
+  retry: (id: string) => remote<Job>(`/jobs/${encodeURIComponent(id)}/retry`, {}),
+  remove: (id: string) => remote<{ removed: boolean }>(`/jobs/${encodeURIComponent(id)}/remove`, {}),
+  access: (id: string) => remote<{ url: string; name: string; expires: number }>(`/artifacts/${encodeURIComponent(id)}/access`, {}),
+  services: (query: string, cursor = '') => remote<Page<{ id: string; enabled: boolean; single: string; playlist: string; profile: string }>>(`/services?q=${encodeURIComponent(query)}&cursor=${encodeURIComponent(cursor || '0')}`),
+  preview: (path: string) => `${apiBase()}${path}`,
+}
+
 export interface ResolvedMedia {
   kind: 'direct-media'
   mediaUrl: string

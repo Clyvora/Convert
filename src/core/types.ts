@@ -1,7 +1,7 @@
-export type AudioFormat = 'mp3' | 'wav' | 'ogg' | 'opus'
-export type VideoFormat = 'mp4' | 'webm'
+export type AudioFormat = 'mp3' | 'wav' | 'ogg' | 'opus' | 'm4a' | 'flac'
+export type VideoFormat = 'mp4' | 'webm' | 'mkv'
 export type MediaFormat = AudioFormat | VideoFormat
-export type ImportedAudioFormat = 'aac' | 'm4a' | 'ts'
+export type ImportedAudioFormat = 'aac' | 'ts'
 export type InputMediaFormat = MediaFormat | ImportedAudioFormat
 export type MediaKind = 'audio' | 'video'
 export type AudioBitrate = 96 | 128 | 192 | 256 | 320

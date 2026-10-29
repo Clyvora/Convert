@@ -1,69 +1,38 @@
 # Clyvora Convert
 
-> Convert audio and video privately in your browser.
+Download public media and convert local audio/video with Clyvora’s interface.
 
-Clyvora Convert is the focused local audio/video member of the Clyvora product family. It does not accept images or URLs and has no media-upload backend.
+Paste a public link, choose Auto, Audio, or Video only, and press Download. Auto follows the available source streams; inspection happens before a job is submitted. Settings holds separate audio/video format preferences and advanced controls. Unavailable settings require an explicit alternative. Collections open a selection sheet before creating work; playlist, channel, profile and multi-media enumeration depend on the installed extraction engine.
 
-![Clyvora Convert social preview](public/clyvora-convert-card.png)
+The queue holds progress, cancellation, retries and results. Newly submitted work starts one file or ZIP download when ready; a manual download button remains available. Refresh restores jobs without repeating automatic downloads. Download and Local conversion stay mounted when navigating, preserving in-progress operations. Settings (`/settings`), Updates (`/updates`), About (`/about`) and local conversion (`/local`) have dedicated URLs with browser back/forward support. Settings includes section links. Queue, service search, and collection selection remain accessible overlays. The compact interface uses original components and Clyvora assets.
 
-## Supported conversions
+Vercel rewrites and the supplied `_redirects` map these page URLs to the application entry without changing API routing. Other static hosts must serve `index.html` for those paths so direct visits and refresh work.
 
-| Input | Output |
-| --- | --- |
-| MP3 | WAV, OGG, Opus |
-| WAV | MP3, OGG, Opus |
-| OGG | MP3, WAV, Opus |
-| Opus | MP3, WAV, OGG |
-| MP4 | WebM, MP3, WAV, OGG, Opus |
-| WebM | MP4, MP3, WAV, OGG, Opus |
+The queue and service browser use compact popovers. The service browser starts with twenty common discovery shortcuts; search reads the backend catalog for actual capability labels. These shortcuts are not verified-provider claims. The transparent navigation mark and theme-aware SVG favicon use a luminance mask of the supplied monochrome cat artwork. Recreate them with `node scripts/prepare-transparent-icon.mjs` after updating `public/brand-cat.webp`.
 
-File signatures are checked before enqueueing. Audio is limited to 300 MiB and video to 500 MiB because browser memory is finite. Video conversion remains CPU-intensive, especially on phones.
+Local files are processed on-device using lazy-loaded FFmpeg WebAssembly. Supported local formats include MP3, WAV, Vorbis/OGG, Opus, AAC/M4A, FLAC, MP4, WebM and MKV. Codec availability depends on the pinned runtime. Existing size limits remain 300 MiB audio and 500 MiB video. Remote processing supports more source formats and is limited separately by the service.
 
 ## Development
 
-Use Node.js 20 or newer and pnpm:
+Use Node 24 and pnpm. Start the media backend following [its setup guide](../ClyvoraAPI/services/convert/README.md), then:
 
-```bash
-pnpm install
-pnpm dev
-pnpm test
+```sh
+pnpm install --frozen-lockfile
+pnpm dev --host 127.0.0.1
+pnpm exec vitest run
+pnpm test:media
 pnpm lint
 pnpm build
 ```
 
-The lifecycle scripts copy installed FFmpeg assets into the ignored `public/ffmpeg` directory. Real WebAssembly media tests run with `pnpm test:media`.
+`pnpm test:remote` tests an actual browser/API/yt-dlp/FFmpeg/download flow using a generated media fixture. It requires the sibling ClyvoraAPI checkout and installed Python/native media tools. Standalone frontend builds do not require that checkout. Fetch remains a separate compatible product.
 
-## Deployment
+## Hosting and privacy
 
-Deploy the static production build to the owner-configured `convert.clyvora.tech` project. Apply `vercel.json` or equivalent hosting headers, including cross-origin isolation for FFmpeg, then verify the live HTML, `/sw.js`, FFmpeg asset paths, cache identifier, and response headers before calling the release complete.
+Convert remains a static React/TypeScript application. The development server forwards `/api/v1/convert` to port 8790. Production rewrites control requests to the existing ClyvoraAPI Worker; that Worker must be configured to reach the persistent media service. Downloaded files are served directly from its operator-configured HTTPS origin using expiring grants. No backend is deployed merely by building this frontend.
 
-## Architecture
+Local files and filenames are not uploaded. Submitted public links, their metadata and remotely downloaded files reach Clyvora infrastructure and the source platform. Remote files expire after 24 hours; job/session metadata after seven days. A refresh restores remote jobs through an HttpOnly session cookie; local files must be reselected. Only non-sensitive output preferences and theme settings are stored in localStorage.
 
-```text
-src/core           media signatures, conversion registry, queue, naming and preferences
-src/engines/audio  lazy FFmpeg audio/video runtime and temporary-file cleanup
-src/App.tsx        queue, options, cancellation, retry and downloads
-public/sw.js       same-origin application and runtime cache
-```
+No account cookies, passwords, private content, DRM or paywall bypass are supported. You must have permission to download and use the media. An upstream extractor listing is not a guarantee that a provider’s downloads or profile enumeration work. The searchable catalog labels capabilities as unverified until supported by recorded evidence.
 
-Image processing belongs to Clyvora Resize. Public-link retrieval and the SoundCloud resolver belong to Clyvora Fetch and ClyvoraAPI.
-
-## Privacy and networking
-
-Selected files and filenames remain in browser memory, object URLs, and FFmpeg's browser-local virtual filesystem. The application contacts only its own origin for application files and FFmpeg assets. It does not contain analytics, URL import, or a remote conversion endpoint.
-
-Multithreaded FFmpeg requires `Cross-Origin-Opener-Policy: same-origin` and `Cross-Origin-Embedder-Policy: require-corp`. Without cross-origin isolation, audio falls back to the single-thread runtime.
-
-## Known limitations
-
-- Codec support depends on the bundled FFmpeg build.
-- Transcoding cannot restore quality lost in the source.
-- Large video jobs may be slow or exceed a browser tab's memory ceiling.
-- The first conversion downloads an approximately 32 MiB FFmpeg runtime.
-- Cancellation terminates the active runtime; the next conversion loads a clean runtime and can retry immediately.
-
-See [SECURITY.md](SECURITY.md), [NETWORK.md](NETWORK.md), and [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
-
-## Clyvora appearance
-
-The interface matches ClyvoraMain: neutral surfaces, dimensional app artwork, dark by default, and a complete light theme. The header theme control saves `clyvora-theme` locally for this site. Theme preferences are independent across subdomains. Colors and responsive presentation live in `src/clyvora-theme.css`; processing behavior remains in the existing tool components. Entrance and hover animations respect reduced-motion preferences.
+Preserve COOP/COEP hosting headers for local FFmpeg. Service workers cache application assets only; API responses, job previews and media artifacts use no-store. See [NETWORK.md](NETWORK.md), [SECURITY.md](SECURITY.md), [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md), and the backend’s architecture, operational and verification documentation.

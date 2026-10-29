@@ -22,6 +22,9 @@ export default defineConfig({
   },
   server: {
     proxy: {
+      '/api/v1/convert/media/resolve': { target: 'http://127.0.0.1:8787', changeOrigin: true },
+      '/api/v1/convert/media/download': { target: 'http://127.0.0.1:8787', changeOrigin: true },
+      '/api/v1/convert': { target: 'http://127.0.0.1:8790', changeOrigin: true, rewrite: path => path.replace(/^\/api/, '') },
       '/api': { target: 'http://127.0.0.1:8787', changeOrigin: true },
     },
     headers: {
@@ -36,6 +39,7 @@ export default defineConfig({
         rewrite: () => '/v1/media/resolve',
         headers: { Origin: 'https://www.convert.clyvora.tech' },
       },
+      '/api/v1/convert': { target: 'http://127.0.0.1:8790', changeOrigin: true, rewrite: path => path.replace(/^\/api/, '') },
     },
     headers: {
       ...productionHeaders,
