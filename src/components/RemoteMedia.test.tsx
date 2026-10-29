@@ -199,3 +199,12 @@ it('submits only explicitly selected collection items', async () => {
   await waitFor(() => expect(remoteMedia.create).toHaveBeenCalledOnce())
   expect(vi.mocked(remoteMedia.create).mock.calls[0][0]).toMatchObject({discoveryId:'list',all:false,itemIds:['one']})
 })
+
+it('downloads Spotify matches as audio in Auto mode and identifies the source', async () => {
+  vi.mocked(remoteMedia.inspect).mockResolvedValueOnce({...inspection,provider:'YouTube (Spotify match)',url:'https://www.youtube.com/watch?v=abcdefghijk',formats:[{...inspection.formats[0],video:null}]})
+  const user=userEvent.setup();render(<Harness/>)
+  await user.type(screen.getByLabelText('Public media link'),'https://open.spotify.com/track/4cOdK2wGLETKBW3PvgPWqT{Enter}')
+  await waitFor(()=>expect(remoteMedia.create).toHaveBeenCalledOnce())
+  expect(vi.mocked(remoteMedia.create).mock.calls[0][0]).toMatchObject({output:{mode:'audio',container:'original'}})
+  expect(screen.getByText('Audio matched on YouTube from your Spotify link.')).toBeInTheDocument()
+})

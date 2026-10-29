@@ -56,7 +56,7 @@ export const remoteMedia = {
   retry: (id: string) => remote<Job>(`/jobs/${encodeURIComponent(id)}/retry`, {}),
   remove: (id: string) => remote<{ removed: boolean }>(`/jobs/${encodeURIComponent(id)}/remove`, {}),
   access: (id: string) => remote<{ url: string; name: string; expires: number }>(`/artifacts/${encodeURIComponent(id)}/access`, {}),
-  services: (query: string, cursor = '') => remote<Page<{ id: string; enabled: boolean; single: string; playlist: string; profile: string }>>(`/services?q=${encodeURIComponent(query)}&cursor=${encodeURIComponent(cursor || '0')}`),
+  services: (query: string, cursor = '') => remote<Page<{ id: string; enabled: boolean; single: string; playlist: string; profile: string }> & { total?: number }>(`/services?q=${encodeURIComponent(query)}&cursor=${encodeURIComponent(cursor || '0')}`),
   preview: (path: string) => `${apiBase()}${path}`,
 }
 

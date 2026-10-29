@@ -3,26 +3,29 @@ import { remoteMedia } from '../core/mediaClient'
 import './services.css'
 
 const popularServices = [
-  ['YouTube', 'youtube', 'YT', '#ee6565'], ['Instagram', 'instagram', 'ig', '#d291ba'],
-  ['TikTok', 'tiktok', 'tk', '#78c7c7'], ['X / Twitter', 'twitter', '𝕏', '#bdbdbd'],
-  ['Reddit', 'reddit', 'r/', '#e79670'], ['SoundCloud', 'soundcloud', 'sc', '#edb073'],
-  ['Facebook', 'facebook', 'f', '#8baee0'], ['Vimeo', 'vimeo', 'v', '#86c4df'],
-  ['Twitch', 'twitch', 'tw', '#b89ce8'], ['Pinterest', 'pinterest', 'P', '#de8990'],
-  ['Dailymotion', 'dailymotion', 'dm', '#a3b9dd'], ['Bluesky', 'bluesky', 'bs', '#86b8ed'],
-  ['Bilibili', 'bilibili', 'bi', '#83c7db'], ['Tumblr', 'tumblr', 't', '#9baec7'],
-  ['Snapchat', 'snapchat', 'sn', '#dbd483'], ['Streamable', 'streamable', 'st', '#8db4dd'],
-  ['Bandcamp', 'bandcamp', 'bc', '#83bdc5'], ['Mixcloud', 'mixcloud', 'mc', '#a5a2d6'],
-  ['Newgrounds', 'newgrounds', 'ng', '#d5b179'], ['Loom', 'loom', 'lo', '#b0a2e2'],
+  ['YouTube', 'youtube', 'youtube'], ['Instagram', 'instagram', 'instagram'],
+  ['TikTok', 'tiktok', 'tiktok'], ['X / Twitter', 'twitter', 'x'],
+  ['Reddit', 'reddit', 'reddit'], ['SoundCloud', 'soundcloud', 'soundcloud'],
+  ['Spotify', 'spotify', 'spotify'], ['Facebook', 'facebook', 'facebook'],
+  ['Vimeo', 'vimeo', 'vimeo'], ['Twitch', 'twitch', 'twitch'],
+  ['Pinterest', 'pinterest', 'pinterest'],
 ]
 type Catalog = Awaited<ReturnType<typeof remoteMedia.services>>
 export default function Services() {
-  const [query, setQuery] = useState(''), [showMore, setShowMore] = useState(false)
+  const [query, setQuery] = useState(''), [browsing, setBrowsing] = useState(false)
+  const [total, setTotal] = useState<number | null>(null)
+  const input = useRef<HTMLInputElement>(null)
+  useEffect(() => {
+    let active = true
+    void remoteMedia.services('').then(result => { if (active && typeof result.total === 'number') setTotal(result.total) }).catch(() => {})
+    return () => { active = false }
+  }, [])
+  const moreCount = total === null ? null : Math.max(0, total - popularServices.length)
   const [page, setPage] = useState<Catalog | null>(null)
   const [error, setError] = useState(''), [busy, setBusy] = useState(false)
   const request = useRef(0)
   const term = query.trim().toLowerCase()
   const matches = popularServices.filter(([name, id]) => `${name} ${id}`.toLowerCase().includes(term))
-  const visible = term || showMore ? matches : matches.slice(0, 8)
   const other = page?.items.filter(item => !matches.some(([, id]) => id === item.id.toLowerCase())) ?? []
   async function search(value: string, cursor = '') {
     const id = ++request.current
@@ -35,7 +38,7 @@ export default function Services() {
   }
   function changeQuery(value: string) {
     ++request.current
-    setQuery(value); setPage(null); setError(''); setBusy(Boolean(value.trim()))
+    setQuery(value); setBrowsing(false); setPage(null); setError(''); setBusy(Boolean(value.trim()))
   }
   useEffect(() => {
     if (!term) return
@@ -45,24 +48,19 @@ export default function Services() {
   return <div className="services-popover-content service-directory">
     <form className="directory-search" role="search" onSubmit={e => { e.preventDefault(); if (term) void search(term) }}>
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 4 4"/></svg>
-      <input autoFocus aria-label="Search services" placeholder="Search the full service catalog…" value={query} onChange={e => changeQuery(e.target.value)}/>
+      <input ref={input} autoFocus aria-label="Search services" placeholder="Search the full service catalog…" value={query} onChange={e => changeQuery(e.target.value)}/>
       {query && <button type="button" aria-label="Clear search" onClick={() => changeQuery('')}>×</button>}
     </form>
-    <div className="directory-heading"><span>{term ? 'Popular matches' : 'Popular services'}</span></div>
-    {!!visible.length && <div className="directory-grid">{visible.map(([name, id, mark, color]) => {
-      const entry = page?.items.find(item => item.id.toLowerCase() === id)
-      return <button type="button" className="directory-card" key={id} onClick={() => changeQuery(id)}>
-        <span className="directory-mark" style={{ color }} aria-hidden="true">{mark}</span>
-        <span className="directory-card-copy"><span>{name}</span>{entry && <small>{entry.enabled ? entry.single === 'verified-audio-only' ? 'Audio verified' : 'Enabled' : 'Disabled'}</small>}</span>
-        <span className="directory-card-arrow" aria-hidden="true">↗</span>
+    <div className="directory-icons" aria-label="Popular platforms">{popularServices.map(([name, id, icon]) => {
+      return <button type="button" className="directory-platform" key={id} aria-label={name} title={name} aria-pressed={term === id} onClick={() => changeQuery(id)}>
+        <span className="directory-platform-icon" style={{ maskImage: `url(/platforms/${icon}.svg)`, WebkitMaskImage: `url(/platforms/${icon}.svg)` }} aria-hidden="true"/>
       </button>
-    })}</div>}
-    {!term && <button className="directory-browse" type="button" aria-expanded={showMore} onClick={() => setShowMore(!showMore)}>{showMore ? 'Fewer popular services' : 'More popular services'}<span aria-hidden="true">{showMore ? '−' : '+'}</span></button>}
-    {term && <div className="directory-feedback" role="status">{busy ? 'Checking the catalog…' : error ? 'Catalog check unavailable.' : page && !page.items.length ? 'No catalog matches. Try another name.' : !matches.length && !page ? 'Searching the catalog…' : ''}</div>}
+    })}<button type="button" className="directory-platform directory-more" aria-label={moreCount === null ? 'Browse more services' : `Browse ${moreCount.toLocaleString()} more catalog entries`} title={moreCount === null ? 'Browse the full catalog' : `${moreCount.toLocaleString()} more catalog entries. Aliases may be listed separately; availability varies.`} onClick={() => { changeQuery(''); setBrowsing(true); void search(''); input.current?.focus() }}><span>{moreCount === null ? '+' : `+${new Intl.NumberFormat('en', { notation: 'compact', maximumFractionDigits: 1 }).format(moreCount)}`}</span><small>more</small></button></div>
+    {term && page?.items.filter(item => matches.some(([, id]) => id === item.id.toLowerCase())).map(item => <div className="directory-selected" key={item.id}><span>{popularServices.find(([, id]) => id === item.id.toLowerCase())?.[0]}</span><small>{item.enabled ? item.single === 'verified-audio-only' ? 'Audio verified' : item.single === 'matched-audio-only' ? 'YouTube matching' : 'Enabled' : 'Disabled'}</small></div>)}
+    {(term || browsing) && <div className="directory-feedback" role="status">{busy ? 'Checking the catalog…' : error ? 'Catalog check unavailable.' : page && !page.items.length ? 'No catalog matches. Try another name.' : !matches.length && !page ? 'Searching the catalog…' : ''}</div>}
     {error && <button type="button" className="directory-browse" onClick={() => void search(term)}>Try again<span aria-hidden="true">↗</span></button>}
-    {!!other.length && <details className="directory-other" key={term} open={matches.length ? undefined : true}><summary>{matches.length ? 'More catalog matches' : 'Catalog matches'}<span>{other.length}{page?.next ? '+' : ''}</span></summary><div className="directory-catalog">{other.map(item => <div className="directory-catalog-row" key={item.id}><span>{item.id}</span><small>{item.enabled ? 'Enabled' : 'Disabled'}</small></div>)}</div></details>}
+    {!!other.length && <details className="directory-other" key={term} open={browsing || !matches.length ? true : undefined}><summary>{matches.length ? 'More catalog matches' : 'Catalog matches'}<span>{other.length}{page?.next ? '+' : ''}</span></summary><div className="directory-catalog">{other.map(item => <div className="directory-catalog-row" key={item.id}><span>{item.id}</span><small>{item.enabled ? 'Enabled' : 'Disabled'}</small></div>)}</div></details>}
     {page?.next && <button className="directory-browse" type="button" disabled={busy} onClick={() => void search(term, page.next!)}>Load more matches<span aria-hidden="true">↓</span></button>}
-    <p className="directory-note">Popular picks shown. Search the full catalog for more. Availability varies by source.</p>
+    <p className="directory-note">Search for more platforms. Availability varies by source.</p>
   </div>
 }
-
