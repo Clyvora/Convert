@@ -78,6 +78,7 @@ export function Settings({ controller: r, expanded = false }: { controller: Remo
 }
 function Downloads({ controller: r }: { controller: RemoteController }) {
   return <div className="download-list">
+    {r.queueJobs.length > 0 && <Mascot className="queue-companion" pose={r.activeCount > 0 ? 'working' : r.queueJobs.some(job => ['failed', 'partial', 'interrupted'].includes(job.state)) ? 'confused' : r.queueJobs.some(job => job.state === 'ready') ? 'ready' : 'sleeping'}/>}
     {!r.queueJobs.length && <div className="panel-empty"><Mascot pose="sleeping"/><h3>{r.recentJobs.length ? 'All caught up' : 'Nothing here yet'}</h3>{!r.recentJobs.length && <p>Your downloads will appear here, ready when you are.</p>}</div>}
     {r.error && <p className="error-message" role="alert">{r.error}</p>}
     {r.queueJobs.map(job => <article className="download-item" key={job.id}>
@@ -100,7 +101,7 @@ function Downloads({ controller: r }: { controller: RemoteController }) {
   </div>
 }
 function Collection({ controller: r }: { controller: RemoteController }) {
-  return <div className="collection-content"><Metadata controller={r}/><p>Choose the public items you want. Discovery depends on the source.</p>
+  return <div className="collection-content"><div className="collection-overview"><Mascot pose={r.discovery?.state === 'discovering' ? 'working' : 'curious'}/><Metadata controller={r}/></div><p>Choose the public items you want. Discovery depends on the source.</p>
     <div className="collection-filters"><label>Item limit<input type="number" min="1" max="1000" value={r.limit} onChange={e => r.setLimit(Number(e.target.value))}/></label><label>Published after<input type="date" value={r.after} onChange={e => r.setAfter(e.target.value)}/></label><label>Published before<input type="date" value={r.before} onChange={e => r.setBefore(e.target.value)}/></label></div><p className="field-note">Items without a publication date remain included.</p>
     <button type="button" className="secondary-button" disabled={r.busy || r.discovery?.state === 'discovering'} onClick={() => void r.discover()}>Discover collection</button>
     {r.discovery && <><p role="status">{r.discovery.count} discovered · {r.discovery.outcome}</p>{r.discovery.error && <p className="error-message">{r.discovery.error.message}</p>}{r.discovery.state === 'discovering' && <button type="button" className="text-button" onClick={() => void r.cancelDiscovery()}>Stop discovery</button>}

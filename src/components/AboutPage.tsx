@@ -28,7 +28,7 @@ export default function AboutPage({ onUpdates }: { onUpdates?: () => void }) {
   const section = useSectionNavigation('/about', ids, 'general', { support: 'community', usage: 'terms' })
   const updatesLink = <a href="/updates" onClick={event => { if (onUpdates && !event.metaKey && !event.ctrlKey && !event.shiftKey && !event.altKey) { event.preventDefault(); onUpdates() } }}>Updates</a>
   return <div className="about-guide directory-layout">
-    <PageDirectory title="About" base="/about" entries={sections} selected={section}/>
+    <PageDirectory title="About" base="/about" entries={sections} selected={section} companion={section !== 'general' && <Mascot className="directory-companion" pose={section === 'privacy' ? 'sleeping' : section === 'community' ? 'curious' : 'ready'}/>}/>
     <article key={section} className="about-document" aria-label={sections.find(s => s.id === section)!.label}><LinkedSections>
       {section === 'general' && <>
         <header className="about-overview"><div><h2>Media, in the format you need.</h2><p>Download public media or convert your own audio and video, in one workspace.</p></div><Mascot pose="ready"/></header>

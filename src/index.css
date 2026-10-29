@@ -1,4 +1,6 @@
 :root {
+  --app-viewport-height: 100dvh;
+  --app-viewport-width: 100vw;
   font-family: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   color: #eeeae0;
   background: #090a0a;
@@ -9,7 +11,7 @@
 
 * { box-sizing: border-box; }
 html { scroll-behavior: smooth; }
-body { margin: 0; min-width: 320px; min-height: 100vh; background: #090a0a; }
+body { margin: 0; min-width: 320px; min-height: var(--app-viewport-height); background: #090a0a; }
 button, input, select { font: inherit; }
 button, a, input, select { -webkit-tap-highlight-color: transparent; }
 :focus-visible { outline: 2px solid #eeeae0; outline-offset: 3px; }

@@ -9,6 +9,7 @@ import { interfaceDefaults, saveInterfacePreferences, useInterfacePreferences } 
 import { initialPreferences } from '../core/remotePreferences'
 import { parseOutput } from '../core/remoteContracts'
 import Panel from './Panel'
+import Mascot from './Mascot'
 
 const sections = [
   { id: 'appearance', label: 'Appearance', icon: '☀', group: 0 },
@@ -82,7 +83,7 @@ export default function SettingsPage({ controller: r }: { controller: RemoteCont
     setConfirm(null)
   }
   return <div className={`settings-studio directory-layout ${ui.showHelp ? 'show-explanations' : ''}`}>
-    <PageDirectory title="Settings" version="v0.3 · beta" base="/settings" entries={sections} selected={section}/>
+    <PageDirectory title="Settings" version="v0.3 · beta" base="/settings" entries={sections} selected={section} companion={<Mascot className="directory-companion" pose={section === 'privacy' ? 'sleeping' : section === 'local' ? 'local' : section === 'instances' ? 'working' : section === 'audio' || section === 'video' ? 'pounce' : 'curious'}/>}/>
     <section key={section} className="settings-detail" data-category={section} aria-label={`${sections.find(s => s.id === section)!.label} settings`}>
       <h2 className="sr-only">{sections.find(s => s.id === section)!.label}</h2>
       {section === 'appearance' && <>
