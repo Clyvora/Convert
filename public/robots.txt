@@ -1,7 +1,7 @@
 User-agent: *
 Allow: /
-
-User-agent: OAI-SearchBot
-Allow: /
+Disallow: /api/
+Disallow: /v1/
+Disallow: /artifacts/
 
 Sitemap: https://mewvi.xyz/sitemap.xml

@@ -45,15 +45,112 @@
           "value": "public, max-age=31536000, immutable"
         }
       ]
+    },
+    {
+      "source": "/assets/:path*",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
+      ]
+    },
+    {
+      "source": "/sw.js",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "no-cache"
+        }
+      ]
+    },
+    {
+      "source": "/settings/:path*",
+      "headers": [
+        {
+          "key": "X-Robots-Tag",
+          "value": "noindex, follow"
+        }
+      ]
     }
   ],
   "rewrites": [
-    { "source": "/local", "destination": "/index.html" },
-    { "source": "/settings", "destination": "/index.html" },
-    { "source": "/settings/:path*", "destination": "/index.html" },
-    { "source": "/updates", "destination": "/index.html" },
-    { "source": "/about", "destination": "/index.html" },
-    { "source": "/about/:path*", "destination": "/index.html" },
+    {
+      "source": "/settings/debug",
+      "destination": "/settings/debug/index.html"
+    },
+    {
+      "source": "/settings/privacy",
+      "destination": "/settings/privacy/index.html"
+    },
+    {
+      "source": "/settings/local",
+      "destination": "/settings/local/index.html"
+    },
+    {
+      "source": "/settings/metadata",
+      "destination": "/settings/metadata/index.html"
+    },
+    {
+      "source": "/settings/instances",
+      "destination": "/settings/instances/index.html"
+    },
+    {
+      "source": "/settings/audio",
+      "destination": "/settings/audio/index.html"
+    },
+    {
+      "source": "/settings/video",
+      "destination": "/settings/video/index.html"
+    },
+    {
+      "source": "/settings/advanced",
+      "destination": "/settings/advanced/index.html"
+    },
+    {
+      "source": "/settings/accessibility",
+      "destination": "/settings/accessibility/index.html"
+    },
+    {
+      "source": "/settings/appearance",
+      "destination": "/settings/appearance/index.html"
+    },
+    {
+      "source": "/about/credits",
+      "destination": "/about/credits/index.html"
+    },
+    {
+      "source": "/about/community",
+      "destination": "/about/community/index.html"
+    },
+    {
+      "source": "/about/terms",
+      "destination": "/about/terms/index.html"
+    },
+    {
+      "source": "/about/privacy",
+      "destination": "/about/privacy/index.html"
+    },
+    {
+      "source": "/local",
+      "destination": "/local/index.html"
+    },
+    {
+      "source": "/settings",
+      "destination": "/settings/index.html"
+    },
+    {
+      "source": "/settings/:path*",
+      "destination": "/settings/index.html"
+    },
+    {
+      "source": "/updates",
+      "destination": "/updates/index.html"
+    },
+    {
+      "source": "/about",
+      "destination": "/about/index.html"
+    },
     {
       "source": "/api/v1/convert/media/resolve",
       "destination": "https://api.clyvora.tech/v1/media/resolve"
@@ -61,6 +158,18 @@
     {
       "source": "/api/:path*",
       "destination": "https://api.clyvora.tech/:path*"
+    }
+  ],
+  "redirects": [
+    {
+      "source": "/about/support",
+      "destination": "/about/community",
+      "permanent": true
+    },
+    {
+      "source": "/about/usage",
+      "destination": "/about/terms",
+      "permanent": true
     }
   ]
 }

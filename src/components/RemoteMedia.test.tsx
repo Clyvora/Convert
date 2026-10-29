@@ -54,17 +54,17 @@ it('inspects only on Download and preserves failed input', async () => {
   await user.click(screen.getByRole('button',{name:'Download'}))
   expect(await screen.findByRole('alert')).toHaveTextContent('Source unavailable')
   expect(screen.getByLabelText('Public media link')).toHaveValue('https://example.com/video')
-  expect(document.querySelector('.download-companion')).toHaveAttribute('src','/mascot/confused.png')
+  expect(document.querySelector('.download-companion')).toHaveAttribute('src',expect.stringMatching(/\/confused\.webp$/))
 })
 it('uses the curious pose while checking, then the running pose for queued work', async () => {
   let resolveInspection: (value: Inspection) => void = () => undefined
   vi.mocked(remoteMedia.inspect).mockImplementationOnce(() => new Promise(resolve => { resolveInspection = resolve }))
   const user = userEvent.setup(); render(<Harness/>)
-  expect(document.querySelector('.download-companion')).toHaveAttribute('src','/mascot/sitting.png')
+  expect(document.querySelector('.download-companion')).toHaveAttribute('src',expect.stringMatching(/\/sitting\.webp$/))
   await user.type(screen.getByLabelText('Public media link'),'https://example.com/video{Enter}')
-  await waitFor(() => expect(document.querySelector('.download-companion')).toHaveAttribute('src','/mascot/curious.png'))
+  await waitFor(() => expect(document.querySelector('.download-companion')).toHaveAttribute('src',expect.stringMatching(/\/curious\.webp$/)))
   await act(async () => resolveInspection(inspection))
-  await waitFor(() => expect(document.querySelector('.download-companion')).toHaveAttribute('src','/mascot/working.png'))
+  await waitFor(() => expect(document.querySelector('.download-companion')).toHaveAttribute('src',expect.stringMatching(/\/working\.webp$/)))
 })
 it('Auto submits combined media immediately without a second confirmation', async () => {
   const user = userEvent.setup(); render(<Harness/>)

@@ -42,3 +42,10 @@ Local files and filenames are not uploaded. Submitted public links, their metada
 No account cookies, passwords, private content, DRM or paywall bypass are supported. You must have permission to download and use the media. An upstream extractor listing is not a guarantee that a provider’s downloads or profile enumeration work. The searchable catalog labels capabilities as unverified until supported by recorded evidence.
 
 Preserve COOP/COEP hosting headers for local FFmpeg. Service workers cache application assets only; API responses, job previews and media artifacts use no-store. See [NETWORK.md](NETWORK.md), [SECURITY.md](SECURITY.md), [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md), and the backend’s architecture, operational and verification documentation.
+
+
+## Search and AI discovery
+
+`pnpm build` now renders the public routes to static HTML with the same React page content as the interactive site. It generates page-specific titles, descriptions, canonicals and JSON-LD, then checks the output for missing assets and indexing mistakes. Personal settings and the error page are noindex. Public content is listed in `/sitemap.xml`; `/llms.txt` provides a factual product summary. Crawlers use the same public pages as visitors. No paid ratings, invented review totals or unverified service-count claims are included.
+
+After deployment, verify domain ownership in Google Search Console and Bing Webmaster Tools and submit `https://mewvi.xyz/sitemap.xml`. Check live URL inspection and crawl errors there. Verification tokens must come from the site owner's account; they are not fabricated here. Indexing, rankings and AI citations are not guaranteed. The technical changes do not replace useful content, product reliability or authentic links from other sites.

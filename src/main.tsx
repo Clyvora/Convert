@@ -1,3 +1,4 @@
+import { warmMascotImages } from './core/artwork'
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import './index.css'
@@ -17,3 +18,5 @@ createRoot(document.getElementById('root')!).render(
 if ('serviceWorker' in navigator && import.meta.env.PROD) {
   window.addEventListener('load', () => { void navigator.serviceWorker.register('/sw.js') })
 }
+
+window.addEventListener('load', warmMascotImages, { once: true })

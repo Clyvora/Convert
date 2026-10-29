@@ -34,3 +34,16 @@ it('never intercepts or caches retrieved media and API requests', () => {
   expect(open).not.toHaveBeenCalled()
   expect(network).not.toHaveBeenCalled()
 })
+
+it('returns a cached public logo before the refresh finishes', async () => {
+  const handlers: Record<string, (event: unknown) => void> = {}
+  const cached = { cached: true }
+  const network = vi.fn(() => new Promise(() => {}))
+  runInNewContext(readFileSync('public/sw.js', 'utf8'), {
+    URL, fetch: network, caches: { match: async () => cached },
+    self: { location: { origin: 'https://convert.example' }, addEventListener: (name: string, handler: (event: unknown) => void) => { handlers[name] = handler } },
+  })
+  let result: Promise<unknown> | undefined
+  handlers.fetch({ request: { method: 'GET', url: 'https://convert.example/brand-cat-transparent.svg' }, waitUntil: vi.fn(), respondWith: (promise: Promise<unknown>) => { result = promise } })
+  await expect(result).resolves.toBe(cached)
+})

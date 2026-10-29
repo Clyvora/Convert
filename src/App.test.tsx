@@ -44,7 +44,7 @@ describe('mewvi', () => {
 
   it('presents local files and public link entry', () => {
     render(<App />)
-    expect(screen.getByRole('heading', { level: 1, name: /^mewvi$/i })).toBeVisible()
+    expect(screen.getByRole('heading', { level: 1, name: /^mewvi media downloader and converter$/i })).toBeVisible()
     expect(screen.getByRole('textbox', { name: 'Public media link' })).toBeVisible()
     expect(screen.getByRole('button', { name: 'Paste' })).toBeVisible()
     expect(screen.queryByText(/png|jpeg|image resizing/i)).not.toBeInTheDocument()

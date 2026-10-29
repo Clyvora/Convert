@@ -1,14 +1,16 @@
-import { useCallback, useEffect, useState } from 'react'
+import { RenderPathContext } from './renderPath'
+import { useCallback, useContext, useEffect, useState } from 'react'
 
 export type Route = '/' | '/local' | '/settings' | '/updates' | '/about'
 const routes: string[] = ['/', '/local', '/settings', '/updates', '/about']
-function current(): Route | 'missing' {
-  const path = window.location.pathname.replace(/\/+$/, '') || '/'
+function current(initialPath = '/'): Route | 'missing' {
+  const path = (typeof window === 'undefined' ? initialPath : window.location.pathname).replace(/\/+$/, '') || '/'
   if (/^\/(settings|about)\/[a-z-]+$/.test(path)) return `/${path.split('/')[1]}` as Route
   return routes.includes(path) ? path as Route : 'missing'
 }
 export function useNavigation() {
-  const [route, setRoute] = useState(current)
+  const initialPath = useContext(RenderPathContext)
+  const [route, setRoute] = useState(() => current(initialPath))
   useEffect(() => {
     const pop = () => setRoute(current())
     window.addEventListener('popstate', pop)
@@ -23,8 +25,9 @@ export function useNavigation() {
 }
 
 export function useSectionNavigation<T extends string>(base: string, sections: readonly T[], fallback: T, aliases: Record<string, T> = {}) {
+  const initialPath = useContext(RenderPathContext)
   const read = () => {
-    const path = location.pathname.slice(base.length + 1), hash = location.hash.slice(1)
+    const path = (typeof location === 'undefined' ? initialPath : location.pathname).slice(base.length + 1), hash = typeof location === 'undefined' ? '' : location.hash.slice(1)
     const candidate = aliases[path] || path || aliases[hash] || hash
     return sections.includes(candidate as T) ? candidate as T : fallback
   }

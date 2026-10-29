@@ -1,6 +1,11 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-  <url>
-    <loc>https://mewvi.xyz/</loc>
-  </url>
+  <url><loc>https://mewvi.xyz/</loc></url>
+  <url><loc>https://mewvi.xyz/local</loc></url>
+  <url><loc>https://mewvi.xyz/about</loc></url>
+  <url><loc>https://mewvi.xyz/about/privacy</loc></url>
+  <url><loc>https://mewvi.xyz/about/terms</loc></url>
+  <url><loc>https://mewvi.xyz/about/community</loc></url>
+  <url><loc>https://mewvi.xyz/about/credits</loc></url>
+  <url><loc>https://mewvi.xyz/updates</loc></url>
 </urlset>

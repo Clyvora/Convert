@@ -1,3 +1,4 @@
+import { updatePageSEO } from './core/seo'
 import { useCallback, useEffect, useRef, type MouseEvent } from 'react'
 import LocalConverter from './LocalConverter'
 import RemoteMedia, { About } from './components/RemoteMedia'
@@ -11,10 +12,14 @@ import { useRemoteMedia, type Panel } from './core/useRemoteMedia'
 import { useNavigation, type Route } from './core/navigation'
 import './polish.css'
 
-const titles = { '/': 'mewvi', '/local': 'Local conversion', '/settings': 'Settings', '/updates': 'Updates', '/about': 'About mewvi', missing: 'Page not found' }
+const titles = { '/': 'mewvi media downloader and converter', '/local': 'Local conversion', '/settings': 'Settings', '/updates': 'Updates', '/about': 'About mewvi', missing: 'Page not found' }
 
 export default function App() {
   const { route, navigate } = useNavigation()
+  useEffect(() => {
+    window.addEventListener('popstate', updatePageSEO)
+    return () => window.removeEventListener('popstate', updatePageSEO)
+  }, [])
   const remote = useRemoteMedia()
   const [ui] = useInterfacePreferences()
   const closePanel = remote.setPanel
@@ -40,7 +45,7 @@ export default function App() {
     return () => { media?.removeEventListener('change', applyTheme); window.removeEventListener('convert-interface-change', applyTheme); window.removeEventListener('storage', applyTheme) }
   }, [ui.reduceMotion, ui.reduceTransparency])
   useEffect(() => {
-    document.title = route === '/' ? 'mewvi' : `${route === '/about' ? 'About' : titles[route]} · mewvi`
+    updatePageSEO()
     closePanel(null)
     window.scrollTo(0, 0)
     heading.current?.focus({ preventScroll: true })
@@ -62,7 +67,7 @@ export default function App() {
     <span className="mobile-beta">Beta</span>
     <a className="skip-link" href="#workspace">Skip to workspace</a>
     <nav className="app-rail" aria-label="mewvi navigation">
-      <a className="rail-brand" href="/" onClick={event => visit(event, '/')} aria-label="mewvi home, beta"><img src="/brand-cat-transparent.svg" alt="" width="52" height="52"/><span className="app-beta-label">Beta</span></a>
+      <a className="rail-brand" href="/" onClick={event => visit(event, '/')} aria-label="mewvi home, beta"><img src="/brand-cat-transparent.svg" alt="" width="52" height="52" decoding="async" fetchPriority="high"/><span className="app-beta-label">Beta</span></a>
       <div className="rail-workspaces">{link('/', 'Download workspace', 'download', 'Download')}{link('/local', 'Local conversion workspace', 'convert', 'Convert')}</div>
       <div className="rail-utilities">{link('/settings', 'Open settings', 'settings', 'Settings')}{link('/updates', 'Open updates', 'updates', 'Updates')}{link('/about', 'About mewvi', 'about', 'About')}</div>
     </nav>

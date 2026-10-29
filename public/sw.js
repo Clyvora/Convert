@@ -1,7 +1,6 @@
 const CACHE_PREFIX = 'clyvora-convert-'
-const CACHE = `${CACHE_PREFIX}mewvi-brand-v5-2026-10-29`
+const CACHE = `${CACHE_PREFIX}mewvi-search-v7-2026-10-29`
 const SHELL = ['/', '/manifest.webmanifest', '/brand-cat-transparent.svg', '/favicon.svg', '/brand-cat.webp', '/app-icon.webp', '/theme-init.js', '/apple-touch-icon.png']
-const MASCOTS = ['sitting', 'working', 'confused', 'ready', 'sleeping', 'local', 'curious', 'pounce'].map(pose => `/mascot/${pose}.png`)
 
 async function cacheSuccessful(request, response) {
   if (response.ok && response.type === 'basic') {
@@ -31,15 +30,25 @@ self.addEventListener('fetch', (event) => {
 
   if (event.request.mode === 'navigate') {
     event.respondWith(fetch(event.request)
-      .then((response) => cacheSuccessful('/', response))
-      .catch(() => caches.match('/')))
+      .then((response) => cacheSuccessful(event.request, response))
+      .catch(async () => (await caches.match(event.request)) || caches.match('/')))
     return
   }
 
-  const immutableAsset = url.pathname.startsWith('/assets/') || url.pathname.startsWith('/ffmpeg/runtime/v') || MASCOTS.includes(url.pathname)
+  const immutableAsset = url.pathname.startsWith('/assets/') || url.pathname.startsWith('/ffmpeg/runtime/v')
   if (immutableAsset) {
     event.respondWith(caches.match(event.request).catch(() => undefined).then((cached) => cached
       || fetch(event.request).then((response) => cacheSuccessful(event.request, response))))
+    return
+  }
+
+  const publicImage = ['/brand-cat-transparent.svg', '/brand-cat.webp', '/app-icon.webp', '/favicon.svg', '/apple-touch-icon.png', '/brand-convert-previous.webp'].includes(url.pathname) || /^\/platforms\/[a-z]+\.svg$/.test(url.pathname)
+  if (publicImage) {
+    event.respondWith(caches.match(event.request).catch(() => undefined).then((cached) => {
+      const fresh = fetch(event.request).then((response) => cacheSuccessful(event.request, response))
+      event.waitUntil(fresh.catch(() => undefined))
+      return cached || fresh
+    }))
     return
   }
 

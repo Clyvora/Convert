@@ -1,10 +1,23 @@
 # mewvi by Clyvora
 
-> Download public media and convert local audio and video.
+> Free public-media downloading and private, on-device audio and video conversion. Formerly Clyvora Convert. Currently in beta.
 
-mewvi (formerly Clyvora Convert) supports public-link media downloading through Clyvora's media service, plus local audio/video conversion with self-hosted FFmpeg WebAssembly. Local files stay on the device; submitted public links contact Clyvora infrastructure and the source platform. Provider support varies. The product remains in beta.
+## Product
+- [Downloader](https://mewvi.xyz/): Paste a supported public media link; choose Auto, Audio or Video only. No account required. Download availability varies by source, region, rate limits and backend availability.
+- [Local converter](https://mewvi.xyz/local): Convert selected audio/video files in the browser with FFmpeg WebAssembly. Local file contents stay on the device. Device resources and the processing build affect format support.
+- [How it works](https://mewvi.xyz/about): Public-link downloads use Clyvora infrastructure; local conversion runs on the device.
+- [Updates](https://mewvi.xyz/updates): Current beta release notes and limitations.
 
-- Use: https://mewvi.xyz/
-- Product family: https://www.clyvora.tech/
-- Source: https://github.com/Clyvora/Convert
+## Important distinctions
+Spotify track links find matching audio on YouTube; this is not native Spotify audio. Albums, playlists and private Spotify links are not supported by this adapter. Other platforms may support public collection discovery, depending on the extractor. A catalog entry is not a verified guarantee for every link.
 
+No DRM, paywall or account-access bypass is offered. Use media you own or have permission to download. The service does not guarantee recovery of quality missing from a source, permanent download storage, or uninterrupted availability.
+
+## Trust and support
+- [Privacy](https://mewvi.xyz/about/privacy): Local files, remote processing, anonymous sessions and temporary storage.
+- [Usage and limits](https://mewvi.xyz/about/terms)
+- [Community and support](https://mewvi.xyz/about/community)
+- [Source code](https://github.com/Clyvora/Convert)
+- [Clyvora](https://www.clyvora.tech/)
+
+The linked public HTML pages are the authoritative product documentation. This file is a convenience summary, not a guarantee of search-engine or AI inclusion.

@@ -27,7 +27,7 @@
     "predev": "node scripts/ffmpeg/copy-assets.mjs",
     "dev": "vite",
     "prebuild": "node scripts/ffmpeg/copy-assets.mjs",
-    "build": "tsc -b && vite build",
+    "build": "tsc -b && node scripts/build.mjs && node scripts/check-seo.mjs",
     "lint": "oxlint --ignore-pattern public/ffmpeg/**",
     "prepreview": "node scripts/ffmpeg/copy-assets.mjs",
     "preview": "vite preview",
