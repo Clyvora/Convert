@@ -1,5 +1,5 @@
 import { beforeEach, afterEach, expect, it, vi } from 'vitest'
-import { act, render, screen, waitFor } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import RemoteMedia from './RemoteMedia'
 import { useRemoteMedia } from '../core/useRemoteMedia'
@@ -207,4 +207,20 @@ it('downloads Spotify matches as audio in Auto mode and identifies the source', 
   await waitFor(()=>expect(remoteMedia.create).toHaveBeenCalledOnce())
   expect(vi.mocked(remoteMedia.create).mock.calls[0][0]).toMatchObject({output:{mode:'audio',container:'original'}})
   expect(screen.getByText('Audio matched on YouTube from your Spotify link.')).toBeInTheDocument()
+})
+
+it('shows current source speed and ETA in the download queue', async () => {
+  vi.mocked(remoteMedia.jobs).mockResolvedValue({items:[{...job,state:'downloading',stage:'Downloading example',bytes:100,progressUpdatedAt:Date.now(),transferSpeed:1048576,transferEtaSeconds:30}],next:null})
+  const user=userEvent.setup();render(<Harness/>);await user.click(screen.getByRole('button',{name:'Open queue'}))
+  expect(await screen.findByText('Current source stream: 1.0 MB/s · ~30s remaining')).toBeVisible()
+})
+
+it('accepts pasted multiline links and displays an individual result for each', async () => {
+  vi.mocked(remoteMedia.inspect).mockResolvedValueOnce({ ...inspection, id: 'first' }).mockResolvedValueOnce({ ...inspection, id: 'second' })
+  const user = userEvent.setup();render(<Harness/>)
+  fireEvent.change(screen.getByLabelText('Public media link'), { target: { value: 'https://example.com/one\nhttps://example.com/two' } })
+  await user.click(screen.getByRole('button', { name: 'Download 2 links' }))
+  await waitFor(() => expect(remoteMedia.create).toHaveBeenCalledTimes(2))
+  await user.click(screen.getByRole('button', { name: 'Close downloads' }))
+  expect(screen.getAllByText('Added to queue')).toHaveLength(2)
 })

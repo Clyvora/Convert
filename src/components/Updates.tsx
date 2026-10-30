@@ -1,6 +1,10 @@
+import { useEffect, useRef, type MouseEvent } from 'react'
+import { useSectionNavigation } from '../core/navigation'
 import bannerSmall from '../assets/social-card-640.webp'
 import bannerLarge from '../assets/social-card-1280.webp'
-import { betaUpdate as update } from '../core/updates'
+import updateBanner from '../assets/updates-october-2026-1280.webp'
+import updateBannerSmall from '../assets/updates-october-2026-640.webp'
+import { bugFixUpdate, betaUpdate as update } from '../core/updates'
 import Mascot from './Mascot'
 import './Updates.css'
 
@@ -12,9 +16,72 @@ const cast = [
   { pose: 'confused', label: 'A little help?', detail: 'Something needs your attention.' },
 ] as const
 
+const updateIds = [bugFixUpdate.id, update.id]
+
 export default function Updates() {
+  const selected = useSectionNavigation('/updates', updateIds, bugFixUpdate.id)
+  const container = useRef<HTMLDivElement>(null)
+  const newest = selected === bugFixUpdate.id
+  useEffect(() => {
+    const reader = container.current
+    if (!reader) return
+    const positionArrows = () => {
+      const bounds = reader.getBoundingClientRect()
+      reader.style.setProperty('--update-reader-left', `${bounds.left}px`)
+      reader.style.setProperty('--update-reader-right', `${bounds.right}px`)
+    }
+    positionArrows()
+    const observer = new ResizeObserver(positionArrows)
+    observer.observe(reader)
+    window.addEventListener('resize', positionArrows)
+    return () => { observer.disconnect(); window.removeEventListener('resize', positionArrows) }
+  }, [])
+  useEffect(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: 'instant' })
+    container.current?.querySelector<HTMLElement>('h2')?.focus({ preventScroll: true })
+  }, [selected])
+  const switchUpdate = (event: MouseEvent<HTMLDivElement>) => {
+    if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return
+    const anchor = (event.target as Element).closest<HTMLAnchorElement>('a[href^="#"]')
+    if (!anchor || !updateIds.includes(anchor.hash.slice(1))) return
+    event.preventDefault()
+    if (location.hash !== anchor.hash) {
+      history.pushState(null, '', anchor.hash)
+      window.dispatchEvent(new PopStateEvent('popstate'))
+    }
+  }
+  return <div className="updates-reader" ref={container} onClick={switchUpdate}>
+    {newest ? <BugFixUpdate/> : <BetaUpdate/>}
+    <nav className="update-pagination" aria-label="Browse updates">
+      {!newest && <a className="update-page-link update-page-newer" href={`#${bugFixUpdate.id}`} aria-label="Previous page: newer bug-fix update"><span aria-hidden="true">←</span><span>{bugFixUpdate.version}</span></a>}
+      {newest && <a className="update-page-link update-page-older" href={`#${update.id}`} aria-label="Next page: older beta update"><span>{update.version}</span><span aria-hidden="true">→</span></a>}
+    </nav>
+  </div>
+}
+
+function BugFixUpdate() {
+  return <>
+    <article className="beta-update" id={bugFixUpdate.id} aria-labelledby="bug-fix-update-title">
+      <header className="beta-update-header"><div className="beta-update-meta"><a className="release-version" href={`#${bugFixUpdate.id}`} aria-label="Link to this bug-fix update">{bugFixUpdate.version}</a><time dateTime={bugFixUpdate.date}>30 October 2026</time></div><h2 id="bug-fix-update-title" tabIndex={-1}>{bugFixUpdate.title}</h2></header>
+      <img className="beta-update-banner" src={updateBanner} srcSet={`${updateBannerSmall} 640w, ${updateBanner} 1280w`} sizes="(max-width: 700px) calc(100vw - 40px), 934px" decoding="async" alt="mewvi’s black and orange cat working on a laptop at night." width="1659" height="948"/>
+      <div className="beta-update-copy">
+        <p className="update-intro">Live transfer details and a few fixes to keep your downloads moving, make link checking clearer, and give the app less work to do when things are quiet.</p>
+        <section><h3>More links. One go.</h3><p>Paste up to 20 public media links, one per line, and add them to your queue together. Repeated links are checked once, each link gets its own result, and a failed source won’t stop the rest. You can stop adding the remaining links while keeping downloads already queued.</p><p>Playlists and profiles still need to be opened separately so you can choose their items. If the service asks you to wait, the batch pauses before continuing.</p></section>
+        <section><h3>See your speed and time remaining.</h3><p>The queue now shows transfer speed and an estimated time remaining when the source provides them. These figures describe the current source stream being fetched by the media service. Separate audio and video streams can have their own estimates; processing and the final download to your browser take additional time.</p><p>When an estimate is unavailable, the queue says so. If progress stops arriving, it shows that it’s waiting for an update instead of leaving an old speed on screen.</p></section>
+        <section className="update-fixes"><h3>Bug fixes &amp; improvements</h3><ul>
+          <li>Fixed slow collection refreshes delaying the download queue.</li>
+          <li>Fixed delayed queue responses briefly hiding newly added downloads.</li>
+          <li>Reduced idle queue checks and skipped unnecessary updates when nothing changes.</li>
+          <li>Fixed Cancel check staying visible after link checking had finished.</li>
+        </ul></section>
+      </div>
+    </article>
+  </>
+}
+
+function BetaUpdate() {
   return <article className="beta-update" id={update.id} aria-labelledby="beta-update-title">
-    <header className="beta-update-header"><div className="beta-update-meta"><a className="release-version" href={`#${update.id}`} aria-label="Link to this beta update">{update.version}</a><time dateTime={update.date}>29 October 2026</time></div><h2 id="beta-update-title">{update.title}</h2></header>
+    <header className="beta-update-header"><div className="beta-update-meta"><a className="release-version" href={`#${update.id}`} aria-label="Link to this beta update">{update.version}</a><time dateTime={update.date}>29 October 2026</time></div><h2 id="beta-update-title" tabIndex={-1}>{update.title}</h2></header>
     <img className="beta-update-banner" src={bannerLarge} srcSet={`${bannerSmall} 640w, ${bannerLarge} 1280w`} sizes="(max-width: 700px) calc(100vw - 40px), 900px" decoding="async" alt="mewvi’s black and orange cat, ready for the beta." width="1731" height="909"/>
     <div className="beta-update-copy">
       <p className="update-intro">mewvi has a new home, a simpler way to get your media, and a small companion with a very important job: looking busy while the actual work happens.</p>

@@ -47,3 +47,17 @@ it('returns a cached public logo before the refresh finishes', async () => {
   handlers.fetch({ request: { method: 'GET', url: 'https://convert.example/brand-cat-transparent.svg' }, waitUntil: vi.fn(), respondWith: (promise: Promise<unknown>) => { result = promise } })
   await expect(result).resolves.toBe(cached)
 })
+
+
+it('returns downloaded runtime bytes without waiting for a slow cache write', async () => {
+  const handlers: Record<string, (event: unknown) => void> = {}
+  const response = { ok: true, type: 'basic', clone: () => ({}) }
+  runInNewContext(readFileSync('public/sw.js', 'utf8'), {
+    URL, fetch: async () => response,
+    caches: { match: async () => undefined, open: () => new Promise(() => {}) },
+    self: { location: { origin: 'https://convert.example' }, addEventListener: (name: string, handler: (event: unknown) => void) => { handlers[name] = handler } },
+  })
+  let result: Promise<unknown> | undefined
+  handlers.fetch({ request: { method: 'GET', url: 'https://convert.example/ffmpeg/runtime/v0.12.10/single/ffmpeg-core.wasm' }, waitUntil: vi.fn(), respondWith: (promise: Promise<unknown>) => { result = promise } })
+  await expect(result).resolves.toBe(response)
+})

@@ -33,8 +33,16 @@ function pngFile(): File {
   return new File([new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])], 'image.png', { type: 'image/png' })
 }
 
+async function renderLocal() {
+  const view = render(<App />)
+  fireEvent.click(screen.getByRole('link', { name: 'Local conversion workspace' }))
+  await waitFor(() => expect(view.container.querySelector('input[type="file"]')).toBeInTheDocument())
+  return view
+}
+
 describe('mewvi', () => {
   beforeEach(() => {
+    window.history.replaceState(null, '', '/')
     localStorage.clear()
     engineState.cancelFirst = false
     engineState.calls = 0
@@ -52,7 +60,7 @@ describe('mewvi', () => {
 
   it('adds an audio file and exposes compatible output formats', async () => {
     const user = userEvent.setup()
-    const { container } = render(<App />)
+    const { container } = await renderLocal()
     await user.upload(container.querySelector<HTMLInputElement>('input[type="file"]')!, wavFile())
     expect(await screen.findByRole('heading', { name: /1 file ready/i })).toBeVisible()
     expect(screen.getByLabelText(/output format for sample.wav/i)).toHaveValue('mp3')
@@ -60,7 +68,7 @@ describe('mewvi', () => {
   })
 
   it('rejects image files instead of retaining hidden image conversion', async () => {
-    const { container } = render(<App />)
+    const { container } = await renderLocal()
     fireEvent.change(container.querySelector<HTMLInputElement>('input[type="file"]')!, { target: { files: [pngFile()] } })
     expect(await screen.findByRole('alert')).toHaveTextContent(/supported audio or video format/i)
     expect(screen.queryByText(/file ready/i)).not.toBeInTheDocument()
@@ -69,7 +77,7 @@ describe('mewvi', () => {
   it('downloads a completed conversion automatically', async () => {
     const user = userEvent.setup()
     const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => undefined)
-    const { container } = render(<App />)
+    const { container } = await renderLocal()
     await user.upload(container.querySelector<HTMLInputElement>('input[type="file"]')!, wavFile())
     await user.click(await screen.findByRole('button', { name: /^convert 1$/i }))
     expect(await screen.findByText(/^complete$/i)).toBeVisible()
@@ -80,7 +88,7 @@ describe('mewvi', () => {
   it('can cancel a conversion and immediately retry successfully', async () => {
     engineState.cancelFirst = true
     const user = userEvent.setup()
-    const { container } = render(<App />)
+    const { container } = await renderLocal()
     await user.upload(container.querySelector<HTMLInputElement>('input[type="file"]')!, wavFile())
     await user.click(await screen.findByRole('button', { name: /^convert 1$/i }))
     await user.click(await screen.findByRole('button', { name: /cancel conversion/i }))
@@ -92,7 +100,7 @@ describe('mewvi', () => {
 
   it('moves focus into options and restores it when closed', async () => {
     const user = userEvent.setup()
-    const { container } = render(<App />)
+    const { container } = await renderLocal()
     await user.upload(container.querySelector<HTMLInputElement>('input[type="file"]')!, wavFile())
     const trigger = await screen.findByRole('button', { name: /options for sample.wav/i })
     await user.click(trigger)
@@ -104,7 +112,7 @@ describe('mewvi', () => {
 
   it('keeps quality choices and advanced settings in sync without moving focus', async () => {
     const user = userEvent.setup()
-    const { container } = render(<App />)
+    const { container } = await renderLocal()
     await user.upload(container.querySelector<HTMLInputElement>('input[type="file"]')!, wavFile())
     await user.click(await screen.findByRole('button', { name: /options for sample.wav/i }))
     const higher = screen.getByRole('radio', { name: 'Higher 320 kbps' })

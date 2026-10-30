@@ -229,3 +229,12 @@ body,.convert-app { font-family:var(--mono); font-size:14px; }
    Text transitions use Torph only for meaningful status/count changes. */
 .convert-app img,.convert-app img:hover { animation:none!important; transition:none!important; transform:none!important; rotate:none!important; scale:none!important; }
 .convert-app .download-stage,.convert-app .content-page { animation:none; }
+
+.url-field textarea{display:block;resize:vertical;width:100%;min-width:0;min-height:40px;max-height:180px;padding:9px 0;border:0;outline:0;background:transparent;color:var(--text);font:13px/1.5 var(--mono)}
+.url-field textarea::placeholder{color:var(--muted)}
+.link-batch-results{list-style:none;padding:0;margin:18px 0;text-align:left;font-size:12px;max-height:320px;overflow:auto}
+.link-batch-results li{padding:10px 0;border-bottom:1px solid var(--line)}
+.link-batch-url{display:block;overflow-wrap:anywhere;color:var(--muted)}
+.link-batch-results p{margin:5px 0}
+
+@media(max-width:600px){.is-batch .omnibox-actions{flex-wrap:wrap}.is-batch .mode-switch{flex:1 0 100%}.is-batch .quick-action{width:100%;justify-content:center}}

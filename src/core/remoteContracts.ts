@@ -28,6 +28,7 @@ export interface Item { id: string; mediaId: string; provider: string; url: stri
 export interface ServiceError { code: string; message: string; retryable: boolean; correlationId?: string; retryAfter?: number }
 export interface Job {
   title?: string; deliveredAt?: number;
+  transferSpeed?: number | null; transferEtaSeconds?: number | null; progressUpdatedAt?: number;
   id: string; state: State; created: number; expires: number; output: Output; total: number;
   completed: number; failed: number; bytes: number; totalBytes?: number; stage: string;
   artifactId?: string; error?: ServiceError;

@@ -19,12 +19,21 @@ async function remoteSession(): Promise<string> {
 }
 
 async function remote<T>(path: string, body?: unknown, key?: string, signal?: AbortSignal): Promise<T> {
-  const csrf = await remoteSession()
+  const deadline = AbortSignal.timeout(40_000)
+  const requestSignal = signal ? AbortSignal.any([signal, deadline]) : deadline
+  // Cancellation and the deadline include session setup, not just the API fetch.
+  const csrf = await new Promise<string>((resolve, reject) => {
+    requestSignal.throwIfAborted()
+    const abort = () => reject(requestSignal.reason)
+    requestSignal.addEventListener('abort', abort, { once: true })
+    remoteSession().then(resolve, reject).finally(() => requestSignal.removeEventListener('abort', abort))
+  })
+  requestSignal.throwIfAborted()
   const response = await fetch(`${apiBase()}/v1/convert${path}`, {
     method: body === undefined ? 'GET' : 'POST', credentials: 'same-origin',
     headers: { 'content-type': 'application/json', 'x-clyvora-csrf': csrf, ...(key ? { 'idempotency-key': key } : {}) },
     ...(body === undefined ? {} : { body: JSON.stringify(body) }),
-    signal: signal ? AbortSignal.any([signal, AbortSignal.timeout(40_000)]) : AbortSignal.timeout(40_000),
+    signal: requestSignal,
   })
   const value: unknown = await response.json()
   if (!response.ok) {

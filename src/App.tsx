@@ -1,6 +1,6 @@
 import { updatePageSEO } from './core/seo'
-import { useCallback, useEffect, useRef, type MouseEvent } from 'react'
-import LocalConverter from './LocalConverter'
+import { lazy, Suspense, useCallback, useEffect, useRef, useState, type MouseEvent } from 'react'
+const LocalConverter = lazy(() => import('./LocalConverter'))
 import RemoteMedia, { About } from './components/RemoteMedia'
 import SettingsPage from './components/SettingsPage'
 import Updates from './components/Updates'
@@ -16,6 +16,8 @@ const titles = { '/': 'mewvi media downloader and converter', '/local': 'Local c
 
 export default function App() {
   const { route, navigate } = useNavigation()
+  const [localOpened, setLocalOpened] = useState(false)
+  useEffect(() => { if (route === '/local') setLocalOpened(true) }, [route])
   useEffect(() => {
     window.addEventListener('popstate', updatePageSEO)
     return () => window.removeEventListener('popstate', updatePageSEO)
@@ -75,7 +77,7 @@ export default function App() {
     <main id="workspace" className="app-workspace" tabIndex={-1}>
       <h1 ref={heading} tabIndex={-1} className="sr-only">{titles[route]}</h1>
       <RemoteMedia active={route === '/'} controller={controller}/>
-      <LocalConverter active={route === '/local'} onShow={showLocal}/>
+      {(localOpened || route === '/local') && <Suspense fallback={<p role="status">Loading local converter…</p>}><LocalConverter active={route === '/local'} onShow={showLocal}/></Suspense>}
       {infoPage && <div className={`content-page ${route === '/settings' ? 'settings-page' : ''}`}>
         {route === '/settings' && <SettingsPage controller={controller}/>}
         {route === '/updates' && <Updates/>}{route === '/about' && <About onUpdates={() => navigate('/updates')}/>}

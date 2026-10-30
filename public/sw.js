@@ -1,16 +1,16 @@
 const CACHE_PREFIX = 'clyvora-convert-'
-const CACHE = `${CACHE_PREFIX}mewvi-search-v7-2026-10-29`
+const CACHE = `${CACHE_PREFIX}mewvi-speed-v8-2026-10-30`
 const SHELL = ['/', '/manifest.webmanifest', '/brand-cat-transparent.svg', '/favicon.svg', '/brand-cat.webp', '/app-icon.webp', '/theme-init.js', '/apple-touch-icon.png']
 
 async function cacheSuccessful(request, response) {
   if (response.ok && response.type === 'basic') {
-    try { await (await caches.open(CACHE)).put(request, response.clone()) } catch { /* Cache storage is optional. Keep the successful network response. */ }
+    try { const copy = response.clone(); await (await caches.open(CACHE)).put(request, copy) } catch { /* Cache storage is optional. Keep the successful network response. */ }
   }
   return response
 }
 
 self.addEventListener('install', (event) => {
-  event.waitUntil(caches.open(CACHE).then((cache) => cache.addAll(SHELL)))
+  event.waitUntil(caches.open(CACHE).then((cache) => cache.addAll(SHELL)).catch(() => {}))
   self.skipWaiting()
 })
 
@@ -38,7 +38,11 @@ self.addEventListener('fetch', (event) => {
   const immutableAsset = url.pathname.startsWith('/assets/') || url.pathname.startsWith('/ffmpeg/runtime/v')
   if (immutableAsset) {
     event.respondWith(caches.match(event.request).catch(() => undefined).then((cached) => cached
-      || fetch(event.request).then((response) => cacheSuccessful(event.request, response))))
+      || fetch(event.request).then((response) => {
+        const write = cacheSuccessful(event.request, response)
+        event.waitUntil?.(write)
+        return response
+      })))
     return
   }
 

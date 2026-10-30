@@ -5,3 +5,13 @@
 @media(prefers-reduced-motion:reduce){.beta-update *,.local-queue-companion,.download-companion.mascot-pose-curious,.download-workspace:has(.is-checking) .download-companion.mascot-pose-curious{animation:none!important;transition:none!important}}
 
 .mobile-beta{display:none}@media(max-width:600px){.mobile-beta{display:block;position:fixed;top:28px;right:68px;z-index:12;font:8px var(--mono);text-transform:uppercase;letter-spacing:.08em;color:var(--muted);border:1px solid var(--line-bright);border-radius:3px;padding:3px 5px}}
+
+.update-pagination{display:flex;justify-content:space-between;gap:16px;margin-top:40px}
+.update-page-link{display:flex;align-items:center;gap:10px;min-height:48px;padding:12px;color:var(--text);text-decoration:none;border-radius:8px;font:12px/1.5 var(--mono)}
+.update-page-link:hover,.update-page-link:focus-visible{background:var(--raised)}
+.update-page-older{margin-left:auto;text-align:right}
+.beta-update-header h2:focus{outline:none}
+.updates-reader{position:relative}
+@media(min-width:1400px){.update-page-link{position:fixed;top:348px;transform:translateY(-50%);z-index:2;width:max-content;max-width:150px}.update-page-older{left:calc(var(--update-reader-right) + 16px);margin-left:0}.update-page-newer{right:calc(100vw - var(--update-reader-left) + 16px)}}
+
+.beta-update-copy .update-fixes li{margin:5px 0}

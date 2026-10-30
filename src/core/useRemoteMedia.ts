@@ -1,3 +1,4 @@
+import { splitLinks, MAX_BATCH_LINKS, batchRequest, type LinkResult } from './linkBatch'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { remoteMedia } from './mediaClient'
 import type { Capabilities, Discovery, Inspection, Item, Job, Page } from './mediaClient'
@@ -15,6 +16,9 @@ export function useRemoteMedia() {
   const [panel, setPanel] = useState<Panel>(null), [busy, setBusy] = useState(false)
   const [error, setError] = useState(''), [status, setStatus] = useState(''), [needsChoice, setNeedsChoice] = useState(false)
   const [deliveryTick, setDeliveryTick] = useState(0)
+  const [checking, setChecking] = useState(false)
+  const [linkResults, setLinkResults] = useState<LinkResult[]>([]), [addingLinks, setAddingLinks] = useState(false)
+  const batchController = useRef<AbortController | null>(null)
   const [discovery, setDiscovery] = useState<Discovery | null>(null), [page, setPage] = useState<Page<Item>>({ items: [], next: null })
   const [selected, setSelected] = useState<Set<string>>(new Set()), [all, setAll] = useState(false), [excluded, setExcluded] = useState<Set<string>>(new Set())
   const [batchMode, setBatchMode] = useState<Mode>('combined')
@@ -22,11 +26,16 @@ export function useRemoteMedia() {
   const [limit, setLimit] = useState(1000), [after, setAfter] = useState(''), [before, setBefore] = useState('')
   const lock = useRef(false), edited = useRef(false), controller = useRef<AbortController | null>(null)
   const currentDiscovery = useRef(discovery), cursor = useRef(''), mounted = useRef(true)
-  const submission = useRef<{ body: string; key: string } | null>(null)
+  const submissions = useRef(new Map<string, string>())
   const pendingDownloads = useRef(new Set<string>()), attemptedDownloads = useRef(new Set<string>())
   const deliveryAttempts = useRef(new Map<string, number>()), deliveryTimers = useRef(new Map<string, ReturnType<typeof setTimeout>>())
   const deliveryClickedAt = useRef(new Map<string, number>())
+  const queueRevision = useRef(0), refreshQueue = useRef<() => void>(() => {})
+  const currentJobs = useRef(jobs)
+  currentJobs.current = jobs
   currentDiscovery.current = discovery
+  const activeWork = jobs.some(job => !terminal.has(job.state)) || discovery?.state === 'discovering'
+  useEffect(() => { if (activeWork) refreshQueue.current() }, [activeWork])
 
   const deliver = useCallback(async (artifactId: string, allowed: () => boolean = () => true) => {
     const access = await remoteMedia.access(artifactId)
@@ -38,40 +47,77 @@ export function useRemoteMedia() {
     document.body.append(link); link.click(); link.remove()
   }, [])
 
+  const markDelivery = useCallback((identity: string) => {
+    deliveryClickedAt.current.set(identity, Date.now())
+    const key = `${identity}:notice`
+    clearTimeout(deliveryTimers.current.get(key))
+    deliveryTimers.current.set(key, setTimeout(() => {
+      deliveryTimers.current.delete(key)
+      if (mounted.current) setDeliveryTick(tick => tick + 1)
+    }, 8100))
+  }, [])
+
   useEffect(() => {
     mounted.current = true
     const timers = deliveryTimers.current, request = controller
-    let stopped = false, restored = false, refreshing = false, timer: ReturnType<typeof setTimeout>
+    let stopped = false, restored = false, refreshing = false, refreshingDiscovery = false, refreshAgain = false, capabilitiesLoaded = false, loadingCapabilities = false, timer: ReturnType<typeof setTimeout>
     async function refresh() {
-      if (refreshing || stopped) return
+      if (stopped) return
+      if (refreshing) { refreshAgain = true; return }
       refreshing = true
       try {
         if (navigator.onLine !== false) {
-          const [capabilities, queue] = await Promise.all([remoteMedia.capabilities(), remoteMedia.jobs()])
+          if (!capabilitiesLoaded && !loadingCapabilities) {
+            loadingCapabilities = true
+            void remoteMedia.capabilities().then(value => { if (!stopped) { setCaps(value); capabilitiesLoaded = true } }).catch(() => {}).finally(() => { loadingCapabilities = false })
+          }
+          const revision = queueRevision.current
+          const queue = await remoteMedia.jobs()
           if (stopped) return
-          setCaps(capabilities); setJobs(queue.items)
+          if (revision === queueRevision.current) {
+            setJobs(current => JSON.stringify(current) === JSON.stringify(queue.items) ? current : queue.items)
+            currentJobs.current = queue.items
+          }
           if (!restored) {
-            const recent = await remoteMedia.discoveries()
             restored = true
+            void (async () => {
+            const recent = await remoteMedia.discoveries()
             const unfinished = recent.items.find(d => !d.lastJobId && ['discovering', 'ready', 'failed', 'interrupted'].includes(d.state))
-            if (unfinished && !stopped && !edited.current) { setDiscovery(unfinished); setURLState(unfinished.url || ''); setStatus('A previous collection is available.'); setPage(await remoteMedia.discoveryItems(unfinished.id)) }
+            if (unfinished && !stopped && !edited.current) { setDiscovery(unfinished); setURLState(unfinished.url || ''); setStatus('A previous collection is available.'); const items = await remoteMedia.discoveryItems(unfinished.id); if (!stopped && !edited.current) setPage(items) }
+            })().catch(() => { restored = false })
           }
           const d = currentDiscovery.current
-          if (d?.state === 'discovering') {
-            const current = await remoteMedia.discovery(d.id), currentCursor = cursor.current
-            const items = await remoteMedia.discoveryItems(d.id, currentCursor)
-            if (!stopped && currentDiscovery.current?.id === d.id) { setDiscovery(current); if (cursor.current === currentCursor) setPage(items) }
+          if (d?.state === 'discovering' && !refreshingDiscovery) {
+            refreshingDiscovery = true
+            const currentCursor = cursor.current
+            void Promise.all([remoteMedia.discovery(d.id), remoteMedia.discoveryItems(d.id, currentCursor)])
+              .then(([current, items]) => {
+                if (!stopped && currentDiscovery.current?.id === d.id) { setDiscovery(current); if (cursor.current === currentCursor) setPage(items) }
+              })
+              .catch(() => { /* Retry collection refresh without delaying queue delivery. */ })
+              .finally(() => { refreshingDiscovery = false })
           }
         }
       } catch { /* Reconcile when connectivity returns; explicit actions show their errors. */ }
-      finally { refreshing = false; if (!stopped) timer = setTimeout(() => void refresh(), document.hidden ? 15000 : 2000) }
+      finally {
+        refreshing = false
+        const active = currentJobs.current.some(job => !terminal.has(job.state)) || currentDiscovery.current?.state === 'discovering'
+        const delay = refreshAgain ? 0 : document.hidden ? 30000 : active ? 2000 : 30000
+        refreshAgain = false
+        if (!stopped) timer = setTimeout(() => void refresh(), delay)
+      }
     }
     void refresh()
     const reconnect = () => { clearTimeout(timer); void refresh() }
+    refreshQueue.current = () => {
+      if (stopped) return
+      clearTimeout(timer)
+      timer = setTimeout(() => void refresh(), 2000)
+    }
     const visible = () => { if (!document.hidden) reconnect() }
     window.addEventListener('online', reconnect)
     document.addEventListener('visibilitychange', visible)
-    return () => { stopped = true; mounted.current = false; clearTimeout(timer); for (const timeout of timers.values()) clearTimeout(timeout); timers.clear(); request.current?.abort(); window.removeEventListener('online', reconnect); document.removeEventListener('visibilitychange', visible) }
+    return () => { stopped = true; mounted.current = false; clearTimeout(timer); for (const timeout of timers.values()) clearTimeout(timeout); timers.clear(); request.current?.abort(); batchController.current?.abort(); window.removeEventListener('online', reconnect); document.removeEventListener('visibilitychange', visible) }
   }, [])
 
   useEffect(() => {
@@ -85,7 +131,7 @@ export function useRemoteMedia() {
         attemptedDownloads.current.add(identity)
         const attempt = (deliveryAttempts.current.get(identity) || 0) + 1
         deliveryAttempts.current.set(identity, attempt)
-        void deliver(job.artifactId, () => pendingDownloads.current.has(job.id)).then(() => { deliveryClickedAt.current.set(identity, Date.now()) }).catch(failure => {
+        void deliver(job.artifactId, () => pendingDownloads.current.has(job.id)).then(() => markDelivery(identity)).catch(failure => {
           if (!mounted.current || !pendingDownloads.current.has(job.id)) return
           const retryable = failure instanceof TypeError || failure && typeof failure === 'object' && 'retryable' in failure && failure.retryable === true
           if (retryable && attempt < 3) {
@@ -104,38 +150,95 @@ export function useRemoteMedia() {
         if (job.state === 'failed') setError(job.error?.message || 'The download failed. Open the queue for details and retry options.')
       }
     }
-  }, [jobs, deliver, deliveryTick])
+  }, [jobs, deliver, deliveryTick, markDelivery])
   useEffect(() => { try { localStorage.setItem(REMOTE_PREFERENCE_KEY, JSON.stringify(preferences)) } catch { /* Optional non-sensitive settings. */ } }, [preferences])
 
   const action = useCallback(async (work: () => Promise<void>) => {
     if (lock.current) return
-    lock.current = true; setBusy(true); setError('')
+    queueRevision.current++; lock.current = true; setBusy(true); setError('')
     try { await work() } catch (e) { if (mounted.current) { setError(e instanceof Error ? e.message : 'This operation could not be completed.'); setStatus('') } }
-    finally { lock.current = false; if (mounted.current) setBusy(false) }
+    finally { queueRevision.current++; lock.current = false; if (mounted.current) { setBusy(false); refreshQueue.current() } }
   }, [])
-  function setURL(value: string) { edited.current = true; setURLState(value); setInspection(null); setDiscovery(null); setNeedsChoice(false); setError(''); setStatus('') }
-  async function enqueue(input: unknown) {
+  function setURL(value: string) { setLinkResults([]); edited.current = true; setURLState(value); setInspection(null); setDiscovery(null); setNeedsChoice(false); setError(''); setStatus('') }
+  async function enqueue(input: unknown, openQueue = true) {
     const body = JSON.stringify(input)
-    if (submission.current?.body !== body) submission.current = { body, key: crypto.randomUUID() }
-    const job = await remoteMedia.create(input, submission.current.key)
+    if (!submissions.current.has(body)) {
+      if (submissions.current.size >= 100) submissions.current.delete(submissions.current.keys().next().value!)
+      submissions.current.set(body, crypto.randomUUID())
+    }
+    queueRevision.current++
+    const job = await remoteMedia.create(input, submissions.current.get(body)!)
+    queueRevision.current++
     if (!mounted.current) return
     if (readInterfacePreferences().autoDownload) pendingDownloads.current.add(job.id)
     setJobs(current => [job, ...current.filter(j => j.id !== job.id)])
-    setStatus(readInterfacePreferences().autoDownload ? 'Added to your queue. Your download will start when ready.' : 'Added to your queue. Open it to download when ready.'); if (readInterfacePreferences().autoOpenQueue) setPanel('queue'); setNeedsChoice(false); submission.current = null
+    setStatus(readInterfacePreferences().autoDownload ? 'Added to your queue. Your download will start when ready.' : 'Added to your queue. Open it to download when ready.'); if (openQueue && readInterfacePreferences().autoOpenQueue) setPanel('queue'); setNeedsChoice(false); submissions.current.delete(body)
   }
   const submit = () => action(async () => {
-    edited.current = true; controller.current = new AbortController(); setStatus('Checking your link…')
-    try {
-      const result = await remoteMedia.inspect(url, controller.current.signal)
-      if (!mounted.current) return
-      setInspection(result)
-      if (result.kind !== 'media') {
-        setBatchMode(preferences.mode === 'audio' ? 'audio' : preferences.mode === 'video' ? 'video' : 'combined')
-        setPanel('collection'); setStatus('Choose the items you want to download.'); return
+    const links = splitLinks(url)
+    if (links.length > MAX_BATCH_LINKS) throw new Error(`Add up to ${MAX_BATCH_LINKS} links at a time.`)
+    if (links.length > 1) {
+      edited.current = true; setInspection(null); setNeedsChoice(false)
+      const batch = new AbortController(); batchController.current = batch
+      setAddingLinks(true); setLinkResults(links.map(url => ({ url, state: 'waiting' })))
+      let queued = 0
+      const update = (url: string, state: LinkResult['state'], message?: string) => {
+        if (mounted.current) setLinkResults(current => current.map(item => item.url === url ? { url, state, message } : item))
       }
-      try { await enqueue({ inspectionId: result.id, output: outputFor(preferences, result) }) }
-      catch (e) { setNeedsChoice(true); throw e }
-    } finally { controller.current = null }
+      try {
+        for (const [index, link] of links.entries()) {
+          if (batch.signal.aborted || !mounted.current) break
+          update(link, 'checking'); setStatus(`Checking link ${index + 1} of ${links.length}…`)
+          controller.current = batch; setChecking(true)
+          try {
+            let parsed: URL
+            try { parsed = new URL(link) } catch { throw new Error('Enter a complete public URL.') }
+            if (!['https:', 'http:'].includes(parsed.protocol)) throw new Error('Enter an HTTP or HTTPS link.')
+            const waitForService = () => { if (mounted.current) setStatus(`The service is busy. Waiting before continuing link ${index + 1} of ${links.length}…`) }
+            const result = await batchRequest(() => remoteMedia.inspect(link, batch.signal), batch.signal, waitForService)
+            batch.signal.throwIfAborted()
+            if (result.kind !== 'media') throw new Error('Open this collection separately to choose its items.')
+            setChecking(false); controller.current = null
+            await batchRequest(() => enqueue({ inspectionId: result.id, output: outputFor(preferences, result) }, false), batch.signal, waitForService)
+            queued++; update(link, 'queued')
+          } catch (failure) {
+            if (batch.signal.aborted) { update(link, 'cancelled'); break }
+            update(link, 'failed', failure instanceof Error ? failure.message : 'Could not add this link.')
+          } finally { controller.current = null; if (mounted.current) setChecking(false) }
+        }
+      } finally {
+        batchController.current = null
+        if (mounted.current) {
+          setAddingLinks(false)
+          if (queued === links.length && readInterfacePreferences().autoOpenQueue) setPanel('queue')
+          setLinkResults(current => current.map(item => ['waiting', 'checking'].includes(item.state) ? { ...item, state: 'cancelled' } : item))
+          setStatus(`${queued} of ${links.length} links added to your queue.${batch.signal.aborted ? ' Remaining links stopped.' : ''}`)
+        }
+      }
+      return
+    }
+    setLinkResults([])
+    edited.current = true
+    const check = new AbortController()
+    controller.current = check; setChecking(true); setStatus('Checking your link…')
+    const slow = setTimeout(() => { if (mounted.current) setStatus('The source is still responding. You can cancel this check.') }, 4000)
+    let result: Inspection
+    try {
+      result = await remoteMedia.inspect(links[0] || url.trim(), check.signal)
+      check.signal.throwIfAborted()
+    } finally {
+      clearTimeout(slow); controller.current = null
+      if (mounted.current) setChecking(false)
+    }
+    if (!mounted.current) return
+    setInspection(result)
+    if (result.kind !== 'media') {
+      setBatchMode(preferences.mode === 'audio' ? 'audio' : preferences.mode === 'video' ? 'video' : 'combined')
+      setPanel('collection'); setStatus('Choose the items you want to download.'); return
+    }
+    setStatus('Adding your download to the queue…')
+    try { await enqueue({ inspectionId: result.id, output: outputFor(preferences, result) }) }
+    catch (e) { setNeedsChoice(true); throw e }
   })
   const discover = () => action(async () => {
     const d = await remoteMedia.discover({ url, limit, after: after.replaceAll('-', '') || undefined, before: before.replaceAll('-', '') || undefined })
@@ -151,7 +254,7 @@ export function useRemoteMedia() {
     const job = jobs.find(job => job.artifactId === id)
     if (job) attemptedDownloads.current.add(`${job.id}:${id}`)
     await deliver(id)
-    if (job) deliveryClickedAt.current.set(`${job.id}:${id}`, Date.now())
+    if (job) markDelivery(`${job.id}:${id}`)
   })
   const cancel = (id: string) => action(async () => { pendingDownloads.current.delete(id); await remoteMedia.cancel(id); setJobs((await remoteMedia.jobs()).items) })
   const retry = (id: string) => action(async () => { const job = await remoteMedia.retry(id); if (readInterfacePreferences().autoDownload) pendingDownloads.current.add(id); setJobs(current => [job, ...current.filter(j => j.id !== id)]) })
@@ -167,7 +270,8 @@ export function useRemoteMedia() {
     discovery, page, selected, setSelected, all, setAll, excluded, setExcluded, batchMode, setBatchMode,
     limit, setLimit, after, setAfter, before, setBefore, results, setResults,
     submit, paste, discover, createCollection, loadPage, download, cancel, retry, remove, itemResults, cancelDiscovery,
-    cancelCheck: () => controller.current?.abort(), checking: busy && controller.current !== null,
+    cancelCheck: () => controller.current?.abort(), checking, linkResults, addingLinks,
+    stopAddingLinks: () => batchController.current?.abort(),
     activeCount: jobs.filter(j => !terminal.has(j.state)).length,
   }
 }

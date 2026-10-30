@@ -1,6 +1,8 @@
-import { renderToString } from 'react-dom/server'
+import { renderToReadableStream } from 'react-dom/server'
 import App from './App'
 import { RenderPathContext } from './core/renderPath'
-export function render(path: string) {
-  return renderToString(<RenderPathContext.Provider value={path}><App/></RenderPathContext.Provider>)
+export async function render(path: string) {
+  const stream = await renderToReadableStream(<RenderPathContext.Provider value={path}><App/></RenderPathContext.Provider>)
+  await stream.allReady
+  return new Response(stream).text()
 }

@@ -15,7 +15,8 @@ try {
   const settings = ['appearance','accessibility','advanced','video','audio','instances','metadata','local','privacy','debug']
   for (const path of [...Object.keys(searchPages), '/settings', ...settings.map(s => '/settings/' + s), '/404']) {
     const page = pageSEO(path)
-    let html = template.replace('<div id="root"></div>', () => '<div id="root">' + render(path) + '</div>')
+    const rendered = await render(path)
+    let html = template.replace('<div id="root"></div>', () => '<div id="root">' + rendered + '</div>')
     html = html.replace(/<title>.*?<\/title>/s, '<title>' + escape(page.title) + '</title>')
     for (const [name, content] of Object.entries({description:page.description,robots:page.robots,'og:title':page.title,'og:description':page.description,'og:url':page.canonical,'twitter:title':page.title,'twitter:description':page.description})) {
       html = html.replace(new RegExp('(<meta (?:name|property)="' + name + '" content=")[^"]*("\\s*/?>)'), (_, a, b) => a + escape(content) + b)
