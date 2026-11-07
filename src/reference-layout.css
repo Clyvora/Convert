@@ -238,3 +238,5 @@ body,.convert-app { font-family:var(--mono); font-size:14px; }
 .link-batch-results p{margin:5px 0}
 
 @media(max-width:600px){.is-batch .omnibox-actions{flex-wrap:wrap}.is-batch .mode-switch{flex:1 0 100%}.is-batch .quick-action{width:100%;justify-content:center}}
+/* Keep touch and keyboard scrolling without permanent mobile scroll tracks. */
+@media(max-width:600px){*{scrollbar-width:none}*::-webkit-scrollbar{display:none;width:0;height:0}}

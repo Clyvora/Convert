@@ -4,7 +4,9 @@ import bannerSmall from '../assets/social-card-640.webp'
 import bannerLarge from '../assets/social-card-1280.webp'
 import updateBanner from '../assets/updates-october-2026-1280.webp'
 import updateBannerSmall from '../assets/updates-october-2026-640.webp'
-import { bugFixUpdate, betaUpdate as update } from '../core/updates'
+import browserBanner from '../assets/updates-november-2026-1280.webp'
+import browserBannerSmall from '../assets/updates-november-2026-640.webp'
+import { browserUpdate, bugFixUpdate, betaUpdate as update } from '../core/updates'
 import Mascot from './Mascot'
 import './Updates.css'
 
@@ -16,12 +18,14 @@ const cast = [
   { pose: 'confused', label: 'A little help?', detail: 'Something needs your attention.' },
 ] as const
 
-const updateIds = [bugFixUpdate.id, update.id]
+const releases = [browserUpdate, bugFixUpdate, update]
+const updateIds = releases.map(release => release.id)
 
 export default function Updates() {
-  const selected = useSectionNavigation('/updates', updateIds, bugFixUpdate.id)
+  const selected = useSectionNavigation('/updates', updateIds, browserUpdate.id)
   const container = useRef<HTMLDivElement>(null)
-  const newest = selected === bugFixUpdate.id
+  const index = updateIds.indexOf(selected)
+  const newer = releases[index - 1], older = releases[index + 1]
   useEffect(() => {
     const reader = container.current
     if (!reader) return
@@ -51,12 +55,60 @@ export default function Updates() {
     }
   }
   return <div className="updates-reader" ref={container} onClick={switchUpdate}>
-    {newest ? <BugFixUpdate/> : <BetaUpdate/>}
+    {selected === browserUpdate.id ? <BrowserUpdate/> : selected === bugFixUpdate.id ? <BugFixUpdate/> : <BetaUpdate/>}
     <nav className="update-pagination" aria-label="Browse updates">
-      {!newest && <a className="update-page-link update-page-newer" href={`#${bugFixUpdate.id}`} aria-label="Previous page: newer bug-fix update"><span aria-hidden="true">←</span><span>{bugFixUpdate.version}</span></a>}
-      {newest && <a className="update-page-link update-page-older" href={`#${update.id}`} aria-label="Next page: older beta update"><span>{update.version}</span><span aria-hidden="true">→</span></a>}
+      {newer && <a className="update-page-link update-page-newer" href={`#${newer.id}`} aria-label={`Previous page: ${newer.version}`}><span aria-hidden="true">←</span><span>{newer.version}</span></a>}
+      {older && <a className="update-page-link update-page-older" href={`#${older.id}`} aria-label={`Next page: ${older.version}`}><span>{older.version}</span><span aria-hidden="true">→</span></a>}
     </nav>
   </div>
+}
+
+function BrowserUpdate() {
+  return <article className="beta-update" id={browserUpdate.id} aria-labelledby="browser-update-title">
+    <header className="beta-update-header"><div className="beta-update-meta"><a className="release-version" href={`#${browserUpdate.id}`} aria-label="Link to this update">{browserUpdate.version}</a><time dateTime={browserUpdate.date}>7 November 2026</time></div><h2 id="browser-update-title" tabIndex={-1}>{browserUpdate.title}</h2></header>
+    <img className="beta-update-banner" src={browserBanner} srcSet={`${browserBannerSmall} 640w, ${browserBanner} 1280w`} sizes="(max-width: 700px) calc(100vw - 40px), 934px" decoding="async" fetchPriority="high" alt="mewvi’s black and orange cat riding a glowing orange paper plane above the city at night." width="1280" height="720"/>
+    <div className="beta-update-copy">
+      <p className="update-intro">Faster checks, more downloads on your device, and a little less waiting between you and your files.</p>
+      <section><h3>More work on your device.</h3><p>Compatible SoundCloud, X, Facebook and Instagram downloads can now travel straight to your browser. When audio and video arrive separately, mewvi can combine them on your device without re-encoding. No extra app or browser extension is needed.</p><p>Your queue, progress, cancel and retry controls stay in one place. Browser transfers show their downloaded size and speed, with a separate stage when tracks are being combined. If direct access fails, mewvi falls back to the standard download path in the same queue.</p><p>Link checking still uses the media service. Direct-download files stay in this tab and are not stored in the app cache. Save them before closing or refreshing the page.</p></section>
+      <section><h3>Seven favourites. One place.</h3><p>We’re focusing on SoundCloud, YouTube, Spotify links, Instagram, TikTok, X and Facebook. The services panel now puts those seven up front, with no catalog search or extra counter.</p><p>We’ve improved source connections for YouTube, TikTok and Spotify track matches. Spotify track links find matching audio on YouTube, with the source shown in the downloader.</p><p>More services will come over time. We’re taking the time to test and improve each one, from checking a link to saving the finished file. We’d rather have a smaller set that works reliably than a long list of services that barely work. Getting these seven into better shape comes first.</p></section>
+      <section><h3>Keep the quality your source offers.</h3><p>Best available audio now follows the source’s format preference instead of comparing bitrate alone across different codecs. That helps SoundCloud and other audio sources keep a better available stream from being overlooked.</p><p>Original preserves compatible audio without re-encoding, including supported lossless audio. When you choose a different format, Best available now uses higher-quality automatic encoding settings unless you’ve selected a bitrate yourself.</p><p>The source still sets the limit: these changes preserve available quality, and cannot restore detail that wasn’t there or unlock subscriber-only audio.</p></section>
+      <section><h3>Less time checking. More time downloading.</h3><p>We’ve reduced repeated setup between link checks. Larger downloads can also fetch several parts at once while keeping the quality you chose.</p><p>Sources can still take longer to respond, especially on a first check. When direct browser access isn’t available, the standard download path stays ready.</p></section>
+      <section className="update-fixes"><h3>Bug fixes &amp; improvements</h3><ul>
+        <li>Browser downloads:<ul>
+          <li>Fixed slow transfers switching to the standard download path after 15 seconds even when data was still arriving.</li>
+          <li>The source timeout now follows inactivity. Stalled transfers still time out, and the overall download limit stays in place.</li>
+          <li>Added direct save links for files ready in your tab.</li>
+          <li>Queued local audio/video merging so files can finish without getting in each other’s way.</li>
+          <li>The combining engine loads only when needed and can be reused for the next file.</li>
+        </ul></li>
+        <li>Queue &amp; controls:<ul>
+          <li>Cancelled downloads now update as soon as cancellation succeeds, without waiting for another queue refresh.</li>
+          <li>Fixed simultaneous requests exceeding the browser download queue limit.</li>
+          <li>Fixed repeated requests starting a duplicate download when the browser queue was full.</li>
+        </ul></li>
+        <li>Formats &amp; link checks:<ul>
+          <li>Preserved supported ALAC and higher-bit-depth WAV audio in compatible Original downloads.</li>
+          <li>Checked files with missing codec details before rejecting Original audio, and prevented an incompatible Original download from silently being re-encoded.</li>
+          <li>Improved original-audio selection on YouTube.</li>
+          <li>Fixed unnecessary container changes for some Original videos.</li>
+          <li>Reduced repeated engine startup between link checks, with bounded waits and recovery after a checker stops responding.</li>
+          <li>Refreshed browser-download availability when a media-service restart clears temporary source details.</li>
+          <li>Improved recovery after cancelled or timed-out link checks.</li>
+        </ul></li>
+        <li>Interface:<ul>
+          <li>Added a grouped mobile Settings menu with separate category pages and a back button.</li>
+          <li>Hidden mobile scrollbars while keeping touch and keyboard scrolling available.</li>
+          <li>Fixed the mobile converter layout overlapping artwork and squeezing the upload controls after the page loaded.</li>
+          <li>Kept the selected About category visible in the mobile category bar.</li>
+          <li>The supported-services panel now opens without waiting for a catalog request, and each icon shows a short description.</li>
+          <li>Shortened the link-field hint so it fits on narrow screens.</li>
+          <li>Kept download mode controls consistent while a request is in progress.</li>
+          <li>Updated Settings version labels to follow the current app version.</li>
+          <li>Kept older update links working when browsing the new release.</li>
+        </ul></li>
+      </ul></section>
+    </div>
+  </article>
 }
 
 function BugFixUpdate() {

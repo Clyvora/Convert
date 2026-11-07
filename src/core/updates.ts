@@ -11,3 +11,10 @@ export const bugFixUpdate = {
   date: '2026-10-30',
   title: 'Know your speed. Keep things moving.',
 }
+
+export const browserUpdate = {
+  id: 'faster-downloads-2026-11-07',
+  version: '0.4.0-beta.1',
+  date: '2026-11-07',
+  title: 'Less waiting. More mewvi.',
+}

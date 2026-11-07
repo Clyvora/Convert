@@ -41,10 +41,18 @@ export function useRemoteMedia() {
     const access = await remoteMedia.access(artifactId)
     if (!mounted.current || !allowed()) return
     const target = new URL(access.url, location.origin)
-    if (!['https:', ...(import.meta.env.DEV ? ['http:'] : [])].includes(target.protocol) || target.username || target.password) throw new Error('The service returned an invalid download address.')
+    const local = access.local === true && target.protocol === 'blob:' && target.origin === location.origin
+    if (!local && (!['https:', ...(import.meta.env.DEV ? ['http:'] : [])].includes(target.protocol) || target.username || target.password)) throw new Error('The service returned an invalid download address.')
     const link = document.createElement('a')
     link.href = target.href; link.rel = 'noreferrer'; link.download = access.name
     document.body.append(link); link.click(); link.remove()
+    if (local) setStatus('Download sent to your browser. If it did not start, use Download file in the queue.')
+  }, [])
+
+  useEffect(() => {
+    const update = () => setJobs(current => remoteMedia.syncBrowserJobs(current))
+    window.addEventListener('mewvi-browser-download', update)
+    return () => window.removeEventListener('mewvi-browser-download', update)
   }, [])
 
   const markDelivery = useCallback((identity: string) => {
@@ -256,7 +264,11 @@ export function useRemoteMedia() {
     await deliver(id)
     if (job) markDelivery(`${job.id}:${id}`)
   })
-  const cancel = (id: string) => action(async () => { pendingDownloads.current.delete(id); await remoteMedia.cancel(id); setJobs((await remoteMedia.jobs()).items) })
+  const cancel = (id: string) => action(async () => {
+    pendingDownloads.current.delete(id)
+    const cancelled = await remoteMedia.cancel(id) as Job
+    if (mounted.current) setJobs(current => current.map(job => job.id === id ? cancelled : job))
+  })
   const retry = (id: string) => action(async () => { const job = await remoteMedia.retry(id); if (readInterfacePreferences().autoDownload) pendingDownloads.current.add(id); setJobs(current => [job, ...current.filter(j => j.id !== id)]) })
   const remove = (id: string) => action(async () => { pendingDownloads.current.delete(id); await remoteMedia.remove(id); setJobs(current => current.filter(j => j.id !== id)); setResults(current => current?.id === id ? null : current) })
   const itemResults = (id: string, next = '') => action(async () => { setResults({ id, page: await remoteMedia.items(id, next) }) })

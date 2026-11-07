@@ -1,0 +1,28 @@
+.mobile-settings-menu,.settings-category-header{display:none}
+@media(max-width:600px){
+  .settings-studio>.page-directory{display:none}
+  .settings-studio.settings-index>.settings-detail{display:none}
+  .settings-studio .mobile-settings-menu{display:block}
+  .mobile-settings-menu>h2{margin:0 44px 28px;text-align:center;font-size:21px;line-height:1.5;font-weight:550;letter-spacing:-.035em}
+  .mobile-settings-menu h2:focus,.settings-category-header h2:focus{outline:none}
+  .settings-menu-group{overflow:hidden;border:1px solid var(--line);border-radius:15px;background:var(--panel);margin-bottom:16px}
+  .settings-menu-group>a{position:relative;display:flex;align-items:center;gap:12px;min-height:56px;padding:9px 12px;color:var(--text);text-decoration:none;font:500 14px/1.4 var(--mono)}
+  .settings-menu-group>a+a:before{position:absolute;content:'';height:1px;top:0;left:56px;right:0;background:var(--line)}
+  .settings-menu-group>a:hover,.settings-menu-group>a:active{background:var(--raised)}
+  .settings-menu-group>a:focus-visible{outline-offset:-3px}
+  .settings-menu-icon{display:grid;place-items:center;flex-shrink:0;width:32px;height:32px;border-radius:7px;background:var(--raised);color:var(--muted)}
+  .settings-menu-icon svg{width:23px;height:23px}
+  .settings-menu-icon-appearance,.settings-menu-icon-local{color:#64adff}
+  .settings-menu-icon-accessibility,.settings-menu-icon-instances{color:#a28bf7}
+  .settings-menu-icon-video{color:#df7399}
+  .settings-menu-icon-audio{color:#e9ad54}
+  .settings-menu-icon-metadata{color:#68b783}
+  .settings-menu-chevron{margin-left:auto;padding-left:4px;color:var(--muted);font-size:26px;line-height:1}
+  .settings-menu-version{text-align:center;font:11px/1.6 var(--mono);color:var(--muted);margin:20px 0 0}
+  .settings-studio .settings-category-header{display:grid;grid-template-columns:40px minmax(0,1fr) 40px;align-items:center;gap:8px;min-height:40px;margin:0 0 28px}
+  .settings-category-header>a{display:grid;place-items:center;width:40px;height:40px;border-radius:9px;color:var(--text);text-decoration:none}
+  .settings-category-header>a:hover{background:var(--panel)}
+  .settings-category-header>a svg{rotate:180deg}
+  .settings-category-header h2{margin:0;text-align:center;font-size:19px;font-weight:550;line-height:1.4;letter-spacing:-.025em}
+  .convert-app:has(.settings-studio)>.mobile-beta{display:none}
+}

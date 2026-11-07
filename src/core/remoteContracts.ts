@@ -14,16 +14,21 @@ export interface Output {
 export interface Format {
   id: string; ext: string; video: string | null; audio: string | null;
   width: number | null; height: number | null; fps: number | null; bitrate: number | null;
+  /** Extractor preference order, lowest to highest; optional for cached inspections. */
+  qualityRank?: number;
   sampleRate: number | null; channels: number | null; language: string | null;
   size: number | null; sizeKind: 'exact' | 'estimated' | 'unknown';
 }
 export interface Inspection {
+  browserDownload?: boolean;
   id: string; provider: string; mediaId: string; url: string; title: string; creator: string | null;
   duration: number | null; published: string | null; thumbnail: string | null;
   kind: 'media' | 'playlist' | 'channel' | 'profile' | 'post';
   count: number | null; countConfidence: 'exact' | 'estimated' | 'unknown';
   formats: Format[]; subtitles: string[]; restrictions: string[]; expires: number;
 }
+export interface BrowserStream { url: string; protocol: 'file' | 'hls'; role: 'audio' | 'video' | 'combined'; ext: string }
+export interface BrowserPlan { url: string; filename: string; mime: string; maxBytes: number; expires: number; streams?: BrowserStream[]; container?: string; mode?: Mode }
 export interface Item { id: string; mediaId: string; provider: string; url: string; title: string; published?: string | null; state?: State; error?: ServiceError; artifactId?: string; subtitleArtifactId?: string }
 export interface ServiceError { code: string; message: string; retryable: boolean; correlationId?: string; retryAfter?: number }
 export interface Job {
@@ -42,10 +47,10 @@ export const compatibility: Record<Exclude<Container, 'original'>, { kind: 'audi
   webm: { kind: 'video', video: ['vp8', 'vp9', 'vp09', 'av01', 'av1'], audio: ['opus', 'vorbis'], encoder: 'libvpx-vp9', mime: 'video/webm' },
   mkv: { kind: 'video', video: ['*'], audio: ['*'], encoder: 'libx264', mime: 'video/x-matroska' },
   mp3: { kind: 'audio', video: [], audio: ['mp3'], encoder: 'libmp3lame', mime: 'audio/mpeg' },
-  m4a: { kind: 'audio', video: [], audio: ['aac', 'mp4a'], encoder: 'aac', mime: 'audio/mp4' },
+  m4a: { kind: 'audio', video: [], audio: ['aac', 'mp4a', 'alac'], encoder: 'aac', mime: 'audio/mp4' },
   opus: { kind: 'audio', video: [], audio: ['opus'], encoder: 'libopus', mime: 'audio/ogg' },
   ogg: { kind: 'audio', video: [], audio: ['vorbis'], encoder: 'libvorbis', mime: 'audio/ogg' },
-  wav: { kind: 'audio', video: [], audio: ['pcm_s16le'], encoder: 'pcm_s16le', mime: 'audio/wav' },
+  wav: { kind: 'audio', video: [], audio: ['pcm_s16le', 'pcm_s24le', 'pcm_s32le', 'pcm_f32le', 'pcm_f64le', 'pcm_u8'], encoder: 'pcm_s16le', mime: 'audio/wav' },
   flac: { kind: 'audio', video: [], audio: ['flac'], encoder: 'flac', mime: 'audio/flac' },
 };
 

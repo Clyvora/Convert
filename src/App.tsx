@@ -10,6 +10,7 @@ import { useInterfacePreferences } from './core/interfacePreferences'
 import { Icon } from './components/Icon'
 import { useRemoteMedia, type Panel } from './core/useRemoteMedia'
 import { useNavigation, type Route } from './core/navigation'
+import './App.css'
 import './polish.css'
 
 const titles = { '/': 'mewvi media downloader and converter', '/local': 'Local conversion', '/settings': 'Settings', '/updates': 'Updates', '/about': 'About mewvi', missing: 'Page not found' }

@@ -15,3 +15,4 @@
 @media(min-width:1400px){.update-page-link{position:fixed;top:348px;transform:translateY(-50%);z-index:2;width:max-content;max-width:150px}.update-page-older{left:calc(var(--update-reader-right) + 16px);margin-left:0}.update-page-newer{right:calc(100vw - var(--update-reader-left) + 16px)}}
 
 .beta-update-copy .update-fixes li{margin:5px 0}
+.beta-update-copy .update-fixes>ul>li>ul{margin:4px 0 12px;padding-left:22px}

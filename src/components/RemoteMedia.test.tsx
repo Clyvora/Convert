@@ -63,8 +63,10 @@ it('uses the curious pose while checking, then the running pose for queued work'
   expect(document.querySelector('.download-companion')).toHaveAttribute('src',expect.stringMatching(/\/sitting\.webp$/))
   await user.type(screen.getByLabelText('Public media link'),'https://example.com/video{Enter}')
   await waitFor(() => expect(document.querySelector('.download-companion')).toHaveAttribute('src',expect.stringMatching(/\/curious\.webp$/)))
+  expect(screen.getByRole('radio', { name: 'Audio' })).toBeDisabled()
   await act(async () => resolveInspection(inspection))
   await waitFor(() => expect(document.querySelector('.download-companion')).toHaveAttribute('src',expect.stringMatching(/\/working\.webp$/)))
+  expect(screen.getByRole('radio', { name: 'Audio' })).toBeEnabled()
 })
 it('Auto submits combined media immediately without a second confirmation', async () => {
   const user = userEvent.setup(); render(<Harness/>)

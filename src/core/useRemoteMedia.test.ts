@@ -2,7 +2,7 @@ import { act, renderHook, waitFor } from '@testing-library/react'
 import { afterEach, expect, it, vi } from 'vitest'
 import { useRemoteMedia } from './useRemoteMedia'
 
-const api = vi.hoisted(() => ({ discovery: vi.fn(), discoveryItems: vi.fn(), inspect: vi.fn(), create: vi.fn(), jobs: vi.fn(), discoveries: vi.fn() }))
+const api = vi.hoisted(() => ({ discovery: vi.fn(), discoveryItems: vi.fn(), inspect: vi.fn(), create: vi.fn(), cancel: vi.fn(), jobs: vi.fn(), discoveries: vi.fn() }))
 vi.mock('./mediaClient', () => ({ remoteMedia: {
   capabilities: () => new Promise(() => {}),
   jobs: (...args: unknown[]) => api.jobs(...args) ?? Promise.resolve({ items: [{ id: 'ready-job', state: 'ready' }] }),
@@ -11,6 +11,7 @@ vi.mock('./mediaClient', () => ({ remoteMedia: {
   discoveryItems: (...args: unknown[]) => api.discoveryItems(...args),
   inspect: (...args: unknown[]) => api.inspect(...args),
   create: (...args: unknown[]) => api.create(...args),
+  cancel: (...args: unknown[]) => api.cancel(...args),
 } }))
 afterEach(() => { vi.useRealTimers(); vi.resetAllMocks() })
 
@@ -119,5 +120,18 @@ it('rejects oversized batches before making any requests', async () => {
   await act(async () => { await view.result.current.submit() })
   expect(view.result.current.error).toContain('20 links')
   expect(api.inspect).not.toHaveBeenCalled()
+  view.unmount()
+})
+
+it('shows a successful cancellation without waiting for another queue request', async () => {
+  const job = { id: 'slow-download', state: 'downloading' }
+  api.jobs.mockResolvedValueOnce({ items: [job] }).mockImplementation(() => new Promise(() => {}))
+  api.cancel.mockResolvedValue({ ...job, state: 'cancelled' })
+  const view = renderHook(() => useRemoteMedia())
+  await waitFor(() => expect(view.result.current.jobs[0]?.id).toBe(job.id))
+  act(() => { void view.result.current.cancel(job.id) })
+  await waitFor(() => expect(view.result.current.busy).toBe(false))
+  expect(view.result.current.jobs[0].state).toBe('cancelled')
+  expect(api.jobs).toHaveBeenCalledOnce()
   view.unmount()
 })

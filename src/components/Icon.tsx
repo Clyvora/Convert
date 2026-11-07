@@ -1,5 +1,12 @@
-export function Icon({ name }: { name: 'download' | 'convert' | 'settings' | 'about' | 'link' | 'arrow' | 'plus' | 'updates' | 'auto' | 'audio' | 'video' }) {
+export function Icon({ name }: { name: 'download' | 'convert' | 'settings' | 'about' | 'link' | 'arrow' | 'plus' | 'updates' | 'auto' | 'audio' | 'video' | 'appearance' | 'accessibility' | 'metadata' | 'local' | 'instances' | 'privacy' | 'advanced' }) {
   const paths = {
+    appearance: <><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M2 12h2m16 0h2M5 5l1.5 1.5m11 11L19 19M5 19l1.5-1.5m11-11L19 5"/></>,
+    accessibility: <><circle cx="12" cy="12" r="9"/><circle cx="12" cy="7" r="1"/><path d="m7 10 5 2 5-2m-5 2v3m0 0-3 4m3-4 3 4"/></>,
+    metadata: <><path d="M14 3H5v18h14V8l-5-5v5h5M8 12h8m-8 4h5"/></>,
+    local: <><rect x="5" y="5" width="14" height="14" rx="2"/><rect x="9" y="9" width="6" height="6" rx="1"/><path d="M8 2v3m8-3v3M8 19v3m8-3v3M2 8h3m-3 8h3m14-8h3m-3 8h3"/></>,
+    instances: <><circle cx="12" cy="12" r="9"/><ellipse cx="12" cy="12" rx="4" ry="9"/><path d="M3 12h18M5 7h14M5 17h14"/></>,
+    privacy: <><rect x="5" y="10" width="14" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3m-4 5v2"/></>,
+    advanced: <><path d="M5 3v4m0 4v10M12 3v10m0 4v4M19 3v4m0 4v10"/><path d="M2 7h6v4H2zm7 6h6v4H9zm7-6h6v4h-6z"/></>,
     auto: <><path d="m10 3 2.2 6.8L19 12l-6.8 2.2L10 21l-2.2-6.8L1 12l6.8-2.2L10 3Z"/><path d="M19 2v4m-2-2h4m-1 14v4m-2-2h4"/></>,
     audio: <><path d="M9 17V5l11-2v12M9 9l11-2"/><ellipse cx="6" cy="17.5" rx="3" ry="2.5"/><ellipse cx="17" cy="15.5" rx="3" ry="2.5"/></>,
     video: <><rect x="3" y="4" width="18" height="16" rx="3"/><path d="M7 4v16M17 4v16M3 9h4m-4 6h4m10-6h4m-4 6h4"/><path d="m10 9 4 3-4 3V9Z" strokeWidth="1.3"/></>,

@@ -14,5 +14,22 @@ export function SectionHeading({ children, id }: { children: ReactNode; id: stri
 }
 
 export function PageDirectory({ title, version, base, entries, selected, companion }: { title: string; version?: string; base: string; entries: readonly { id: string; label: string; icon: string; group: number }[]; selected: string; companion?: ReactNode }) {
-  return <aside className="page-directory">{version && <span className="directory-version">{version}</span>}<h2>{title}</h2><nav aria-label={`${title} categories`}>{entries.map((item, index) => <a key={item.id} href={`${base}/${item.id}`} className={index && entries[index - 1].group !== item.group ? 'directory-group-start' : ''} aria-current={selected === item.id ? 'location' : undefined} onClick={event => { if (event.button || event.ctrlKey || event.metaKey || event.altKey || event.shiftKey) return; event.preventDefault(); history.pushState(null, '', `${base}/${item.id}`); window.dispatchEvent(new PopStateEvent('popstate')); window.scrollTo(0, 0) }}><span className={`directory-icon directory-icon-${item.id}`} aria-hidden="true">{item.icon}</span>{item.label}</a>)}</nav>{companion}</aside>
+  const navigation = useRef<HTMLElement>(null)
+  useEffect(() => {
+    const nav = navigation.current, active = nav?.querySelector<HTMLElement>('[aria-current]')
+    if (!nav || !active) return
+    const reveal = () => {
+      if (nav.scrollWidth <= nav.clientWidth) return
+      const bounds = nav.getBoundingClientRect(), item = active.getBoundingClientRect()
+      if (item.left < bounds.left) nav.scrollLeft += item.left - bounds.left
+      else if (item.right > bounds.right) nav.scrollLeft += item.right - bounds.right
+    }
+    reveal()
+    const observer = typeof ResizeObserver === 'function' ? new ResizeObserver(reveal) : null
+    observer?.observe(nav); observer?.observe(active)
+    let stopped = false
+    void document.fonts?.ready.then(() => { if (!stopped) reveal() })
+    return () => { stopped = true; observer?.disconnect() }
+  }, [selected])
+  return <aside className="page-directory">{version && <span className="directory-version">{version}</span>}<h2>{title}</h2><nav ref={navigation} aria-label={`${title} categories`}>{entries.map((item, index) => <a key={item.id} href={`${base}/${item.id}`} className={index && entries[index - 1].group !== item.group ? 'directory-group-start' : ''} aria-current={selected === item.id ? 'location' : undefined} onClick={event => { if (event.button || event.ctrlKey || event.metaKey || event.altKey || event.shiftKey) return; event.preventDefault(); history.pushState(null, '', `${base}/${item.id}`); window.dispatchEvent(new PopStateEvent('popstate')); window.scrollTo(0, 0) }}><span className={`directory-icon directory-icon-${item.id}`} aria-hidden="true">{item.icon}</span>{item.label}</a>)}</nav>{companion}</aside>
 }

@@ -1,5 +1,5 @@
-import { useId, useRef, useState } from 'react'
-import type { ReactNode } from 'react'
+import { useEffect, useId, useRef, useState } from 'react'
+import type { MouseEvent, ReactNode } from 'react'
 import { compatibility, containers } from '../core/remoteContracts'
 import type { Container, Output } from '../core/remoteContracts'
 import type { RemoteController } from '../core/useRemoteMedia'
@@ -10,6 +10,9 @@ import { initialPreferences } from '../core/remotePreferences'
 import { parseOutput } from '../core/remoteContracts'
 import Panel from './Panel'
 import Mascot from './Mascot'
+import { version } from '../../package.json'
+import { Icon } from './Icon'
+import './SettingsPage.css'
 
 const sections = [
   { id: 'appearance', label: 'Appearance', icon: '☀', group: 0 },
@@ -24,6 +27,8 @@ const sections = [
   { id: 'debug', label: 'App information', icon: '⌘', group: 3 },
 ] as const
 const sectionIds = sections.map(s => s.id)
+const routes = ['index', ...sectionIds] as const
+const menuIcons = { appearance: 'appearance', accessibility: 'accessibility', video: 'video', audio: 'audio', metadata: 'metadata', local: 'local', instances: 'instances', privacy: 'privacy', advanced: 'advanced', debug: 'about' } as const
 const slug = (label: string) => label.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/-$/, '')
 
 function Choices({ label, value, values, onChange, hint, disabled = false }: { label: string; value: string; values: [string, string][]; onChange: (value: string) => void; hint?: string; disabled?: boolean }) {
@@ -38,7 +43,20 @@ function Select({ label, children, value, onChange, hint }: { label: string; chi
 }
 
 export default function SettingsPage({ controller: r }: { controller: RemoteController }) {
-  const section = useSectionNavigation('/settings', sectionIds, 'appearance', { output: 'video', extras: 'metadata' })
+  const selected = useSectionNavigation('/settings', routes, 'index', { output: 'video', extras: 'metadata' })
+  const section = selected === 'index' ? 'appearance' : selected
+  const mobileHeading = useRef<HTMLHeadingElement>(null)
+  useEffect(() => {
+    if (!window.matchMedia?.('(max-width: 600px)').matches) return
+    window.scrollTo({ top: 0, left: 0, behavior: 'instant' })
+    mobileHeading.current?.focus({ preventScroll: true })
+  }, [selected])
+  const visit = (event: MouseEvent<HTMLAnchorElement>, path: string) => {
+    if (event.button || event.ctrlKey || event.metaKey || event.altKey || event.shiftKey) return
+    event.preventDefault()
+    if (location.pathname !== path) history.pushState(null, '', path)
+    window.dispatchEvent(new PopStateEvent('popstate'))
+  }
   const [ui, setUI] = useInterfacePreferences()
   const [theme, setTheme] = useState(() => { try { return localStorage.getItem('clyvora-theme') || 'dark' } catch { return 'dark' } })
   const [notice, setNotice] = useState(''), [confirm, setConfirm] = useState<'reset' | 'cache' | null>(null)
@@ -82,10 +100,17 @@ export default function SettingsPage({ controller: r }: { controller: RemoteCont
     } catch { setNotice('This browser could not update local storage.') }
     setConfirm(null)
   }
-  return <div className={`settings-studio directory-layout ${ui.showHelp ? 'show-explanations' : ''}`}>
-    <PageDirectory title="Settings" version="v0.3 · beta" base="/settings" entries={sections} selected={section} companion={<Mascot className="directory-companion" pose={section === 'privacy' ? 'sleeping' : section === 'local' ? 'local' : section === 'instances' ? 'working' : section === 'audio' || section === 'video' ? 'pounce' : 'curious'}/>}/>
+  return <div className={`settings-studio directory-layout ${selected === 'index' ? 'settings-index' : 'settings-category'} ${ui.showHelp ? 'show-explanations' : ''}`}>
+    <PageDirectory title="Settings" version={`v${version}`} base="/settings" entries={sections} selected={section} companion={<Mascot className="directory-companion" pose={section === 'privacy' ? 'sleeping' : section === 'local' ? 'local' : section === 'instances' ? 'working' : section === 'audio' || section === 'video' ? 'pounce' : 'curious'}/>}/>
+    {selected === 'index' && <div className="mobile-settings-menu">
+      <h2 ref={mobileHeading} tabIndex={-1}>Settings</h2>
+      <nav aria-label="Settings menu">{[0, 1, 2, 3].map(group => <div className="settings-menu-group" key={group}>{sections.filter(item => item.group === group).map(item => <a key={item.id} href={`/settings/${item.id}`} onClick={event => visit(event, `/settings/${item.id}`)}>
+        <span className={`settings-menu-icon settings-menu-icon-${item.id}`}><Icon name={menuIcons[item.id]}/></span><span>{item.label}</span><span className="settings-menu-chevron" aria-hidden="true">›</span>
+      </a>)}</div>)}</nav>
+      <p className="settings-menu-version">v{version}</p>
+    </div>}
     <section key={section} className="settings-detail" data-category={section} aria-label={`${sections.find(s => s.id === section)!.label} settings`}>
-      <h2 className="sr-only">{sections.find(s => s.id === section)!.label}</h2>
+      <header className="settings-category-header"><a href="/settings" onClick={event => visit(event, '/settings')} aria-label="All settings"><Icon name="arrow"/></a><h2 ref={selected === 'index' ? undefined : mobileHeading} tabIndex={-1}>{sections.find(s => s.id === section)!.label}</h2></header>
       {section === 'appearance' && <>
         <Choices label="Theme" value={theme} onChange={chooseTheme} values={[[ 'auto', 'Auto' ], [ 'light', 'Light' ], [ 'dark', 'Dark' ]]} hint="Auto follows your device’s light or dark appearance."/>
         <SectionHeading id="explanations">Explanations</SectionHeading><Toggle label="Show setting descriptions" checked={ui.showHelp} onChange={showHelp => setUI({ showHelp })} hint="Extra detail beneath controls. Your choices are saved automatically."/>
@@ -109,7 +134,7 @@ export default function SettingsPage({ controller: r }: { controller: RemoteCont
       {section === 'audio' && <>
         <Choices label="Audio format" value={p.audioContainer} values={formats('audio')} onChange={value => r.setPreferences(previous => ({ ...previous, audioContainer: value as Container }))} hint="MP3 is widely supported. WAV and FLAC preserve decoded audio without restoring quality missing from the source."/>
         <Choices label="Audio quality" value={o.preset} values={[[ 'best', 'Best available' ], [ 'smaller', 'Smaller file' ]]} onChange={value => update({ preset: value as Output['preset'] })} hint="The quality preset is shared with video downloads."/>
-        <Choices label="Audio bitrate (kbps)" disabled={p.audioContainer === 'original'} value={String(p.audioContainer === 'original' ? '' : o.audioBitrate || '')} values={[[ '', 'Source' ], ...[96,128,192,256,320].map(n => [String(n), String(n)] as [string,string])]} onChange={value => update({ audioBitrate: Number(value) || undefined })} hint="Original preserves source audio for faster downloads. Choose another format to change bitrate, sample rate or channels."/>
+        <Choices label="Audio bitrate (kbps)" disabled={p.audioContainer === 'original'} value={String(p.audioContainer === 'original' ? '' : o.audioBitrate || '')} values={[[ '', 'Automatic' ], ...[96,128,192,256,320].map(n => [String(n), String(n)] as [string,string])]} onChange={value => update({ audioBitrate: Number(value) || undefined })} hint="Original preserves the available source audio. Automatic copies compatible audio or uses high-quality encoding with Best available. A higher output bitrate cannot restore missing source detail."/>
         <Choices label="Sample rate" disabled={p.audioContainer === 'original'} value={String(p.audioContainer === 'original' ? '' : o.sampleRate || '')} values={[[ '', 'Source' ], [ '44100', '44.1 kHz' ], [ '48000', '48 kHz' ]]} onChange={value => update({ sampleRate: Number(value) || undefined })}/>
         <Choices label="Channels" disabled={p.audioContainer === 'original'} value={String(p.audioContainer === 'original' ? '' : o.channels || '')} values={[[ '', 'Source' ], [ '1', 'Mono' ], [ '2', 'Stereo' ]]} onChange={value => update({ channels: Number(value) || undefined })}/>
         <Select label="Audio language" value={o.language || ''} onChange={value => update({ language: value || undefined })} hint="Available tracks appear after inspecting a link."><option value="">Source default</option>{[...new Set([...(o.language ? [o.language] : []), ...languages])].map(l => <option key={l}>{l}</option>)}</Select>
@@ -128,7 +153,7 @@ export default function SettingsPage({ controller: r }: { controller: RemoteCont
         <SectionHeading id="settings-data">Settings data</SectionHeading><div className="settings-data-actions"><button type="button" onClick={() => importFile.current?.click()}>↥ Import</button><button type="button" onClick={exportSettings}>↧ Export</button><button type="button" onClick={() => setConfirm('reset')}>↺ Reset</button><input ref={importFile} type="file" accept="application/json,.json" hidden onChange={event => { void importSettings(event.target.files?.[0]); event.currentTarget.value = '' }}/></div><p className="setting-hint">Exports include output and interface preferences only. Jobs, links, files and session access are excluded.</p>
         <SectionHeading id="local-storage">Local storage</SectionHeading><button type="button" className="setting-action" onClick={() => setConfirm('cache')}>Clear application cache</button><p className="setting-hint">Remove cached site assets and conversion engines. Your session, preferences and job history remain available.</p>
       </>}
-      {section === 'debug' && <div className="settings-prose"><SectionHeading id="application">Application</SectionHeading><dl className="diagnostic-list"><div><dt>Version</dt><dd>0.3 · beta</dd></div><div><dt>Media API</dt><dd>{r.caps ? `v${r.caps.apiVersion}` : 'Unavailable'}</dd></div><div><dt>Extraction engine</dt><dd>{r.caps?.engine || 'Unavailable'}</dd></div><div><dt>WebAssembly</dt><dd>{typeof WebAssembly === 'object' ? 'Available' : 'Unavailable'}</dd></div><div><dt>Isolated browser context</dt><dd>{typeof window !== 'undefined' && window.crossOriginIsolated ? 'Yes' : 'No'}</dd></div></dl><SectionHeading id="reporting">Reporting a problem</SectionHeading><p>Include your output settings, browser and the error shown. Do not share download grants, session cookies, private links or personal files.</p><a href="/about/community">Help &amp; feedback</a></div>}
+      {section === 'debug' && <div className="settings-prose"><SectionHeading id="application">Application</SectionHeading><dl className="diagnostic-list"><div><dt>Version</dt><dd>{version}</dd></div><div><dt>Media API</dt><dd>{r.caps ? `v${r.caps.apiVersion}` : 'Unavailable'}</dd></div><div><dt>Extraction engine</dt><dd>{r.caps?.engine || 'Unavailable'}</dd></div><div><dt>WebAssembly</dt><dd>{typeof WebAssembly === 'object' ? 'Available' : 'Unavailable'}</dd></div><div><dt>Isolated browser context</dt><dd>{typeof window !== 'undefined' && window.crossOriginIsolated ? 'Yes' : 'No'}</dd></div></dl><SectionHeading id="reporting">Reporting a problem</SectionHeading><p>Include your output settings, browser and the error shown. Do not share download grants, session cookies, private links or personal files.</p><a href="/about/community">Help &amp; feedback</a></div>}
       {notice && <p className="settings-notice" role="status">{notice}</p>}
     </section>
     {confirm && <Panel title={confirm === 'reset' ? 'Reset preferences' : 'Clear application cache'} onClose={() => setConfirm(null)}><p>{confirm === 'reset' ? 'Restore default output and interface preferences? Your jobs and files will be kept.' : 'Remove cached application assets? Conversion engines will download again when needed. Jobs and preferences will be kept.'}</p><div className="job-actions"><button type="button" className="secondary-button" onClick={() => setConfirm(null)}>Keep current settings</button><button type="button" className="primary-button" onClick={() => void confirmed()}>{confirm === 'reset' ? 'Reset preferences' : 'Clear cache'}</button></div></Panel>}

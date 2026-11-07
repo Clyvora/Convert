@@ -4,6 +4,8 @@ const MAX_DOWNLOAD_BYTES = 256 * 1024 * 1024
 const REQUEST_TIMEOUT_MS = 25_000
 
 import type { Capabilities, Discovery, Inspection, Item, Job, Page, ServiceError } from './remoteContracts'
+import { BrowserQueue } from './browserQueue'
+import type { BrowserPlan } from './remoteContracts'
 export type { Capabilities, Discovery, Inspection, Item, Job, Output, Page } from './remoteContracts'
 
 let sessionPromise: Promise<string> | null = null
@@ -51,20 +53,29 @@ function checkedInspection(value: Inspection): Inspection {
   return value
 }
 
+const browserQueue = new BrowserQueue({
+  plan: (id, output) => remote<{ plan: BrowserPlan | null }>(`/inspections/${encodeURIComponent(id)}/browser-plan`, { output }),
+  create: (input, key) => remote<Job>('/jobs', input, key),
+  cancel: id => remote<Job>(`/jobs/${encodeURIComponent(id)}/cancel`, {}),
+  remove: id => remote(`/jobs/${encodeURIComponent(id)}/remove`, {}),
+})
 export const remoteMedia = {
   capabilities: () => remote<Capabilities>('/capabilities'),
-  inspect: async (url: string, signal?: AbortSignal) => checkedInspection(await remote<Inspection>('/inspections', { url }, undefined, signal)),
+  inspect: async (url: string, signal?: AbortSignal) => { const inspection = checkedInspection(await remote<Inspection>('/inspections', { url }, undefined, signal)); browserQueue.remember(inspection); return inspection },
   discover: (input: { url: string; limit: number; after?: string; before?: string }) => remote<Discovery>('/discoveries', input),
   discovery: (id: string) => remote<Discovery>(`/discoveries/${encodeURIComponent(id)}`),
   discoveries: () => remote<Page<Discovery>>('/discoveries'),
   discoveryItems: (id: string, cursor = '') => remote<Page<Item>>(`/discoveries/${encodeURIComponent(id)}/items?cursor=${encodeURIComponent(cursor || '0')}`),
-  jobs: () => remote<Page<Job>>('/jobs'),
-  items: (id: string, cursor = '') => remote<Page<Item>>(`/jobs/${encodeURIComponent(id)}/items?cursor=${encodeURIComponent(cursor || '0')}`),
-  create: (input: unknown, key: string) => remote<Job>('/jobs', input, key),
-  cancel: (id: string, discovery = false) => remote<Job | Discovery>(`/${discovery ? 'discoveries' : 'jobs'}/${encodeURIComponent(id)}/cancel`, {}),
-  retry: (id: string) => remote<Job>(`/jobs/${encodeURIComponent(id)}/retry`, {}),
-  remove: (id: string) => remote<{ removed: boolean }>(`/jobs/${encodeURIComponent(id)}/remove`, {}),
-  access: (id: string) => remote<{ url: string; name: string; expires: number }>(`/artifacts/${encodeURIComponent(id)}/access`, {}),
+  jobs: async () => browserQueue.merge(await remote<Page<Job>>('/jobs')),
+  syncBrowserJobs: (jobs: Job[]) => browserQueue.merge({ items: jobs, next: null }).items,
+  items: (id: string, cursor = '') => browserQueue.has(id) && browserQueue.remoteId(id) === id ? Promise.resolve(browserQueue.items(id)) : remote<Page<Item>>(`/jobs/${encodeURIComponent(browserQueue.remoteId(id))}/items?cursor=${encodeURIComponent(cursor || '0')}`),
+  create: async (input: unknown, key: string) => await browserQueue.create(input, key) || remote<Job>('/jobs', input, key),
+  cancel: (id: string, discovery = false) => !discovery && browserQueue.has(id) ? browserQueue.cancel(id) : remote<Job | Discovery>(`/${discovery ? 'discoveries' : 'jobs'}/${encodeURIComponent(id)}/cancel`, {}),
+  retry: async (id: string) => { if (!browserQueue.has(id)) return remote<Job>(`/jobs/${encodeURIComponent(id)}/retry`, {}); if (browserQueue.remoteId(id) === id) return browserQueue.retry(id); return browserQueue.reconcile(id, await remote<Job>(`/jobs/${encodeURIComponent(browserQueue.remoteId(id))}/retry`, {})) },
+  remove: async (id: string) => { if (browserQueue.has(id)) { await browserQueue.remove(id); return { removed: true } } return remote<{ removed: boolean }>(`/jobs/${encodeURIComponent(id)}/remove`, {}) },
+  access: (id: string): Promise<{ url: string; name: string; expires: number; local?: boolean }> => { const local = browserQueue.access(id); return local ? Promise.resolve(local) : remote(`/artifacts/${encodeURIComponent(id)}/access`, {}) },
+  browserDelivered: (id: string) => browserQueue.delivered(id),
+  browserAccess: (id: string) => browserQueue.access(id),
   services: (query: string, cursor = '') => remote<Page<{ id: string; enabled: boolean; single: string; playlist: string; profile: string }> & { total?: number }>(`/services?q=${encodeURIComponent(query)}&cursor=${encodeURIComponent(cursor || '0')}`),
   preview: (path: string) => `${apiBase()}${path}`,
 }
