@@ -1,6 +1,8 @@
-import { cleanup, render, screen } from '@testing-library/react'
+import { cleanup, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, expect, it, vi } from 'vitest'
 import { PageDirectory } from './PagePrimitives'
+import userEvent from '@testing-library/user-event'
+import AboutPage from './AboutPage'
 
 afterEach(() => { cleanup(); vi.restoreAllMocks() })
 
@@ -16,4 +18,19 @@ it('reveals an off-screen selected category without scrolling the page', () => {
   view.rerender(<PageDirectory {...props} selected="last"/>)
   expect(nav.scrollLeft).toBe(150)
   expect(scroll).not.toHaveBeenCalled()
+})
+
+it('opens About sections from the compact picker and restores deep links through history', async () => {
+  history.replaceState(null, '', '/about/privacy')
+  const user = userEvent.setup()
+  render(<AboutPage/>)
+  const picker = screen.getByRole('combobox', { name: 'About section' })
+  expect(picker).toHaveValue('privacy')
+  expect(screen.getByRole('article', { name: 'Privacy policy' })).toBeVisible()
+  await user.selectOptions(picker, 'credits')
+  expect(location.pathname).toBe('/about/credits')
+  expect(screen.getByRole('article', { name: 'Thanks & licenses' })).toBeVisible()
+  history.back()
+  await waitFor(() => expect(picker).toHaveValue('privacy'))
+  expect(screen.getByRole('article', { name: 'Privacy policy' })).toBeVisible()
 })

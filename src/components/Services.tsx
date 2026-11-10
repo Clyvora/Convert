@@ -20,8 +20,9 @@ export default function Services() {
       aria-pressed={selected === item.id} onClick={() => setSelected(current => current === item.id ? null : item.id)}
     >
       <span className="directory-platform-icon" style={{ maskImage: `url(/platforms/${item.icon}.svg)`, WebkitMaskImage: `url(/platforms/${item.icon}.svg)` }} aria-hidden="true"/>
+      <span className="directory-platform-name">{item.name}</span>
     </button>)}</div>
     {service && <div className="directory-selected" role="status"><span>{service.name}</span><small>{service.detail}</small></div>}
-    <p className="directory-note">Availability varies by link and selected format.</p>
+    <p className="directory-note">Spotify links find matching audio on YouTube. Availability varies by link and selected format.</p>
   </div>
 }

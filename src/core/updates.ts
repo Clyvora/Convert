@@ -18,3 +18,10 @@ export const browserUpdate = {
   date: '2026-11-07',
   title: 'Less waiting. More mewvi.',
 }
+
+export const polishUpdate = {
+  id: 'a-little-polish-2026-11-10',
+  version: '0.4.0-beta.2',
+  date: '2026-11-10',
+  title: 'A little polish.',
+}

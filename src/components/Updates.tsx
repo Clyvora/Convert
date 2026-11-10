@@ -1,4 +1,4 @@
-import { useEffect, useRef, type MouseEvent } from 'react'
+import { useEffect, useId, useRef, type MouseEvent } from 'react'
 import { useSectionNavigation } from '../core/navigation'
 import bannerSmall from '../assets/social-card-640.webp'
 import bannerLarge from '../assets/social-card-1280.webp'
@@ -6,7 +6,9 @@ import updateBanner from '../assets/updates-october-2026-1280.webp'
 import updateBannerSmall from '../assets/updates-october-2026-640.webp'
 import browserBanner from '../assets/updates-november-2026-1280.webp'
 import browserBannerSmall from '../assets/updates-november-2026-640.webp'
-import { browserUpdate, bugFixUpdate, betaUpdate as update } from '../core/updates'
+import polishBanner from '../assets/updates-ui-polish-2026-11-1280.webp'
+import polishBannerSmall from '../assets/updates-ui-polish-2026-11-640.webp'
+import { polishUpdate, browserUpdate, bugFixUpdate, betaUpdate as update } from '../core/updates'
 import Mascot from './Mascot'
 import './Updates.css'
 
@@ -18,49 +20,61 @@ const cast = [
   { pose: 'confused', label: 'A little help?', detail: 'Something needs your attention.' },
 ] as const
 
-const releases = [browserUpdate, bugFixUpdate, update]
+const releases = [polishUpdate, browserUpdate, bugFixUpdate, update]
+const latestUpdate = releases[0]
 const updateIds = releases.map(release => release.id)
 
 export default function Updates() {
-  const selected = useSectionNavigation('/updates', updateIds, browserUpdate.id)
+  const selected = useSectionNavigation('/updates', updateIds, latestUpdate.id)
   const container = useRef<HTMLDivElement>(null)
+  const releasePickerId = useId()
   const index = updateIds.indexOf(selected)
   const newer = releases[index - 1], older = releases[index + 1]
-  useEffect(() => {
-    const reader = container.current
-    if (!reader) return
-    const positionArrows = () => {
-      const bounds = reader.getBoundingClientRect()
-      reader.style.setProperty('--update-reader-left', `${bounds.left}px`)
-      reader.style.setProperty('--update-reader-right', `${bounds.right}px`)
-    }
-    positionArrows()
-    const observer = new ResizeObserver(positionArrows)
-    observer.observe(reader)
-    window.addEventListener('resize', positionArrows)
-    return () => { observer.disconnect(); window.removeEventListener('resize', positionArrows) }
-  }, [])
   useEffect(() => {
     window.scrollTo({ top: 0, left: 0, behavior: 'instant' })
     container.current?.querySelector<HTMLElement>('h2')?.focus({ preventScroll: true })
   }, [selected])
+  const selectUpdate = (id: string) => {
+    if (!updateIds.includes(id) || location.hash === `#${id}`) return
+    history.pushState(null, '', `#${id}`)
+    window.dispatchEvent(new PopStateEvent('popstate'))
+  }
   const switchUpdate = (event: MouseEvent<HTMLDivElement>) => {
     if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return
     const anchor = (event.target as Element).closest<HTMLAnchorElement>('a[href^="#"]')
     if (!anchor || !updateIds.includes(anchor.hash.slice(1))) return
     event.preventDefault()
-    if (location.hash !== anchor.hash) {
-      history.pushState(null, '', anchor.hash)
-      window.dispatchEvent(new PopStateEvent('popstate'))
-    }
+    selectUpdate(anchor.hash.slice(1))
   }
   return <div className="updates-reader" ref={container} onClick={switchUpdate}>
-    {selected === browserUpdate.id ? <BrowserUpdate/> : selected === bugFixUpdate.id ? <BugFixUpdate/> : <BetaUpdate/>}
+    <div className="update-release-picker"><label htmlFor={releasePickerId}>Release</label><select id={releasePickerId} value={selected} onChange={event => selectUpdate(event.target.value)}>{releases.map(release => <option key={release.id} value={release.id}>{release.version}{release.id === latestUpdate.id ? ' (latest)' : ''}</option>)}</select></div>
+    {selected === polishUpdate.id ? <PolishUpdate/> : selected === browserUpdate.id ? <BrowserUpdate/> : selected === bugFixUpdate.id ? <BugFixUpdate/> : <BetaUpdate/>}
     <nav className="update-pagination" aria-label="Browse updates">
       {newer && <a className="update-page-link update-page-newer" href={`#${newer.id}`} aria-label={`Previous page: ${newer.version}`}><span aria-hidden="true">←</span><span>{newer.version}</span></a>}
       {older && <a className="update-page-link update-page-older" href={`#${older.id}`} aria-label={`Next page: ${older.version}`}><span>{older.version}</span><span aria-hidden="true">→</span></a>}
     </nav>
   </div>
+}
+
+function PolishUpdate() {
+  return <article className="beta-update" id={polishUpdate.id} aria-labelledby="polish-update-title">
+    <header className="beta-update-header"><div className="beta-update-meta"><a className="release-version" href={`#${polishUpdate.id}`} aria-label="Link to this update">{polishUpdate.version}</a><time dateTime={polishUpdate.date}>10 November 2026</time></div><h2 id="polish-update-title" tabIndex={-1}>{polishUpdate.title}</h2></header>
+    <img className="beta-update-banner" src={polishBanner} srcSet={`${polishBannerSmall} 640w, ${polishBanner} 1280w`} sizes="(max-width: 600px) calc(100vw - 40px), (max-width: 1000px) calc(100vw - 152px), 935px" decoding="async" fetchPriority="high" alt="mewvi resting its chin between two rounded paws on a wooden windowsill in warm autumn light." width="1280" height="720"/>
+    <div className="beta-update-copy">
+      <p className="update-intro">A small update to make mewvi easier to read and move around, especially on phones and tablets.</p>
+      <section><h3>A little more room.</h3><p>On phones, the Downloads button and Beta label now sit in a solid top bar. They stay clear of the text as you scroll. Navigation labels, hints and service descriptions are larger, too.</p><p>Tablets now use the grouped <a href="/settings">Settings menu</a>, with a page for each category. Format and bitrate choices line up in evenly sized rows, with room for their labels.</p></section>
+      <section><h3>Fewer things to hunt for.</h3><ul>
+        <li>Switch releases from the selector at the top of Updates on smaller screens. It stays within reach while you read.</li>
+        <li>Choose any <a href="/about">About section</a> from the mobile dropdown, without searching through a sideways tab bar.</li>
+        <li>See platform names beneath the supported-service icons. The panel also explains that Spotify links find matching audio on YouTube.</li>
+      </ul></section>
+      <section><h3>A reason for disabled controls.</h3><p>When you choose Original in <a href="/settings/audio">Audio settings</a>, a visible note explains why bitrate, sample rate and channels keep their source values. You can read it with setting descriptions turned off. Choose another format to adjust those controls; mewvi keeps your previous encoding choices when you switch back.</p></section>
+      <section className="update-fixes"><h3>Bug fixes &amp; improvements</h3><ul>
+        <li>Fixed update links drifting or clipping when changing browser zoom. The arrows now follow the space beside the article, with links below it on narrower layouts.</li>
+        <li>Kept release selectors, direct links and browser back and forward navigation in sync.</li>
+      </ul></section>
+    </div>
+  </article>
 }
 
 function BrowserUpdate() {

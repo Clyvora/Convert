@@ -4,15 +4,27 @@
 @media(max-width:600px){.beta-update-meta{gap:8px;font-size:9px}.release-version{font-size:9px}.release-status{font-size:8px;padding:3px 5px}.beta-update-header h2{font-size:25px;margin:20px 0}.beta-update-art{min-height:240px;padding:18px 20px;align-items:flex-start}.update-art-word{font-size:48px;align-self:flex-start;z-index:2;margin-top:8px}.beta-update-art>.mascot{width:200px;height:200px;position:absolute;right:-18px;bottom:8px}.update-art-orbit{width:240px;height:240px;right:-80px;top:0}.update-art-sticker{font-size:8px;right:12px;bottom:14px}.beta-update-copy{font-size:12px}.beta-update-copy .update-intro{font-size:15px}.beta-callout{padding:16px;gap:12px}.beta-update-copy h3{font-size:19px}.update-cat-cast{grid-template-columns:repeat(2,minmax(0,1fr));gap:22px 14px;max-width:340px;margin-inline:auto}.update-cat-cast>div:last-child{grid-column:1/-1;max-width:145px;justify-self:center}.update-cat-cast .mascot{max-height:140px;width:auto;max-width:100%;margin:0 auto}.update-cat-cast strong{font-size:11px}.update-cat-cast p{font-size:10px}.local-queue-companion{width:56px;height:56px}}
 @media(prefers-reduced-motion:reduce){.beta-update *,.local-queue-companion,.download-companion.mascot-pose-curious,.download-workspace:has(.is-checking) .download-companion.mascot-pose-curious{animation:none!important;transition:none!important}}
 
-.mobile-beta{display:none}@media(max-width:600px){.mobile-beta{display:block;position:fixed;top:28px;right:68px;z-index:12;font:8px var(--mono);text-transform:uppercase;letter-spacing:.08em;color:var(--muted);border:1px solid var(--line-bright);border-radius:3px;padding:3px 5px}}
+.mobile-beta{display:none}
 
-.update-pagination{display:flex;justify-content:space-between;gap:16px;margin-top:40px}
-.update-page-link{display:flex;align-items:center;gap:10px;min-height:48px;padding:12px;color:var(--text);text-decoration:none;border-radius:8px;font:12px/1.5 var(--mono)}
+.update-pagination{display:flex;justify-content:space-between;gap:16px;max-width:850px;margin:40px auto 0}
+.update-page-link{display:flex;align-items:center;gap:10px;min-width:0;min-height:48px;padding:12px;color:var(--text);text-decoration:none;border-radius:8px;font:12px/1.5 var(--mono);overflow-wrap:anywhere}
 .update-page-link:hover,.update-page-link:focus-visible{background:var(--raised)}
 .update-page-older{margin-left:auto;text-align:right}
 .beta-update-header h2:focus{outline:none}
-.updates-reader{position:relative}
-@media(min-width:1400px){.update-page-link{position:fixed;top:348px;transform:translateY(-50%);z-index:2;width:max-content;max-width:150px}.update-page-older{left:calc(var(--update-reader-right) + 16px);margin-left:0}.update-page-newer{right:calc(100vw - var(--update-reader-left) + 16px)}}
+.updates-reader{position:relative;min-width:0}
+.update-release-picker{position:sticky;top:var(--app-header-height,0px);z-index:3;display:flex;align-items:center;justify-content:space-between;gap:12px;max-width:850px;margin:0 auto 20px;padding:8px 0;border-bottom:1px solid var(--line);background:var(--bg)}
+.update-release-picker select{flex:1;width:auto;max-width:260px;font-family:var(--mono)}
+/* Reserve space for both links in the same coordinate system as the article.
+   Available content width accounts for the app rail and all browser/CSS zoom. */
+@container updates (min-width:1182px){
+  .update-release-picker{display:none}
+  .updates-reader{display:grid;grid-template-columns:150px minmax(0,850px) 150px;column-gap:16px;justify-content:center;align-items:start}
+  .updates-reader>.beta-update{grid-column:2;grid-row:1;min-width:0}
+  .update-pagination{display:grid;grid-template-columns:subgrid;grid-column:1/-1;grid-row:1;position:sticky;top:calc(var(--app-viewport-height) / 2 - 24px);align-self:start;max-width:none;margin:0;pointer-events:none}
+  .update-page-link{pointer-events:auto}
+  .update-page-newer{grid-column:1;justify-self:end}
+  .update-page-older{grid-column:3;justify-self:start;margin-left:0}
+}
 
 .beta-update-copy .update-fixes li{margin:5px 0}
 .beta-update-copy .update-fixes>ul>li>ul{margin:4px 0 12px;padding-left:22px}

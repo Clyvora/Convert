@@ -1,5 +1,5 @@
 import { useEffect, useId, useRef, useState } from 'react'
-import type { MouseEvent, ReactNode } from 'react'
+import type { CSSProperties, MouseEvent, ReactNode } from 'react'
 import { compatibility, containers } from '../core/remoteContracts'
 import type { Container, Output } from '../core/remoteContracts'
 import type { RemoteController } from '../core/useRemoteMedia'
@@ -31,9 +31,10 @@ const routes = ['index', ...sectionIds] as const
 const menuIcons = { appearance: 'appearance', accessibility: 'accessibility', video: 'video', audio: 'audio', metadata: 'metadata', local: 'local', instances: 'instances', privacy: 'privacy', advanced: 'advanced', debug: 'about' } as const
 const slug = (label: string) => label.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/-$/, '')
 
-function Choices({ label, value, values, onChange, hint, disabled = false }: { label: string; value: string; values: [string, string][]; onChange: (value: string) => void; hint?: string; disabled?: boolean }) {
+function Choices({ label, value, values, onChange, hint, disabled = false, describedBy }: { label: string; value: string; values: [string, string][]; onChange: (value: string) => void; hint?: string; disabled?: boolean; describedBy?: string }) {
   const name = useId()
-  return <div className="setting-block"><SectionHeading id={slug(label)}>{label}</SectionHeading><fieldset className="setting-choices" disabled={disabled}><legend className="sr-only">{label}</legend><div className="setting-segments">{values.map(([id, text]) => <label key={id} className={id === value ? 'is-selected' : ''}><input type="radio" name={name} value={id} checked={value === id} onChange={() => onChange(id)}/><span>{text}</span></label>)}</div></fieldset>{hint && <p className="setting-hint">{hint}</p>}</div>
+  const columns = { '--setting-columns': Math.min(values.length, 4), '--setting-columns-narrow': Math.min(values.length, 3) } as CSSProperties
+  return <div className="setting-block"><SectionHeading id={slug(label)}>{label}</SectionHeading><fieldset className="setting-choices" disabled={disabled} aria-describedby={describedBy}><legend className="sr-only">{label}</legend><div className="setting-segments" style={columns}>{values.map(([id, text]) => <label key={id} className={id === value ? 'is-selected' : ''}><input type="radio" name={name} value={id} checked={value === id} onChange={() => onChange(id)}/><span>{text}</span></label>)}</div></fieldset>{hint && <p className="setting-hint">{hint}</p>}</div>
 }
 function Toggle({ label, checked, onChange, hint }: { label: string; checked: boolean; onChange: (checked: boolean) => void; hint: string }) {
   return <div className="setting-block"><label className="setting-toggle"><span>{label}</span><input type="checkbox" role="switch" checked={checked} onChange={e => onChange(e.target.checked)}/><span className="toggle-track" aria-hidden="true"/></label><p className="setting-hint">{hint}</p></div>
@@ -47,7 +48,7 @@ export default function SettingsPage({ controller: r }: { controller: RemoteCont
   const section = selected === 'index' ? 'appearance' : selected
   const mobileHeading = useRef<HTMLHeadingElement>(null)
   useEffect(() => {
-    if (!window.matchMedia?.('(max-width: 600px)').matches) return
+    if (!window.matchMedia?.('(max-width: 900px)').matches) return
     window.scrollTo({ top: 0, left: 0, behavior: 'instant' })
     mobileHeading.current?.focus({ preventScroll: true })
   }, [selected])
@@ -62,6 +63,9 @@ export default function SettingsPage({ controller: r }: { controller: RemoteCont
   const [notice, setNotice] = useState(''), [confirm, setConfirm] = useState<'reset' | 'cache' | null>(null)
   const importFile = useRef<HTMLInputElement>(null)
   const p = r.preferences, o = p.options, i = r.inspection
+  const originalAudio = p.audioContainer === 'original'
+  const originalAudioHintId = useId()
+  const audioDescription = originalAudio ? originalAudioHintId : undefined
   const update = (patch: Partial<Output>) => r.setPreferences(previous => ({ ...previous, options: { ...previous.options, ...patch } }))
   const formats = (kind: 'audio' | 'video'): [string, string][] => (r.caps?.containers || containers).filter(f => f === 'original' || compatibility[f].kind === kind).map(f => [f, f === 'original' ? 'Original' : f.toUpperCase()])
   const heights = [...new Set(i?.formats.filter(f => f.video).map(f => f.height).filter((h): h is number => h !== null) || [])].sort((a,b) => b-a)
@@ -134,9 +138,10 @@ export default function SettingsPage({ controller: r }: { controller: RemoteCont
       {section === 'audio' && <>
         <Choices label="Audio format" value={p.audioContainer} values={formats('audio')} onChange={value => r.setPreferences(previous => ({ ...previous, audioContainer: value as Container }))} hint="MP3 is widely supported. WAV and FLAC preserve decoded audio without restoring quality missing from the source."/>
         <Choices label="Audio quality" value={o.preset} values={[[ 'best', 'Best available' ], [ 'smaller', 'Smaller file' ]]} onChange={value => update({ preset: value as Output['preset'] })} hint="The quality preset is shared with video downloads."/>
-        <Choices label="Audio bitrate (kbps)" disabled={p.audioContainer === 'original'} value={String(p.audioContainer === 'original' ? '' : o.audioBitrate || '')} values={[[ '', 'Automatic' ], ...[96,128,192,256,320].map(n => [String(n), String(n)] as [string,string])]} onChange={value => update({ audioBitrate: Number(value) || undefined })} hint="Original preserves the available source audio. Automatic copies compatible audio or uses high-quality encoding with Best available. A higher output bitrate cannot restore missing source detail."/>
-        <Choices label="Sample rate" disabled={p.audioContainer === 'original'} value={String(p.audioContainer === 'original' ? '' : o.sampleRate || '')} values={[[ '', 'Source' ], [ '44100', '44.1 kHz' ], [ '48000', '48 kHz' ]]} onChange={value => update({ sampleRate: Number(value) || undefined })}/>
-        <Choices label="Channels" disabled={p.audioContainer === 'original'} value={String(p.audioContainer === 'original' ? '' : o.channels || '')} values={[[ '', 'Source' ], [ '1', 'Mono' ], [ '2', 'Stereo' ]]} onChange={value => update({ channels: Number(value) || undefined })}/>
+        {originalAudio && <p id={originalAudioHintId} className="setting-dependency-note">Original keeps the source bitrate, sample rate and channels. Choose another audio format to change these settings.</p>}
+        <Choices label="Audio bitrate (kbps)" disabled={originalAudio} describedBy={audioDescription} value={String(originalAudio ? '' : o.audioBitrate || '')} values={[[ '', 'Automatic' ], ...[96,128,192,256,320].map(n => [String(n), String(n)] as [string,string])]} onChange={value => update({ audioBitrate: Number(value) || undefined })} hint="Original preserves the available source audio. Automatic copies compatible audio or uses high-quality encoding with Best available. A higher output bitrate cannot restore missing source detail."/>
+        <Choices label="Sample rate" disabled={originalAudio} describedBy={audioDescription} value={String(originalAudio ? '' : o.sampleRate || '')} values={[[ '', 'Source' ], [ '44100', '44.1 kHz' ], [ '48000', '48 kHz' ]]} onChange={value => update({ sampleRate: Number(value) || undefined })}/>
+        <Choices label="Channels" disabled={originalAudio} describedBy={audioDescription} value={String(originalAudio ? '' : o.channels || '')} values={[[ '', 'Source' ], [ '1', 'Mono' ], [ '2', 'Stereo' ]]} onChange={value => update({ channels: Number(value) || undefined })}/>
         <Select label="Audio language" value={o.language || ''} onChange={value => update({ language: value || undefined })} hint="Available tracks appear after inspecting a link."><option value="">Source default</option>{[...new Set([...(o.language ? [o.language] : []), ...languages])].map(l => <option key={l}>{l}</option>)}</Select>
       </>}
       {section === 'metadata' && <>

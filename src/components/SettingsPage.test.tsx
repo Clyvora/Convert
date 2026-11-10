@@ -1,5 +1,5 @@
 import { beforeEach, expect, it, vi } from 'vitest'
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { useState } from 'react'
 import SettingsPage from './SettingsPage'
@@ -61,4 +61,35 @@ it('opens a category from the grouped menu and preserves choices when returning'
   expect(view.container.querySelector('.mobile-settings-menu')).not.toBeNull()
   act(() => { history.replaceState(null, '', '/settings/audio'); window.dispatchEvent(new PopStateEvent('popstate')) })
   expect(screen.getByRole('radio', { name: 'MP3' })).toBeChecked()
+})
+
+it('explains Original audio restrictions and restores encoding choices when changing formats', async () => {
+  history.replaceState(null, '', '/settings/audio')
+  const user = userEvent.setup()
+  render(<Harness/>)
+  const explanation = 'Original keeps the source bitrate, sample rate and channels. Choose another audio format to change these settings.'
+  const bitrate = screen.getByRole('group', { name: 'Audio bitrate (kbps)' })
+  const sampleRate = screen.getByRole('group', { name: 'Sample rate' })
+  const channels = screen.getByRole('group', { name: 'Channels' })
+  for (const group of [bitrate, sampleRate, channels]) {
+    expect(group).toBeDisabled()
+    expect(group).toHaveAccessibleDescription(explanation)
+  }
+  expect(screen.getByText(explanation)).toBeVisible()
+  await user.click(screen.getByRole('radio', { name: 'MP3' }))
+  expect(screen.queryByText(explanation)).not.toBeInTheDocument()
+  for (const group of [bitrate, sampleRate, channels]) {
+    expect(group).toBeEnabled()
+    expect(group).not.toHaveAttribute('aria-describedby')
+  }
+  await user.click(within(bitrate).getByRole('radio', { name: '192' }))
+  await user.click(within(sampleRate).getByRole('radio', { name: '44.1 kHz' }))
+  await user.click(within(channels).getByRole('radio', { name: 'Stereo' }))
+  await user.click(screen.getByRole('radio', { name: 'Original' }))
+  expect(screen.getByText(explanation)).toBeVisible()
+  expect(within(bitrate).getByRole('radio', { name: 'Automatic' })).toBeChecked()
+  await user.click(screen.getByRole('radio', { name: 'MP3' }))
+  expect(within(bitrate).getByRole('radio', { name: '192' })).toBeChecked()
+  expect(within(sampleRate).getByRole('radio', { name: '44.1 kHz' })).toBeChecked()
+  expect(within(channels).getByRole('radio', { name: 'Stereo' })).toBeChecked()
 })

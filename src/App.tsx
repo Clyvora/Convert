@@ -67,14 +67,17 @@ export default function App() {
     if (target.origin !== location.origin || !/^\/(?:local|settings(?:\/[a-z-]+)?|about(?:\/[a-z-]+)?|updates)?$/.test(target.pathname)) return
     event.preventDefault(); navigate(`${target.pathname}${target.hash}`)
   }}>
-    <span className="mobile-beta">Beta</span>
     <a className="skip-link" href="#workspace">Skip to workspace</a>
+    <header className="app-toolbar" aria-label="App controls">
+      {route === '/' && <button type="button" className="services-trigger" onClick={() => remote.setPanel('services')} aria-expanded={remote.panel === 'services'}><Icon name="plus"/>Supported services</button>}
+      <span className="mobile-beta">Beta</span>
+      <button className={`queue-trigger ${remote.activeCount ? 'has-active-jobs' : ''}`} type="button" aria-label={`Open download queue${remote.activeCount ? `, ${remote.activeCount} active` : ''}`} aria-expanded={remote.panel === 'queue'} onClick={() => remote.setPanel('queue')}><Icon name="download"/>{remote.activeCount > 0 && <span className="queue-count"><MorphText>{String(remote.activeCount)}</MorphText></span>}</button>
+    </header>
     <nav className="app-rail" aria-label="mewvi navigation">
       <a className="rail-brand" href="/" onClick={event => visit(event, '/')} aria-label="mewvi home, beta"><img src="/brand-cat-transparent.svg" alt="" width="52" height="52" decoding="async" fetchPriority="high"/><span className="app-beta-label">Beta</span></a>
       <div className="rail-workspaces">{link('/', 'Download workspace', 'download', 'Download')}{link('/local', 'Local conversion workspace', 'convert', 'Convert')}</div>
       <div className="rail-utilities">{link('/settings', 'Open settings', 'settings', 'Settings')}{link('/updates', 'Open updates', 'updates', 'Updates')}{link('/about', 'About mewvi', 'about', 'About')}</div>
     </nav>
-    <button className={`queue-trigger ${remote.activeCount ? 'has-active-jobs' : ''}`} type="button" aria-label={`Open download queue${remote.activeCount ? `, ${remote.activeCount} active` : ''}`} aria-expanded={remote.panel === 'queue'} onClick={() => remote.setPanel('queue')}><Icon name="download"/>{remote.activeCount > 0 && <span className="queue-count"><MorphText>{String(remote.activeCount)}</MorphText></span>}</button>
     <main id="workspace" className="app-workspace" tabIndex={-1}>
       <h1 ref={heading} tabIndex={-1} className="sr-only">{titles[route]}</h1>
       <RemoteMedia active={route === '/'} controller={controller}/>

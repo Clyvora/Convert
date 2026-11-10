@@ -13,11 +13,13 @@ body,.convert-app { font-family:var(--mono); font-size:14px; }
 .app-rail { padding:8px 4px; }
 .app-rail .rail-brand { min-height:68px; padding:0; margin-bottom:4px; }
 .app-rail .rail-brand img { width:44px; height:44px; }
-.app-rail :is(a,button) { min-height:60px; border-radius:12px; gap:6px; font-size:10px; }
+.app-rail :is(a,button) { min-height:60px; border-radius:12px; gap:6px; font-size:11px; }
 .app-rail :is(a,button) svg { width:21px; height:21px; }
 .app-rail a:hover { transform:none; }
 .rail-workspaces,.rail-utilities { gap:0; }
 .queue-trigger { width:40px; height:40px; top:12px; right:20px; }
+.app-toolbar { position:absolute; inset:0 0 auto 88px; height:64px; z-index:12; pointer-events:none; }
+.app-toolbar :is(button,.mobile-beta) { pointer-events:auto; }
 .services-trigger { top:12px; min-height:36px; font-size:12px; }
 .services-trigger[aria-expanded=true] { border-radius:24px; background:var(--panel); }
 .download-stage { width:min(640px,100%); }
@@ -30,12 +32,15 @@ body,.convert-app { font-family:var(--mono); font-size:14px; }
 .mode-switch label { min-height:38px; padding:7px 12px; font-size:13px; }
 .mode-switch label+label { border:0; }
 .quick-action { min-height:38px; min-width:100px; padding:7px 12px; background:var(--raised); color:var(--text); font-size:13px; }
-.workspace-note,.workspace-note .text-button { font-size:11px; }
+.workspace-note,.workspace-note .text-button,.field-note,.download-guide,.download-guide summary { font-size:12px; }
+.download-guide summary { padding-block:8px; }
+.app-rail .rail-brand .app-beta-label { font-size:9px; }
 
 /* Page navigation occupies its own column rather than enclosing the content. */
 .convert-app .content-page:has(.directory-layout) { display:block; max-width:none; margin:0; padding:28px 28px 80px; }
 .directory-layout { display:grid; grid-template-columns:250px minmax(0,700px); gap:38px; align-items:start; }
 .page-directory { position:sticky; top:28px; min-width:0; }
+.directory-picker { display:none; }
 .directory-version { display:block; color:var(--muted); font-size:11px; line-height:1.5; margin-bottom:2px; }
 .page-directory h2 { font-size:20px; font-weight:500; line-height:1.3; margin:0 0 12px; letter-spacing:-.04em; }
 .page-directory nav { display:grid; gap:2px; }
@@ -66,8 +71,8 @@ body,.convert-app { font-family:var(--mono); font-size:14px; }
 .section-copy-status { color:var(--muted); font-size:11px; }
 .settings-studio .setting-choices { min-width:0; border:0; margin:0; padding:0; }
 .settings-studio .setting-choices legend.sr-only { margin:0; padding:0; }
-.settings-studio .setting-segments { display:flex; flex-wrap:wrap; padding:3px; gap:3px; border:1px solid var(--line); border-radius:9px; background:var(--panel); box-shadow:none; }
-.settings-studio .setting-segments label { position:relative; flex:1 1 58px; display:flex; align-items:center; justify-content:center; min-height:31px; padding:6px 8px; margin:0; border-radius:6px; font-size:13px; color:var(--text); cursor:pointer; text-align:center; line-height:1.4; }
+.settings-studio .setting-segments { display:grid; grid-template-columns:repeat(var(--setting-columns),minmax(0,1fr)); padding:3px; gap:3px; border:1px solid var(--line); border-radius:9px; background:var(--panel); box-shadow:none; }
+.settings-studio .setting-segments label { position:relative; display:flex; align-items:center; justify-content:center; min-width:0; min-height:31px; padding:6px 8px; margin:0; border-radius:6px; font-size:13px; color:var(--text); cursor:pointer; text-align:center; line-height:1.4; }
 .settings-studio .setting-segments label.is-selected { background:var(--accent); color:var(--accent-ink); font-weight:500; box-shadow:none; }
 .setting-segments label:not(.is-selected):hover { background:var(--raised); }
 .settings-studio .setting-segments input { position:absolute; inset:0; opacity:0; width:100%; height:100%; min-height:0; margin:0; padding:0; cursor:pointer; }
@@ -118,7 +123,7 @@ body,.convert-app { font-family:var(--mono); font-size:14px; }
 .community-links>a>span { color:var(--muted); font-size:12px; line-height:1.7; }
 
 /* One full-width beta letter, without a second page heading or card wrapper. */
-.convert-app .content-page:has(.beta-update) { max-width:914px; padding:28px 32px 80px; }
+.convert-app .content-page:has(.beta-update) { container:updates / inline-size; max-width:1246px; padding:28px 32px 80px; }
 .beta-update { max-width:850px; }
 .beta-update-meta { gap:14px; font-size:12px; }
 .beta-update-meta .release-version { background:var(--accent); color:var(--accent-ink); padding:3px 8px; font-size:16px; line-height:1.4; text-decoration:none; }
@@ -166,7 +171,7 @@ body,.convert-app { font-family:var(--mono); font-size:14px; }
 .local-empty .drop-zone .primary-button { background:transparent; color:var(--text); padding:0; font-size:17px; }
 .local-empty .drop-zone p { font-size:12px; margin:0; }
 .local-empty>h2,.local-empty>p:not(.field-note) { display:none; }
-.local-empty>.field-note { grid-column:1; text-align:center; font-size:11px; }
+.local-empty>.field-note { grid-column:1; text-align:center; font-size:12px; }
 .local-explainer { grid-column:2; grid-row:1 / span 3; align-self:center; text-align:left; }
 .local-explainer h3 { display:flex; align-items:center; gap:10px; font-size:15px; font-weight:500; margin:0 0 8px; }
 .local-explainer h3 svg { width:18px; height:18px; }
@@ -185,26 +190,39 @@ body,.convert-app { font-family:var(--mono); font-size:14px; }
   .local-explainer { margin-top:40px; }
 }
 @media(max-width:600px) {
-  .app-rail { gap:0; padding-inline:4px; }
-  .app-rail :is(a,button) { min-height:56px; font-size:8px; padding:6px 2px; }
+  /* Keep controls in an opaque header with its own space in the page flow. */
+  :root { --app-header-height:calc(64px + env(safe-area-inset-top,0px)); --app-nav-height:calc(76px + env(safe-area-inset-bottom,0px)); }
+  .app-toolbar { position:sticky; inset:0 auto auto; display:flex; align-items:center; justify-content:flex-end; gap:12px; height:var(--app-header-height); padding:calc(12px + env(safe-area-inset-top,0px)) 16px 12px 20px; border-bottom:1px solid var(--line); background:var(--bg); pointer-events:auto; }
+  .app-toolbar .queue-trigger { position:relative; inset:auto; flex-shrink:0; }
+  .app-toolbar .services-trigger { position:static; transform:none; margin-right:auto; padding:0; font-size:12px; }
+  .mobile-beta { display:block; position:static; flex-shrink:0; font:10px/1.4 var(--mono); text-transform:uppercase; letter-spacing:.08em; color:var(--muted); border:1px solid var(--line-bright); border-radius:3px; padding:3px 5px; }
+  .app-workspace { min-height:calc(var(--app-viewport-height) - var(--app-header-height)); padding-bottom:var(--app-nav-height); }
+  .content-page [id] { scroll-margin-top:calc(var(--app-header-height) + 16px); }
+  .app-rail { gap:0; padding-inline:4px; height:var(--app-nav-height); }
+  .app-rail :is(a,button) { min-height:56px; font-size:11px; padding:6px 2px; }
   .app-rail .rail-brand { display:none; }
   .rail-workspaces { flex:2; }
   .rail-utilities { flex:3; }
   .queue-trigger { top:12px; right:16px; }
-  .services-trigger { left:20px; font-size:11px; }
   .download-companion { width:180px; height:180px; }
-  .download-workspace { padding-inline:20px; }
+  .download-workspace { min-height:calc(var(--app-viewport-height) - var(--app-header-height) - var(--app-nav-height)); padding:60px 20px 96px; }
+  .workspace { min-height:calc(var(--app-viewport-height) - var(--app-header-height) - var(--app-nav-height)); padding-top:36px; }
+  .local-empty { padding-top:36px; }
   .mode-switch label { font-size:11px; min-height:40px; padding:8px; }
   .quick-action { min-width:88px; font-size:11px; }
   .url-field input { font-size:12px; min-height:42px; }
   .directory-layout,.settings-studio { display:block; }
-  .page-directory { position:relative; margin-bottom:26px; }
+  .page-directory { position:relative; top:auto; margin-bottom:26px; }
   .directory-companion { position:absolute; right:0; top:-12px; width:58px; height:58px; margin:0; }
   .page-directory:has(.directory-companion)>h2 { padding-right:66px; }
   .page-directory h2 { font-size:20px; margin-bottom:14px; }
   .page-directory nav { display:flex; gap:5px; overflow-x:auto; padding:3px 0 8px; scrollbar-width:thin; }
   .page-directory nav a { flex-shrink:0; font-size:12px; min-height:40px; padding:5px 8px; background:var(--panel); }
   .page-directory nav .directory-group-start { margin-top:0; margin-left:8px; }
+  .page-directory.has-picker nav { display:none; }
+  .page-directory.has-picker .directory-picker { display:grid; gap:8px; }
+  .directory-picker label { color:var(--muted); }
+  .directory-picker select { font-family:var(--mono); }
   .directory-icon { width:24px; height:24px; font-size:18px; }
   .settings-detail { padding:0; }
   .settings-studio .setting-segments label { font-size:12px; min-height:35px; padding:7px 6px; }
@@ -214,13 +232,14 @@ body,.convert-app { font-family:var(--mono); font-size:14px; }
   .about-overview { flex-direction:column-reverse; align-items:stretch; gap:16px; }
   .about-overview .mascot { width:180px; height:180px; margin:auto; }
   .community-links { grid-template-columns:1fr; }
-  .convert-app .content-page:has(.beta-update) { padding:80px 20px 110px; }
+  .convert-app .content-page:has(.beta-update) { padding:24px 20px 110px; }
   .beta-update-header h2 { font-size:21px; }
   .beta-update-copy,.beta-update-copy .update-intro { font-size:13px; }
   .beta-update-meta { font-size:11px; }
   .beta-update-meta .release-version { font-size:13px; }
-  .side-panel.panel-queue,.side-panel.panel-services { inset:60px 12px auto; width:auto; max-height:calc(var(--app-viewport-height) - 150px); }
+  .side-panel.panel-queue,.side-panel.panel-services { inset:calc(var(--app-header-height) + 8px) 12px auto; width:auto; max-height:calc(var(--app-viewport-height) - var(--app-header-height) - var(--app-nav-height) - 16px); }
 }
+@media(max-width:360px){.settings-studio .setting-segments{grid-template-columns:repeat(var(--setting-columns-narrow),minmax(0,1fr))}}
 :root[data-reduce-transparency=true] .side-panel::backdrop { backdrop-filter:none; }
 :root[data-reduce-transparency=true] .app-rail,:root[data-reduce-transparency=true] .side-panel { background:var(--panel); }
 :root[data-reduce-motion=true] *,:root[data-reduce-motion=true] *::before,:root[data-reduce-motion=true] *::after { animation:none!important; transition:none!important; scroll-behavior:auto!important; }

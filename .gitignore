@@ -25,6 +25,14 @@ scripts/ffmpeg/*-profile/
 # Generated from installed @ffmpeg/core packages.
 public/ffmpeg/runtime/
 
+# Private notes, source artwork and local review output.
+/.private/
+/.playwright-cli/
+/output/
+/tmp/
+/src/assets/*.prompt.md
+/src/assets/updates-*.png
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

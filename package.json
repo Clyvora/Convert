@@ -1,7 +1,7 @@
 {
   "name": "clyvora-convert",
   "private": true,
-  "version": "0.4.0-beta.1",
+  "version": "0.4.0-beta.2",
   "description": "Public media downloading and private on-device audio/video conversion.",
   "license": "SEE LICENSE IN LICENSE",
   "homepage": "https://mewvi.xyz/",

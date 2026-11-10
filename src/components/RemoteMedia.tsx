@@ -19,7 +19,6 @@ const modeLabels = { auto: 'Auto', audio: 'Audio', video: 'Video only' } as cons
 export default function RemoteMedia({ controller: r, active }: { controller: RemoteController; active: boolean }) {
   return <>
     <section className="download-workspace" hidden={!active} aria-label="Public media downloads">
-      <button type="button" className="services-trigger" onClick={() => r.setPanel('services')}><Icon name="plus"/>Supported services</button>
       <div className="download-stage">
         <Mascot className="download-companion" pose={r.error ? 'confused' : r.checking ? 'curious' : r.activeCount > 0 ? 'working' : r.jobs[0]?.state === 'ready' ? 'ready' : 'sitting'}/>
         <form className={splitLinks(r.url).length > 1 ? "omnibox is-batch" : "omnibox"} onSubmit={event => { event.preventDefault(); if (!r.busy) void (r.url.trim() ? r.submit() : r.paste()) }}>

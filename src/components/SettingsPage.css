@@ -1,5 +1,7 @@
 .mobile-settings-menu,.settings-category-header{display:none}
-@media(max-width:600px){
+.setting-dependency-note{margin:-10px 0 24px;padding:12px 14px;border:1px solid var(--line);border-radius:9px;background:var(--panel);color:var(--text);font:12px/1.7 var(--mono)}
+@media(max-width:900px){
+  .settings-studio.directory-layout{display:block;max-width:576px;margin-inline:auto}
   .settings-studio>.page-directory{display:none}
   .settings-studio.settings-index>.settings-detail{display:none}
   .settings-studio .mobile-settings-menu{display:block}
@@ -20,9 +22,10 @@
   .settings-menu-chevron{margin-left:auto;padding-left:4px;color:var(--muted);font-size:26px;line-height:1}
   .settings-menu-version{text-align:center;font:11px/1.6 var(--mono);color:var(--muted);margin:20px 0 0}
   .settings-studio .settings-category-header{display:grid;grid-template-columns:40px minmax(0,1fr) 40px;align-items:center;gap:8px;min-height:40px;margin:0 0 28px}
+  .settings-studio.settings-category .setting-segments label{min-height:40px;font-size:12px}
   .settings-category-header>a{display:grid;place-items:center;width:40px;height:40px;border-radius:9px;color:var(--text);text-decoration:none}
   .settings-category-header>a:hover{background:var(--panel)}
   .settings-category-header>a svg{rotate:180deg}
   .settings-category-header h2{margin:0;text-align:center;font-size:19px;font-weight:550;line-height:1.4;letter-spacing:-.025em}
-  .convert-app:has(.settings-studio)>.mobile-beta{display:none}
+  .convert-app:has(.settings-studio) .mobile-beta{display:none}
 }

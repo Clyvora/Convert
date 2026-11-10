@@ -1,7 +1,9 @@
-# Contributing to Clyvora Convert
+# Contributing to mewvi
 
-Use Node.js 20 or newer and pnpm. Run `pnpm test`, `pnpm lint`, and `pnpm build` before opening a pull request.
+Use Node.js 24 and pnpm 11. Run `pnpm test`, `pnpm lint`, and `pnpm build` before opening a pull request.
 
-Convert owns local audio/video conversion only. Do not add image processing, URL import, remote conversion, accounts, cloud storage, or telemetry containing filenames or media contents. New formats require signature detection, explicit conversion pairs, FFmpeg coverage, cancellation/retry coverage, cleanup, documentation, and browser testing.
+Keep changes focused on public-link downloads and local audio/video conversion. Local file contents and filenames must stay on the device. Add relevant tests for new behavior and preserve cancellation, retry and cleanup support.
+
+Keep internal notes, image prompts and source artwork in the ignored `.private/` folder. Commit the optimized assets the application uses.
 
 Report vulnerabilities privately using the instructions in [SECURITY.md](SECURITY.md). Never attach confidential media to a public issue.
