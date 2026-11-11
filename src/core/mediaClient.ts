@@ -9,11 +9,25 @@ import type { BrowserPlan } from './remoteContracts'
 export type { Capabilities, Discovery, Inspection, Item, Job, Output, Page } from './remoteContracts'
 
 let sessionPromise: Promise<string> | null = null
+async function remoteJSON(response: Response): Promise<{ [key: string]: unknown; error?: ServiceError }> {
+  try {
+    const value: unknown = await response.json()
+    if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error('Invalid response shape')
+    return value as { [key: string]: unknown; error?: ServiceError }
+  } catch (failure) {
+    if (failure && typeof failure === 'object' && 'name' in failure && ['AbortError', 'TimeoutError'].includes(String(failure.name))) throw failure
+    const rateLimited = response.status === 429
+    throw new FetchError(response.ok ? 'INVALID_RESPONSE' : rateLimited ? 'RATE_LIMITED' : 'SERVICE_UNAVAILABLE',
+      response.ok ? 'The download service returned an invalid response. Please try again.' : rateLimited ? 'Too many requests. Wait a moment and try again.' : 'The download service is unavailable. Try again shortly.',
+      rateLimited || response.status >= 500, Number(response.headers.get('retry-after')) || undefined)
+  }
+}
+
 async function remoteSession(): Promise<string> {
   if (!sessionPromise) sessionPromise = fetch(`${apiBase()}/v1/convert/session`, {
     method: 'POST', credentials: 'same-origin', headers: { 'content-type': 'application/json' }, body: '{}', signal: AbortSignal.timeout(15_000),
   }).then(async response => {
-    const body = await response.json()
+    const body = await remoteJSON(response)
     if (!response.ok || typeof body.csrf !== 'string') throw new FetchError(body.error?.code || 'SERVICE_UNAVAILABLE', body.error?.message || 'The download service is unavailable. Local files still work.', body.error?.retryable ?? response.status >= 500, Number(response.headers.get('retry-after')) || undefined)
     return body.csrf as string
   }).catch(error => { sessionPromise = null; throw error })
@@ -37,10 +51,10 @@ async function remote<T>(path: string, body?: unknown, key?: string, signal?: Ab
     ...(body === undefined ? {} : { body: JSON.stringify(body) }),
     signal: requestSignal,
   })
-  const value: unknown = await response.json()
+  if (response.status === 401) sessionPromise = null
+  const value = await remoteJSON(response)
   if (!response.ok) {
-    if (response.status === 401) sessionPromise = null
-    const error = (value as { error?: ServiceError })?.error
+    const error = value.error
     throw new FetchError(error?.code || 'REQUEST_FAILED', error?.message || 'The download service could not complete this request.', error?.retryable ?? response.status >= 500, error?.retryAfter || Number(response.headers.get('retry-after')) || undefined)
   }
   if (!value || typeof value !== 'object') throw new FetchError('INVALID_RESPONSE', 'The download service returned an invalid response.')

@@ -1,13 +1,17 @@
 .service-directory{padding-top:8px}
 .service-directory .directory-icons{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin:0 0 20px}
 .service-directory .directory-platform{display:grid;place-items:center;align-content:center;gap:8px;min-width:0;min-height:84px;border:1px solid transparent;border-radius:12px;background:transparent;color:var(--muted);padding:10px 6px;transition:background 150ms,color 150ms,border-color 150ms}
-.service-directory .directory-platform-name{color:var(--text);font:12px/1.4 var(--mono);text-align:center}
+.service-directory .directory-platform-name{min-width:0;max-width:100%;overflow-wrap:anywhere;color:var(--text);font:12px/1.4 var(--mono);text-align:center}
 .service-directory .directory-platform:hover,.service-directory .directory-platform[aria-pressed=true]{background:var(--raised);color:var(--text);border-color:var(--line)}
-.service-directory .directory-platform:focus-visible{outline:2px solid var(--muted);outline-offset:3px}
+.service-directory .directory-platform:focus-visible{outline:2px solid var(--focus);outline-offset:3px}
 .service-directory .directory-platform-icon{display:block;width:24px;height:24px;background:currentColor;mask-size:contain;mask-repeat:no-repeat;mask-position:center;-webkit-mask-size:contain;-webkit-mask-repeat:no-repeat;-webkit-mask-position:center}
-.service-directory .directory-selected{display:flex;align-items:baseline;justify-content:space-between;flex-wrap:wrap;gap:8px 12px;margin:16px 0;font:12px var(--mono);color:var(--text)}
+.service-directory .directory-selected{position:sticky;top:0;z-index:1;display:grid;align-content:start;gap:4px;min-height:76px;margin:0 0 12px;padding:8px 0 12px;border-bottom:1px solid var(--line);background:var(--panel);font:12px/1.5 var(--mono);color:var(--text)}
 .service-directory .directory-selected small{font:12px/1.7 var(--mono);color:var(--muted)}
 .service-directory .directory-note{border-top:1px solid var(--line);padding-top:16px;margin:8px 0 0;color:var(--muted);font:12px/1.7 var(--mono)}
 @media(max-width:600px){.service-directory .directory-icons{grid-template-columns:repeat(3,minmax(0,1fr))}}
 @media(max-width:360px){.service-directory .directory-icons{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(prefers-reduced-motion:reduce){.service-directory .directory-platform{transition:none}}
+.side-panel.panel-services[open]{display:flex;overflow:hidden}
+.side-panel.panel-services .panel-content{max-height:inherit}
+.side-panel.panel-services .panel-header{flex-shrink:0}
+.side-panel.panel-services .panel-body{min-height:0;overflow-y:auto}

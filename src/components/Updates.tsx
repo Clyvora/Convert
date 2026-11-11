@@ -8,7 +8,9 @@ import browserBanner from '../assets/updates-november-2026-1280.webp'
 import browserBannerSmall from '../assets/updates-november-2026-640.webp'
 import polishBanner from '../assets/updates-ui-polish-2026-11-1280.webp'
 import polishBannerSmall from '../assets/updates-ui-polish-2026-11-640.webp'
-import { polishUpdate, browserUpdate, bugFixUpdate, betaUpdate as update } from '../core/updates'
+import servicesBanner from '../assets/updates-services-2026-11-1280.webp'
+import servicesBannerSmall from '../assets/updates-services-2026-11-640.webp'
+import { servicesUpdate, polishUpdate, browserUpdate, bugFixUpdate, betaUpdate as update } from '../core/updates'
 import Mascot from './Mascot'
 import './Updates.css'
 
@@ -20,7 +22,7 @@ const cast = [
   { pose: 'confused', label: 'A little help?', detail: 'Something needs your attention.' },
 ] as const
 
-const releases = [polishUpdate, browserUpdate, bugFixUpdate, update]
+const releases = [servicesUpdate, polishUpdate, browserUpdate, bugFixUpdate, update]
 const latestUpdate = releases[0]
 const updateIds = releases.map(release => release.id)
 
@@ -48,12 +50,28 @@ export default function Updates() {
   }
   return <div className="updates-reader" ref={container} onClick={switchUpdate}>
     <div className="update-release-picker"><label htmlFor={releasePickerId}>Release</label><select id={releasePickerId} value={selected} onChange={event => selectUpdate(event.target.value)}>{releases.map(release => <option key={release.id} value={release.id}>{release.version}{release.id === latestUpdate.id ? ' (latest)' : ''}</option>)}</select></div>
-    {selected === polishUpdate.id ? <PolishUpdate/> : selected === browserUpdate.id ? <BrowserUpdate/> : selected === bugFixUpdate.id ? <BugFixUpdate/> : <BetaUpdate/>}
+    {selected === servicesUpdate.id ? <ServicesUpdate/> : selected === polishUpdate.id ? <PolishUpdate/> : selected === browserUpdate.id ? <BrowserUpdate/> : selected === bugFixUpdate.id ? <BugFixUpdate/> : <BetaUpdate/>}
     <nav className="update-pagination" aria-label="Browse updates">
       {newer && <a className="update-page-link update-page-newer" href={`#${newer.id}`} aria-label={`Previous page: ${newer.version}`}><span aria-hidden="true">←</span><span>{newer.version}</span></a>}
       {older && <a className="update-page-link update-page-older" href={`#${older.id}`} aria-label={`Next page: ${older.version}`}><span>{older.version}</span><span aria-hidden="true">→</span></a>}
     </nav>
   </div>
+}
+
+function ServicesUpdate() {
+  return <article className="beta-update" id={servicesUpdate.id} aria-labelledby="services-update-title">
+    <header className="beta-update-header"><div className="beta-update-meta"><a className="release-version" href={`#${servicesUpdate.id}`} aria-label="Link to this update">{servicesUpdate.version}</a><time dateTime={servicesUpdate.date}>11 November 2026</time></div><h2 id="services-update-title" tabIndex={-1}>{servicesUpdate.title}</h2></header>
+    <img className="beta-update-banner" src={servicesBanner} srcSet={`${servicesBannerSmall} 640w, ${servicesBanner} 1280w`} sizes="(max-width: 600px) calc(100vw - 40px), (max-width: 1000px) calc(100vw - 152px), 935px" decoding="async" fetchPriority="high" alt="mewvi sitting beside a whiteboard with all 15 supported service logos drawn in coloured marker." width="1280" height="720"/>
+    <div className="beta-update-copy">
+      <p className="update-intro">We've added eight more services, bringing the list to 15. The cat needed a bigger whiteboard.</p>
+      <section><h3>More links to try.</h3><p>You can now download public Twitch clips, Bluesky video posts, Pinterest video pins, Streamable clips, Dailymotion videos, Bandcamp track audio, and video posts from Imgur and 9GAG.</p><p>Bandcamp uses publicly playable audio. For silent Imgur clips, choose Video only. Availability varies by link and region; private and sign-in-required videos remain unsupported.</p></section>
+      <section className="update-fixes"><h3>A few fixes, too.</h3><ul>
+        <li>Clearer messages for blocked sources, access restrictions and service outages.</li>
+        <li>Fixed connection failures affecting public links on some networks.</li>
+        <li>Kept the services panel's close button and selected description visible while you scroll.</li>
+      </ul></section>
+    </div>
+  </article>
 }
 
 function PolishUpdate() {

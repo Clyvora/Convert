@@ -25,3 +25,10 @@ export const polishUpdate = {
   date: '2026-11-10',
   title: 'A little polish.',
 }
+
+export const servicesUpdate = {
+  id: 'more-services-2026-11-11',
+  version: '0.4.0-beta.3',
+  date: '2026-11-11',
+  title: 'More places to download.',
+}
