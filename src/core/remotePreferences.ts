@@ -13,6 +13,14 @@ export const initialPreferences: RemotePreferences = {
   mode: 'auto', videoContainer: 'original', audioContainer: 'original', options: { preset: 'best' },
 }
 
+export function collectionModeFor(preferences: RemotePreferences, inspection: Pick<Inspection, 'provider' | 'formats'>): Mode {
+  if (preferences.mode !== 'auto') return preferences.mode
+  if (/^(soundcloud|bandcamp)/i.test(inspection.provider)) return 'audio'
+  const video = inspection.formats.some(format => format.video)
+  const audio = inspection.formats.some(format => format.audio)
+  return video ? audio ? 'combined' : 'video' : audio ? 'audio' : 'combined'
+}
+
 export function loadRemotePreferences(): RemotePreferences {
   try {
     const saved = JSON.parse(localStorage.getItem(REMOTE_PREFERENCE_KEY) || 'null')

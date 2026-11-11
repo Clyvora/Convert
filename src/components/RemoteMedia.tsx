@@ -1,4 +1,5 @@
 import { splitLinks } from '../core/linkBatch'
+import { youtubePlaylistURL } from '../core/collectionLinks'
 import TransferProgress from './TransferProgress'
 import Services from './Services'
 import About from './AboutPage'
@@ -28,6 +29,7 @@ export default function RemoteMedia({ controller: r, active }: { controller: Rem
             <button className="primary-button quick-action" type="submit" disabled={r.busy}><MorphText>{r.busy ? 'Working…' : r.url.trim() ? splitLinks(r.url).length > 1 ? `Download ${splitLinks(r.url).length} links` : 'Download' : 'Paste'}</MorphText><Icon name={r.url.trim() ? 'arrow' : 'link'}/></button></div>
         </form>
         <p id="link-batch-hint" className="field-note">Up to 20 links · one per line · Shift+Enter for a new line</p>
+        {youtubePlaylistURL(r.url) && <p className="field-note playlist-choice">This link includes a playlist. <button type="button" className="text-button" disabled={r.busy} onClick={() => void r.openPlaylist()}>Choose playlist items</button></p>}
         <div id="download-feedback" className="download-feedback" aria-live="polite">{r.error && <p className="error-message" role="alert">{r.error}</p>}{!r.error && r.status && <p role="status">{r.status}</p>}{r.inspection?.provider === 'YouTube (Spotify match)' && <p className="muted">Audio matched on YouTube from your Spotify link.</p>}{r.checking && !r.addingLinks && <button className="text-button" type="button" onClick={r.cancelCheck}>Cancel check</button>}{r.discovery && r.panel !== 'collection' && <button className="text-button" type="button" onClick={() => r.setPanel('collection')}>Open collection · {r.discovery.count} discovered</button>}</div>
         {r.addingLinks && <button type="button" className="text-button" onClick={r.stopAddingLinks}>Stop adding links</button>}
         {r.linkResults.length > 0 && <ul className="link-batch-results" aria-label="Link results">{r.linkResults.map(item => <li key={item.url}><span className="link-batch-url">{item.url}</span><span>{({ waiting: 'Waiting', checking: 'Checking…', queued: 'Added to queue', failed: 'Could not add', cancelled: 'Stopped' })[item.state]}</span>{item.message && <p className="error-message">{item.message}</p>}</li>)}</ul>}

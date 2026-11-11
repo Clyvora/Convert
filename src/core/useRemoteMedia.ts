@@ -3,7 +3,8 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { remoteMedia } from './mediaClient'
 import type { Capabilities, Discovery, Inspection, Item, Job, Page } from './mediaClient'
 import type { Mode } from './remoteContracts'
-import { loadRemotePreferences, outputFor, REMOTE_PREFERENCE_KEY } from './remotePreferences'
+import { collectionModeFor, loadRemotePreferences, outputFor, REMOTE_PREFERENCE_KEY } from './remotePreferences'
+import { youtubePlaylistURL } from './collectionLinks'
 import { readInterfacePreferences } from './interfacePreferences'
 
 export type Panel = 'settings' | 'queue' | 'services' | 'collection' | 'about' | 'updates' | null
@@ -182,8 +183,8 @@ export function useRemoteMedia() {
     setJobs(current => [job, ...current.filter(j => j.id !== job.id)])
     setStatus(readInterfacePreferences().autoDownload ? 'Added to your queue. Your download will start when ready.' : 'Added to your queue. Open it to download when ready.'); if (openQueue && readInterfacePreferences().autoOpenQueue) setPanel('queue'); setNeedsChoice(false); submissions.current.delete(body)
   }
-  const submit = () => action(async () => {
-    const links = splitLinks(url)
+  const submit = (sourceURL = url) => action(async () => {
+    const links = splitLinks(sourceURL)
     if (links.length > MAX_BATCH_LINKS) throw new Error(`Add up to ${MAX_BATCH_LINKS} links at a time.`)
     if (links.length > 1) {
       edited.current = true; setInspection(null); setNeedsChoice(false)
@@ -232,7 +233,7 @@ export function useRemoteMedia() {
     const slow = setTimeout(() => { if (mounted.current) setStatus('The source is still responding. You can cancel this check.') }, 4000)
     let result: Inspection
     try {
-      result = await remoteMedia.inspect(links[0] || url.trim(), check.signal)
+      result = await remoteMedia.inspect(links[0] || sourceURL.trim(), check.signal)
       check.signal.throwIfAborted()
     } finally {
       clearTimeout(slow); controller.current = null
@@ -241,13 +242,20 @@ export function useRemoteMedia() {
     if (!mounted.current) return
     setInspection(result)
     if (result.kind !== 'media') {
-      setBatchMode(preferences.mode === 'audio' ? 'audio' : preferences.mode === 'video' ? 'video' : 'combined')
+      setBatchMode(collectionModeFor(preferences, result))
       setPanel('collection'); setStatus('Choose the items you want to download.'); return
     }
     setStatus('Adding your download to the queue…')
     try { await enqueue({ inspectionId: result.id, output: outputFor(preferences, result) }) }
     catch (e) { setNeedsChoice(true); throw e }
   })
+  const openPlaylist = () => {
+    if (lock.current) return
+    const playlist = youtubePlaylistURL(url)
+    if (!playlist) return
+    setURL(playlist)
+    return submit(playlist)
+  }
   const discover = () => action(async () => {
     const d = await remoteMedia.discover({ url, limit, after: after.replaceAll('-', '') || undefined, before: before.replaceAll('-', '') || undefined })
     cursor.current = ''; setDiscovery(d); setPage({ items: [], next: null }); setSelected(new Set()); setExcluded(new Set()); setAll(false); setStatus('Discovering public items…')
@@ -281,7 +289,7 @@ export function useRemoteMedia() {
     preferences, setPreferences, url, setURL, inspection, caps, jobs, panel, setPanel, busy, error, status, needsChoice,
     discovery, page, selected, setSelected, all, setAll, excluded, setExcluded, batchMode, setBatchMode,
     limit, setLimit, after, setAfter, before, setBefore, results, setResults,
-    submit, paste, discover, createCollection, loadPage, download, cancel, retry, remove, itemResults, cancelDiscovery,
+    submit, openPlaylist, paste, discover, createCollection, loadPage, download, cancel, retry, remove, itemResults, cancelDiscovery,
     cancelCheck: () => controller.current?.abort(), checking, linkResults, addingLinks,
     stopAddingLinks: () => batchController.current?.abort(),
     activeCount: jobs.filter(j => !terminal.has(j.state)).length,

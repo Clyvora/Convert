@@ -65,6 +65,7 @@ function ServicesUpdate() {
     <div className="beta-update-copy">
       <p className="update-intro">We've added eight more services, bringing the list to 15. The cat needed a bigger whiteboard.</p>
       <section><h3>More links to try.</h3><p>You can now download public Twitch clips, Bluesky video posts, Pinterest video pins, Streamable clips, Dailymotion videos, Bandcamp track audio, and video posts from Imgur and 9GAG.</p><p>Bandcamp uses publicly playable audio. For silent Imgur clips, choose Video only. Availability varies by link and region; private and sign-in-required videos remain unsupported.</p></section>
+      <section><h3>Find the right service.</h3><p>Search by platform or link type, then filter for Music, Video or Collections. Select a service to see supported links and limits.</p><p>YouTube links that include a playlist now offer a shortcut to choose its items. SoundCloud playlists and Bandcamp albums default to audio when you use Auto, while keeping your chosen audio format.</p></section>
       <section className="update-fixes"><h3>A few fixes, too.</h3><ul>
         <li>Clearer messages for blocked sources, access restrictions and service outages.</li>
         <li>Fixed connection failures affecting public links on some networks.</li>

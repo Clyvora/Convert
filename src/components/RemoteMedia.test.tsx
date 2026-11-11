@@ -75,6 +75,47 @@ it('Auto submits combined media immediately without a second confirmation', asyn
   expect(vi.mocked(remoteMedia.create).mock.calls[0][0]).toMatchObject({inspectionId:'inspection',output:{mode:'combined',container:'original'}})
   expect(await screen.findByRole('dialog',{name:'Downloads'})).toBeVisible()
 })
+
+it('opens a YouTube playlist from a video link without queuing the video or starting discovery', async () => {
+  const user = userEvent.setup()
+  vi.mocked(remoteMedia.inspect).mockResolvedValueOnce({ ...inspection, kind: 'playlist', provider: 'YoutubeTab', formats: [] })
+  render(<Harness/>)
+  await user.type(screen.getByLabelText('Public media link'), 'https://www.youtube.com/watch?v=BaW_jenozKc&list=PLBB231211A4F62143')
+  await user.click(screen.getByRole('button', { name: 'Choose playlist items' }))
+  expect(await screen.findByRole('dialog', { name: 'Choose collection items' })).toBeVisible()
+  expect(remoteMedia.inspect).toHaveBeenCalledWith('https://www.youtube.com/playlist?list=PLBB231211A4F62143', expect.any(AbortSignal))
+  expect(screen.getByLabelText('Public media link')).toHaveValue('https://www.youtube.com/playlist?list=PLBB231211A4F62143')
+  expect(remoteMedia.create).not.toHaveBeenCalled()
+  expect(remoteMedia.discover).not.toHaveBeenCalled()
+})
+
+it('still downloads only the selected YouTube video when using the main Download button', async () => {
+  const user = userEvent.setup()
+  const url = 'https://www.youtube.com/watch?v=BaW_jenozKc&list=PLBB231211A4F62143'
+  render(<Harness/>)
+  await user.type(screen.getByLabelText('Public media link'), url)
+  await user.click(screen.getByRole('button', { name: 'Download' }))
+  await waitFor(() => expect(remoteMedia.create).toHaveBeenCalledOnce())
+  expect(remoteMedia.inspect).toHaveBeenCalledWith(url, expect.any(AbortSignal))
+  expect(remoteMedia.discover).not.toHaveBeenCalled()
+})
+
+it('uses the saved audio format for selected Bandcamp album tracks in Auto mode', async () => {
+  const user = userEvent.setup()
+  localStorage.setItem('clyvora-convert-remote-preferences-v2', JSON.stringify({ mode: 'auto', videoContainer: 'mp4', audioContainer: 'mp3', options: { preset: 'best' } }))
+  vi.mocked(remoteMedia.inspect).mockResolvedValueOnce({ ...inspection, provider: 'BandcampAlbum', kind: 'playlist', formats: [] })
+  vi.mocked(remoteMedia.discover).mockResolvedValue({ id: 'album', state: 'ready', count: 1, outcome: 'completed' })
+  vi.mocked(remoteMedia.discoveryItems).mockResolvedValue({ items: [{ id: 'track-one', provider: 'Bandcamp', mediaId: 'one', url: 'https://example.com/track', title: 'First track' }], next: null })
+  render(<Harness/>)
+  fireEvent.change(screen.getByLabelText('Public media link'), { target: { value: 'https://example.bandcamp.com/album/record' } })
+  await user.click(screen.getByRole('button', { name: 'Download' }))
+  await user.click(await screen.findByRole('button', { name: 'Discover collection' }))
+  expect(await screen.findByRole('combobox', { name: 'Collection output' })).toHaveValue('audio')
+  await user.click(screen.getByRole('checkbox', { name: 'First track' }))
+  await user.click(screen.getByRole('button', { name: 'Download selected items' }))
+  await waitFor(() => expect(remoteMedia.create).toHaveBeenCalledOnce())
+  expect(vi.mocked(remoteMedia.create).mock.calls[0][0]).toMatchObject({ discoveryId: 'album', all: false, itemIds: ['track-one'], output: { mode: 'audio', container: 'mp3' } })
+})
 it('Auto detects audio-only and silent video without inventing streams', async () => {
   const user = userEvent.setup();vi.mocked(remoteMedia.inspect).mockResolvedValueOnce({...inspection,formats:[{...inspection.formats[0],video:null}]})
   render(<Harness/>)
