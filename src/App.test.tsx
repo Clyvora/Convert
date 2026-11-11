@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import '@testing-library/jest-dom/vitest'
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import App from './App'
@@ -56,6 +56,22 @@ describe('mewvi', () => {
     expect(screen.getByRole('textbox', { name: 'Public media link' })).toBeVisible()
     expect(screen.getByRole('button', { name: 'Paste' })).toBeVisible()
     expect(screen.queryByText(/png|jpeg|image resizing/i)).not.toBeInTheDocument()
+  })
+
+  it('resets the scroll position immediately when switching pages and settings categories', async () => {
+    const user = userEvent.setup()
+    render(<App/>)
+    const scroll = vi.spyOn(window, 'scrollTo')
+    try {
+      await user.click(screen.getByRole('link', { name: 'Open settings' }))
+      expect(scroll).toHaveBeenLastCalledWith({ top: 0, left: 0, behavior: 'instant' })
+      scroll.mockClear()
+      await user.click(within(screen.getByRole('navigation', { name: 'Settings categories' })).getByRole('link', { name: 'Audio' }))
+      expect(location.pathname).toBe('/settings/audio')
+      expect(scroll).toHaveBeenLastCalledWith({ top: 0, left: 0, behavior: 'instant' })
+      await user.click(screen.getByRole('link', { name: 'Open updates' }))
+      expect(scroll).toHaveBeenLastCalledWith({ top: 0, left: 0, behavior: 'instant' })
+    } finally { scroll.mockRestore() }
   })
 
   it('adds an audio file and exposes compatible output formats', async () => {
@@ -128,5 +144,24 @@ describe('mewvi', () => {
     await user.keyboard('{Escape}')
     await user.click(screen.getByRole('button', { name: /options for sample.wav/i }))
     expect(screen.getByRole('radio', { name: 'Custom 256 kbps' })).toBeChecked()
+  })
+
+  it('keeps local files available without rereading their preferences when changing download settings', async () => {
+    const user = userEvent.setup()
+    const { container } = await renderLocal()
+    await user.upload(container.querySelector<HTMLInputElement>('input[type="file"]')!, wavFile())
+    await screen.findByRole('heading', { name: /1 file ready/i })
+    await user.click(screen.getByRole('link', { name: 'Open settings' }))
+    await user.click(within(screen.getByRole('navigation', { name: 'Settings categories' })).getByRole('link', { name: 'Audio' }))
+    const read = vi.spyOn(Storage.prototype, 'getItem')
+    try {
+      const formats = within(screen.getByRole('group', { name: 'Audio format' }))
+      await user.click(formats.getByRole('radio', { name: 'MP3' }))
+      await user.click(formats.getByRole('radio', { name: 'M4A' }))
+      expect(read.mock.calls.filter(([key]) => key === 'clyvora-convert-media-preferences-v2')).toHaveLength(0)
+    } finally { read.mockRestore() }
+    await user.click(screen.getByRole('link', { name: 'Local conversion workspace' }))
+    expect(await screen.findByRole('heading', { name: /1 file ready/i })).toBeVisible()
+    expect(screen.getByRole('button', { name: /options for sample.wav/i })).toBeEnabled()
   })
 })

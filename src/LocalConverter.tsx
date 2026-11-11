@@ -2,7 +2,7 @@ import { MorphText } from './MorphText'
 import Mascot from './components/Mascot'
 import { Icon } from './components/Icon'
 import { ChoiceGroup } from './ChoiceGroup'
-import { useCallback, useEffect, useReducer, useRef, useState } from 'react'
+import { memo, useCallback, useEffect, useReducer, useRef, useState } from 'react'
 import { detectFile, FileDetectionError } from './core/detection'
 import { formatBytes } from './core/format'
 import { assessMemoryRisk, formatDuration } from './core/metrics'
@@ -103,7 +103,7 @@ async function readVideoMetadata(file: File): Promise<{ width?: number; height?:
   })
 }
 
-export default function LocalConverter({ active, onShow }: { active: boolean; onShow: () => void }) {
+function LocalConverter({ active, onShow }: { active: boolean; onShow: () => void }) {
   const [items, dispatch] = useReducer(queueReducer, [])
   const [dropActive, setDropActive] = useState(false)
   const [busy, setBusy] = useState(false)
@@ -111,7 +111,8 @@ export default function LocalConverter({ active, onShow }: { active: boolean; on
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const itemsRef = useRef(items)
-  const preferencesRef = useRef<SavedPreferences>(loadPreferences())
+  const [initialPreferences] = useState(loadPreferences)
+  const preferencesRef = useRef<SavedPreferences>(initialPreferences)
   const mediaEngineRef = useRef<ConversionEngine | null>(null)
   const abortRef = useRef<AbortController | null>(null)
   const activeIdRef = useRef<string | null>(null)
@@ -404,3 +405,5 @@ export default function LocalConverter({ active, onShow }: { active: boolean; on
     </div>}
   </div>
 }
+
+export default memo(LocalConverter)

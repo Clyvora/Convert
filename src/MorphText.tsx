@@ -8,6 +8,6 @@ export function MorphText({ children }: { children: string }) {
   const supported = typeof window !== 'undefined' && typeof window.matchMedia === 'function'
     && typeof Element.prototype.animate === 'function' && typeof Element.prototype.getAnimations === 'function'
   return supported && !reduceMotion
-    ? <TextMorph as="span" duration={240} respectReducedMotion>{children}</TextMorph>
+    ? <TextMorph as="span" duration={120} respectReducedMotion>{children}</TextMorph>
     : <span>{children}</span>
 }

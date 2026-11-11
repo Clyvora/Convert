@@ -21,7 +21,7 @@ export function PageDirectory({ title, version, base, entries, selected, compani
     const path = `${base}/${id}`
     if (location.pathname !== path) history.pushState(null, '', path)
     window.dispatchEvent(new PopStateEvent('popstate'))
-    window.scrollTo(0, 0)
+    window.scrollTo({ top: 0, left: 0, behavior: 'instant' })
   }
   useEffect(() => {
     const nav = navigation.current, active = nav?.querySelector<HTMLElement>('[aria-current]')

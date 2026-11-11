@@ -1,6 +1,12 @@
 import { updatePageSEO } from './core/seo'
 import { lazy, Suspense, useCallback, useEffect, useRef, useState, type MouseEvent } from 'react'
-const LocalConverter = lazy(() => import('./LocalConverter'))
+const loadLocalConverter = () => import('./LocalConverter')
+const LocalConverter = lazy(loadLocalConverter)
+const warmLocalConverter = () => {
+  const connection = (navigator as Navigator & { connection?: { saveData?: boolean; effectiveType?: string } }).connection
+  if (connection?.saveData || ['slow-2g', '2g'].includes(connection?.effectiveType || '')) return
+  void loadLocalConverter().catch(() => { /* Navigation can retry a failed warm-up. */ })
+}
 import RemoteMedia, { About } from './components/RemoteMedia'
 import SettingsPage from './components/SettingsPage'
 import Updates from './components/Updates'
@@ -19,6 +25,15 @@ export default function App() {
   const { route, navigate } = useNavigation()
   const [localOpened, setLocalOpened] = useState(false)
   useEffect(() => { if (route === '/local') setLocalOpened(true) }, [route])
+  useEffect(() => {
+    if (localOpened || route === '/local') return
+    if (typeof window.requestIdleCallback === 'function') {
+      const idle = window.requestIdleCallback(warmLocalConverter, { timeout: 1500 })
+      return () => window.cancelIdleCallback(idle)
+    }
+    const timer = globalThis.setTimeout(warmLocalConverter, 250)
+    return () => globalThis.clearTimeout(timer)
+  }, [route, localOpened])
   useEffect(() => {
     window.addEventListener('popstate', updatePageSEO)
     return () => window.removeEventListener('popstate', updatePageSEO)
@@ -50,14 +65,14 @@ export default function App() {
   useEffect(() => {
     updatePageSEO()
     closePanel(null)
-    window.scrollTo(0, 0)
+    window.scrollTo({ top: 0, left: 0, behavior: 'instant' })
     heading.current?.focus({ preventScroll: true })
   }, [route, closePanel])
   const visit = (event: MouseEvent<HTMLAnchorElement>, path: Route) => {
     if (event.button || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return
     event.preventDefault(); navigate(path)
   }
-  const link = (path: Route, label: string, icon: Parameters<typeof Icon>[0]['name'], text: string) => <a href={path} aria-label={label} aria-current={route === path ? 'page' : undefined} onClick={event => visit(event, path)}><Icon name={icon}/><span>{text}</span></a>
+  const link = (path: Route, label: string, icon: Parameters<typeof Icon>[0]['name'], text: string) => <a href={path} aria-label={label} aria-current={route === path ? 'page' : undefined} onClick={event => visit(event, path)} onPointerEnter={path === '/local' ? warmLocalConverter : undefined} onFocus={path === '/local' ? warmLocalConverter : undefined}><Icon name={icon}/><span>{text}</span></a>
   const infoPage = !['/', '/local'].includes(route)
   return <MotionPreferenceContext.Provider value={ui.reduceMotion}><div className="convert-app" onClick={event => {
     if (event.defaultPrevented || event.button || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return

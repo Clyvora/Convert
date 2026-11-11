@@ -70,6 +70,8 @@ function ServicesUpdate() {
         <li>Clearer messages for blocked sources, access restrictions and service outages.</li>
         <li>Fixed connection failures affecting public links on some networks.</li>
         <li>Kept the services panel's close button and selected description visible while you scroll.</li>
+        <li>Made page and category changes reset the scroll position immediately, removed fade-in delays, and sped up changing labels.</li>
+        <li>Warmed the local converter before its first visit and stopped redrawing it when changing download settings on another page.</li>
       </ul></section>
     </div>
   </article>
