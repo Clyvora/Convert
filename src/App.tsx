@@ -9,6 +9,7 @@ const warmLocalConverter = () => {
 }
 import RemoteMedia, { About } from './components/RemoteMedia'
 import SettingsPage from './components/SettingsPage'
+import ServicesMenu from './components/ServicesMenu'
 import Updates from './components/Updates'
 import { MorphText } from './MorphText'
 import { MotionPreferenceContext } from './core/motionPreference'
@@ -41,6 +42,7 @@ export default function App() {
   const remote = useRemoteMedia()
   const [ui] = useInterfacePreferences()
   const closePanel = remote.setPanel
+  const setServicesOpen = useCallback((open: boolean) => closePanel(open ? 'services' : null), [closePanel])
   const heading = useRef<HTMLHeadingElement>(null)
   const setPanel = (panel: Panel) => {
     if (panel === 'settings' || panel === 'updates' || panel === 'about') { remote.setPanel(null); navigate(`/${panel}`) }
@@ -84,7 +86,7 @@ export default function App() {
   }}>
     <a className="skip-link" href="#workspace">Skip to workspace</a>
     <header className="app-toolbar" aria-label="App controls">
-      {route === '/' && <button type="button" className="services-trigger" onClick={() => remote.setPanel('services')} aria-expanded={remote.panel === 'services'}><Icon name="plus"/>Supported services</button>}
+      {route === '/' && <ServicesMenu open={remote.panel === 'services'} onOpenChange={setServicesOpen}/>}
       <span className="mobile-beta">Beta</span>
       <button className={`queue-trigger ${remote.activeCount ? 'has-active-jobs' : ''}`} type="button" aria-label={`Open download queue${remote.activeCount ? `, ${remote.activeCount} active` : ''}`} aria-expanded={remote.panel === 'queue'} onClick={() => remote.setPanel('queue')}><Icon name="download"/>{remote.activeCount > 0 && <span className="queue-count"><MorphText>{String(remote.activeCount)}</MorphText></span>}</button>
     </header>

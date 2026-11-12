@@ -1,7 +1,6 @@
 import { splitLinks } from '../core/linkBatch'
 import { youtubePlaylistURL } from '../core/collectionLinks'
 import TransferProgress from './TransferProgress'
-import Services from './Services'
 import About from './AboutPage'
 export { About }
 import { compatibility, containers } from '../core/remoteContracts'
@@ -38,8 +37,8 @@ export default function RemoteMedia({ controller: r, active }: { controller: Rem
       <details className="download-guide"><summary>About this media downloader</summary><h2>Public media downloads and private file conversion</h2><p>mewvi is a free audio and video tool by Clyvora. Paste a supported public link, choose Auto, Audio or Video only, then download the result. No account is required.</p><p>Spotify track links use public song details to find matching audio on YouTube. The audio source is identified in the interface. Source availability and matching can vary.</p><p>Have a file already? <a href="/local">Convert audio and video locally</a> in your browser. Your selected local files stay on your device. Public-link downloads use our media service.</p><p>Use media you own or have permission to download. mewvi is in beta. Read <a href="/about">how it works</a>, the <a href="/about/privacy">privacy policy</a> and <a href="/about/terms">service limits</a>.</p></details>
       <p className="workspace-note"><button type="button" className="text-button" onClick={() => r.setPanel('about')}>About &amp; privacy</button></p>
     </section>
-    {r.panel && <Panel key={r.panel} placement={r.panel === 'queue' || r.panel === 'services' ? r.panel : 'drawer'} title={{ settings: 'Settings', queue: 'Downloads', services: 'Supported services', collection: 'Choose collection items', about: 'About mewvi', updates: 'Updates' }[r.panel]} onClose={() => r.setPanel(null)}>
-      {r.panel === 'settings' && <Settings controller={r}/>}{r.panel === 'queue' && <Downloads controller={r}/>}{r.panel === 'services' && <Services/>}{r.panel === 'collection' && <Collection controller={r}/>}{r.panel === 'about' && <About/>}{r.panel === 'updates' && <Updates/>}
+    {r.panel && r.panel !== 'services' && <Panel key={r.panel} placement={r.panel === 'queue' ? 'queue' : 'drawer'} title={{ settings: 'Settings', queue: 'Downloads', collection: 'Choose collection items', about: 'About mewvi', updates: 'Updates' }[r.panel]} onClose={() => r.setPanel(null)}>
+      {r.panel === 'settings' && <Settings controller={r}/>}{r.panel === 'queue' && <Downloads controller={r}/>}{r.panel === 'collection' && <Collection controller={r}/>}{r.panel === 'about' && <About/>}{r.panel === 'updates' && <Updates/>}
     </Panel>}
   </>
 }

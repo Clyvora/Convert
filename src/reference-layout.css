@@ -249,7 +249,7 @@ body,.convert-app { font-family:var(--mono); font-size:14px; }
 .convert-app img,.convert-app img:hover { animation:none!important; transition:none!important; transform:none!important; rotate:none!important; scale:none!important; }
 .convert-app .download-stage,.convert-app .content-page { animation:none; }
 .convert-app :is(.settings-detail,.about-document,.side-panel[open],.app-rail a[aria-current]) { animation:none; }
-.convert-app :is(.directory-filters button,.toggle-track),.convert-app .toggle-track::after { transition:none; }
+.convert-app .toggle-track,.convert-app .toggle-track::after { transition:none; }
 
 .url-field textarea{display:block;resize:vertical;width:100%;min-width:0;min-height:40px;max-height:180px;padding:9px 0;border:0;outline:0;background:transparent;color:var(--text);font:13px/1.5 var(--mono)}
 .url-field textarea::placeholder{color:var(--muted)}
