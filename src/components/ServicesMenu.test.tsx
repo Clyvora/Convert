@@ -1,10 +1,11 @@
 import { useState } from 'react'
-import { cleanup, render, screen } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, expect, it, vi } from 'vitest'
 import ServicesMenu from './ServicesMenu'
+import { MotionPreferenceContext } from '../core/motionPreference'
 
-afterEach(() => { cleanup(); vi.restoreAllMocks() })
+afterEach(() => { cleanup(); vi.useRealTimers(); vi.restoreAllMocks(); vi.unstubAllGlobals() })
 
 function Harness() {
   const [open, setOpen] = useState(false)
@@ -63,4 +64,46 @@ it('supports keyboard opening, Escape, and tabbing out without trapping focus', 
   await user.tab({ shift: true })
   expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
   expect(screen.getByRole('textbox')).toHaveFocus()
+})
+
+it('dismisses immediately, reverses a close when reopened, and removes the finished exit', () => {
+  vi.useFakeTimers()
+  render(<Harness/>)
+  const trigger = screen.getByRole('button', { name: 'Supported services' })
+  trigger.focus()
+  fireEvent.click(trigger)
+  const panel = screen.getByRole('dialog')
+  fireEvent.keyDown(panel, { key: 'Escape' })
+  expect(trigger).toHaveFocus()
+  expect(trigger).toHaveAttribute('aria-expanded', 'false')
+  expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+  expect(panel).toBeInTheDocument()
+  expect(panel).toHaveAttribute('inert')
+  expect(panel).toHaveAttribute('data-state', 'closed')
+  act(() => vi.advanceTimersByTime(100))
+  fireEvent.click(trigger)
+  expect(screen.getByRole('dialog')).toBe(panel)
+  expect(panel).not.toHaveAttribute('inert')
+  act(() => vi.advanceTimersByTime(300))
+  expect(panel).toBeInTheDocument()
+  fireEvent.keyDown(panel, { key: 'Escape' })
+  act(() => vi.advanceTimersByTime(300))
+  expect(panel).not.toBeInTheDocument()
+})
+
+it('skips the exit when motion is reduced in settings or on the device', async () => {
+  const user = userEvent.setup()
+  const { rerender } = render(<MotionPreferenceContext.Provider value={true}><Harness/></MotionPreferenceContext.Provider>)
+  const trigger = screen.getByRole('button', { name: 'Supported services' })
+  trigger.focus()
+  await user.keyboard('{Enter}')
+  const first = screen.getByRole('dialog')
+  await user.keyboard('{Escape}')
+  expect(first).not.toBeInTheDocument()
+  rerender(<MotionPreferenceContext.Provider value={false}><Harness/></MotionPreferenceContext.Provider>)
+  vi.stubGlobal('matchMedia', vi.fn().mockReturnValue({ matches: true }))
+  await user.keyboard('{Enter}')
+  const second = screen.getByRole('dialog')
+  await user.keyboard('{Escape}')
+  expect(second).not.toBeInTheDocument()
 })

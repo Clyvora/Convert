@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from 'react'
+import { useContext, useEffect, useRef, useState } from 'react'
+import { MotionPreferenceContext } from '../core/motionPreference'
 import { Icon } from './Icon'
 import Panel from './Panel'
 import Services from './Services'
@@ -7,6 +8,18 @@ export default function ServicesMenu({ open, onOpenChange }: { open: boolean; on
   const menu = useRef<HTMLDivElement>(null)
   const hoverOpened = useRef(false)
   const [focusOnOpen, setFocusOnOpen] = useState(false)
+  const [present, setPresent] = useState(open)
+  const reduceMotion = useContext(MotionPreferenceContext)
+  useEffect(() => {
+    if (open) { setPresent(true); return }
+    if (reduceMotion || window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) {
+      setPresent(false)
+      return
+    }
+    // Keep only the closing picture; focus and pointer access end immediately.
+    const timeout = window.setTimeout(() => setPresent(false), 300)
+    return () => window.clearTimeout(timeout)
+  }, [open, reduceMotion])
   useEffect(() => {
     if (!open) return
     const close = () => onOpenChange(false)
@@ -50,7 +63,7 @@ export default function ServicesMenu({ open, onOpenChange }: { open: boolean; on
       hoverOpened.current = false
       setFocusOnOpen(true)
       onOpenChange(!open)
-    }}><Icon name="plus"/>Supported services</button>
-    {open && <Panel title="Supported services" placement="services" modal={false} focusOnOpen={focusOnOpen} onClose={() => onOpenChange(false)}><Services/></Panel>}
+    }}><span className="services-expand-icon" aria-hidden="true"><Icon name="plus"/></span>Supported services</button>
+    {(open || present) && <Panel title="Supported services" placement="services" modal={false} active={open} focusOnOpen={focusOnOpen} onClose={() => onOpenChange(false)}><Services/></Panel>}
   </div>
 }

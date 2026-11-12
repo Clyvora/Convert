@@ -1,0 +1,73 @@
+name: CodeQL
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    # Weekly on Tuesday at 19:26 UTC.
+    - cron: '26 19 * * 2'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: codeql-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  analyze:
+    name: Analyze (${{ matrix.language }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      actions: read
+      security-events: write
+
+    strategy:
+      fail-fast: false
+      matrix:
+        language:
+          - actions
+          - javascript-typescript
+          # Covers scripts/prepare-brand-icons.py.
+          - python
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v4
+        with:
+          languages: ${{ matrix.language }}
+          # These languages are analyzed directly; no dependency install or build is needed.
+          build-mode: none
+          queries: security-extended
+          config: |
+            # Keep application code, public scripts, tooling, tests and workflows in scope.
+            # Exclude dependencies, generated output and private local archives.
+            paths-ignore:
+              - '**/node_modules/**'
+              - dist/**
+              - dist-ssr/**
+              - coverage/**
+              - test-results/**
+              - .vitest-attachments/**
+              - '**/__screenshots__/**'
+              - public/ffmpeg/runtime/**
+              - scripts/ffmpeg/*-profile/**
+              - .private/**
+              - .playwright-cli/**
+              - output/**
+              - tmp/**
+
+      - name: Perform CodeQL analysis
+        uses: github/codeql-action/analyze@v4
+        with:
+          category: '/language:${{ matrix.language }}'
