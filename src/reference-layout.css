@@ -232,7 +232,7 @@ body,.convert-app { font-family:var(--mono); font-size:14px; }
   .about-overview { flex-direction:column-reverse; align-items:stretch; gap:16px; }
   .about-overview .mascot { width:180px; height:180px; margin:auto; }
   .community-links { grid-template-columns:1fr; }
-  .convert-app .content-page:has(.beta-update) { padding:24px 20px 110px; }
+  .convert-app .content-page:has(.beta-update) { padding:24px 20px 32px; }
   .beta-update-header h2 { font-size:21px; }
   .beta-update-copy,.beta-update-copy .update-intro { font-size:13px; }
   .beta-update-meta { font-size:11px; }

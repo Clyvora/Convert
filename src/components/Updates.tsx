@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, type MouseEvent } from 'react'
+import { useEffect, useId, useRef, useState, type MouseEvent, type ReactNode } from 'react'
 import { useSectionNavigation } from '../core/navigation'
 import bannerSmall from '../assets/social-card-640.webp'
 import bannerLarge from '../assets/social-card-1280.webp'
@@ -12,6 +12,7 @@ import servicesBanner from '../assets/updates-services-2026-11-1280.webp'
 import servicesBannerSmall from '../assets/updates-services-2026-11-640.webp'
 import { servicesUpdate, polishUpdate, browserUpdate, bugFixUpdate, betaUpdate as update, convertArchive, type ConvertArchiveEntry } from '../core/updates'
 import Mascot from './Mascot'
+import { Icon } from './Icon'
 import './Updates.css'
 
 const cast = [
@@ -22,21 +23,86 @@ const cast = [
   { pose: 'confused', label: 'A little help?', detail: 'Something needs your attention.' },
 ] as const
 
-const releases = [servicesUpdate, polishUpdate, browserUpdate, bugFixUpdate, update, ...convertArchive]
+const mewviReleases = [servicesUpdate, polishUpdate, browserUpdate, bugFixUpdate, update]
+const releases = [...mewviReleases, ...convertArchive]
 const latestUpdate = releases[0]
 const updateIds = releases.map(release => release.id)
+const releaseDate = new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' })
+const bannerSizes = '(max-width: 600px) calc(100vw - 40px), (max-width: 999px) calc(100vw - 152px), 880px'
+const releaseSummaries: Record<string, string> = {
+  [servicesUpdate.id]: 'Eight new services, a more reliable download queue and a smoother local converter.',
+  [polishUpdate.id]: 'More readable controls and more room to move around on phones and tablets.',
+  [browserUpdate.id]: 'More downloads on your device, better source quality choices and fewer repeated link checks.',
+  [bugFixUpdate.id]: 'Add several links at once and see your transfer speed as files download.',
+  [update.id]: 'A new name, a cat companion and one place for public links and your own files.',
+}
+const releaseHighlights: Record<string, Array<string | { title: string; detail: string }>> = {
+  [servicesUpdate.id]: [
+    { title: '15 supported services', detail: 'Now including Twitch, Bluesky, Pinterest, Streamable, Dailymotion, Bandcamp, Imgur and 9GAG.' },
+    { title: 'Downloads', detail: 'Safer cancel and retry, fewer duplicate downloads and faster updates in Recent downloads.' },
+    { title: 'Local conversion', detail: 'Convert again, save manually and see clearer progress and lossless audio options.' },
+    { title: 'Interface', detail: 'Consistent controls, simpler Settings and layouts that fit phones and browser zoom.' },
+  ],
+  [polishUpdate.id]: [
+    'More readable navigation, service names and settings on phones and tablets.',
+    'Release and About selectors that fit smaller screens.',
+    'Visible explanations for audio controls when using Original.',
+    'Update arrows that stay in place when browser zoom changes.',
+  ],
+  [browserUpdate.id]: [
+    'Compatible SoundCloud, X, Facebook and Instagram downloads can run in your browser.',
+    'Combine separate audio and video tracks on your device, with a standard download fallback.',
+    'Improved source quality selection, Original audio handling and link checking.',
+    'Fixes for transfer timeouts, duplicate requests, cancellation and mobile layouts.',
+  ],
+  [bugFixUpdate.id]: [
+    'Add up to 20 public media links at once, with a result for each link.',
+    'See source transfer speed and estimated time remaining when available.',
+    'Clearer waiting states when progress or time estimates are unavailable.',
+    'Faster queue refreshes and fixes for delayed results and cancellation controls.',
+  ],
+  [update.id]: [
+    'Convert becomes mewvi, with a new name, cat mascot and interface.',
+    'Public-link downloads and private local audio/video conversion in one app.',
+    'Collection item selection, a download queue, automatic delivery and retries.',
+    'Dedicated Settings, About and Updates pages, with saved preferences and accessibility controls.',
+  ],
+}
 
 export default function Updates() {
   const selected = useSectionNavigation('/updates', updateIds, latestUpdate.id)
   const container = useRef<HTMLDivElement>(null)
-  const releasePickerId = useId()
+  const headingId = useId()
+  const copyAttempt = useRef({ version: 0 })
+  const [shareState, setShareState] = useState<'idle' | 'copied' | 'failed'>('idle')
   const index = updateIds.indexOf(selected)
+  const release = releases[index]
   const newer = releases[index - 1], older = releases[index + 1]
   const archiveEntry = convertArchive.find(release => release.id === selected)
   useEffect(() => {
+    const copyState = copyAttempt.current
+    copyState.version++
+    setShareState('idle')
     window.scrollTo({ top: 0, left: 0, behavior: 'instant' })
     container.current?.querySelector<HTMLElement>('h2')?.focus({ preventScroll: true })
+    return () => { copyState.version++ }
   }, [selected])
+  useEffect(() => {
+    if (shareState !== 'copied') return
+    const timer = window.setTimeout(() => setShareState('idle'), 2000)
+    return () => window.clearTimeout(timer)
+  }, [shareState])
+  const updateLink = () => new URL(`/updates#${selected}`, window.location.href).href
+  const copyLink = async () => {
+    const copyState = copyAttempt.current
+    const attempt = ++copyState.version
+    try {
+      await navigator.clipboard.writeText(updateLink())
+      if (attempt === copyState.version) setShareState('copied')
+    } catch {
+      if (attempt === copyState.version) setShareState('failed')
+    }
+  }
   const selectUpdate = (id: string) => {
     if (!updateIds.includes(id) || location.hash === `#${id}`) return
     history.pushState(null, '', `#${id}`)
@@ -49,19 +115,37 @@ export default function Updates() {
     event.preventDefault()
     selectUpdate(anchor.hash.slice(1))
   }
+  const header = <header className="beta-update-header"><div className="beta-update-meta">
+    <span className="release-version">{release.version}</span>
+    <time dateTime={release.date}>{releaseDate.format(new Date(`${release.date}T12:00:00Z`))}</time>
+    {selected === latestUpdate.id ? <span className="update-current-label">Latest update</span> : <a className="update-latest-link" href={`#${latestUpdate.id}`} aria-label="Go to latest update">Latest</a>}
+    <button className="update-copy-link quiet-button" type="button" onClick={() => void copyLink()} aria-label="Copy update link" title="Copy link to this update"><Icon name={shareState === 'copied' ? 'check' : 'link'}/><span>{shareState === 'copied' ? 'Copied' : 'Copy link'}</span></button>
+    <span className="sr-only" role="status">{shareState === 'copied' ? 'Update link copied.' : ''}</span>
+  </div><h2 id={headingId} tabIndex={-1}>{release.title}</h2>
+    {!archiveEntry && <p className="release-summary">{releaseSummaries[selected]}</p>}
+    {shareState === 'failed' && <div className="update-share-fallback"><p role="alert">Copy the update link below.</p><input aria-label="Update link" readOnly value={updateLink()} onFocus={event => event.currentTarget.select()}/></div>}
+  </header>
   return <div className="updates-reader" ref={container} onClick={switchUpdate}>
-    <div className="update-release-picker"><label htmlFor={releasePickerId}>Release</label><select id={releasePickerId} value={selected} onChange={event => selectUpdate(event.target.value)}>{releases.map(release => <option key={release.id} value={release.id}>{release.version}{release.id === latestUpdate.id ? ' (latest)' : ''}</option>)}</select></div>
-    {archiveEntry ? <ConvertArchiveUpdate release={archiveEntry}/> : selected === servicesUpdate.id ? <ServicesUpdate/> : selected === polishUpdate.id ? <PolishUpdate/> : selected === browserUpdate.id ? <BrowserUpdate/> : selected === bugFixUpdate.id ? <BugFixUpdate/> : <BetaUpdate/>}
+    {archiveEntry ? <ConvertArchiveUpdate release={archiveEntry} header={header} headingId={headingId}/> : selected === servicesUpdate.id ? <ServicesUpdate header={header} headingId={headingId}/> : selected === polishUpdate.id ? <PolishUpdate header={header} headingId={headingId}/> : selected === browserUpdate.id ? <BrowserUpdate header={header} headingId={headingId}/> : selected === bugFixUpdate.id ? <BugFixUpdate header={header} headingId={headingId}/> : <BetaUpdate header={header} headingId={headingId}/>}
     <nav className="update-pagination" aria-label="Browse updates">
-      {newer && <a className="update-page-link update-page-newer" href={`#${newer.id}`} aria-label={`Previous page: ${newer.version}`}><span aria-hidden="true">←</span><span>{newer.version}</span></a>}
-      {older && <a className="update-page-link update-page-older" href={`#${older.id}`} aria-label={`Next page: ${older.version}`}><span>{older.version}</span><span aria-hidden="true">→</span></a>}
+      {newer && <a className="update-page-link update-page-newer" href={`#${newer.id}`} aria-label={`Previous page: ${newer.version}`}><span aria-hidden="true">←</span><span><small>Newer · {newer.version}</small><strong>{newer.title}</strong></span></a>}
+      {older && <a className="update-page-link update-page-older" href={`#${older.id}`} aria-label={`Next page: ${older.version}`}><span><small>Older · {older.version}</small><strong>{older.title}</strong></span><span aria-hidden="true">→</span></a>}
     </nav>
   </div>
 }
 
-function ConvertArchiveUpdate({ release }: { release: ConvertArchiveEntry }) {
-  return <article className="beta-update" id={release.id} aria-labelledby={`${release.id}-title`}>
-    <header className="beta-update-header"><div className="beta-update-meta"><a className="release-version" href={`#${release.id}`} aria-label="Link to this update">Convert archive</a><time dateTime={release.date}>{release.dateLabel}</time></div><h2 id={`${release.id}-title`} tabIndex={-1}>{release.title}</h2></header>
+type UpdatePresentation = { header: ReactNode; headingId: string }
+
+function ReleaseNotes({ id, children }: { id: string; children: ReactNode }) {
+  return <>
+    <div className="beta-update-copy update-highlights"><h3>What’s new</h3><ul className={id === servicesUpdate.id ? 'grouped-highlights' : undefined}>{releaseHighlights[id].map(item => <li key={typeof item === 'string' ? item : item.title}>{typeof item === 'string' ? item : <><strong>{item.title}</strong><span>{item.detail}</span></>}</li>)}</ul></div>
+    <details className="update-full-notes"><summary>Full release notes</summary>{children}</details>
+  </>
+}
+
+function ConvertArchiveUpdate({ release, header, headingId }: { release: ConvertArchiveEntry } & UpdatePresentation) {
+  return <article className="beta-update" id={release.id} aria-labelledby={headingId}>
+    {header}
     <div className="beta-update-copy">
       <p className="update-intro">{release.summary}</p>
       <section><h3>What changed.</h3><ul>{release.changes.map(change => <li key={change}>{change}</li>)}</ul></section>
@@ -70,31 +154,43 @@ function ConvertArchiveUpdate({ release }: { release: ConvertArchiveEntry }) {
   </article>
 }
 
-function ServicesUpdate() {
-  return <article className="beta-update" id={servicesUpdate.id} aria-labelledby="services-update-title">
-    <header className="beta-update-header"><div className="beta-update-meta"><a className="release-version" href={`#${servicesUpdate.id}`} aria-label="Link to this update">{servicesUpdate.version}</a><time dateTime={servicesUpdate.date}>11 November 2026</time></div><h2 id="services-update-title" tabIndex={-1}>{servicesUpdate.title}</h2></header>
-    <img className="beta-update-banner" src={servicesBanner} srcSet={`${servicesBannerSmall} 640w, ${servicesBanner} 1280w`} sizes="(max-width: 600px) calc(100vw - 40px), (max-width: 1000px) calc(100vw - 152px), 935px" decoding="async" fetchPriority="high" alt="mewvi sitting beside a whiteboard with all 15 supported service logos drawn in coloured marker." width="1280" height="720"/>
-    <div className="beta-update-copy">
-      <p className="update-intro">We've added eight more services, bringing the list to 15. The cat needed a bigger whiteboard.</p>
-      <section><h3>More links to try.</h3><p>You can now download public Twitch clips, Bluesky video posts, Pinterest video pins, Streamable clips, Dailymotion videos, Bandcamp track audio, and video posts from Imgur and 9GAG.</p><p>Bandcamp uses publicly playable audio. For silent Imgur clips, choose Video only. Availability varies by link and region; private and sign-in-required videos remain unsupported.</p></section>
-      <section><h3>Find the right service.</h3><p>The services popup is smaller, with a compact icon grid and a gentle spring when it opens and closes. Hover over an icon to see supported links and limits in a short tooltip, beside the popup when space allows. Keyboard focus shows the same details; on touch screens, tap.</p><p>YouTube links that include a playlist now offer a shortcut to choose its items. SoundCloud playlists and Bandcamp albums default to audio when you use Auto, while keeping your chosen audio format.</p></section>
-      <section><h3>Know what happens next.</h3><p>Checking, downloading, preparing files and ready-to-save results now have clearer status cards and labels. Progress shows a percentage when the download size is known. Errors keep your link and offer an Edit link action; View downloads takes you to your files.</p></section>
-      <section><h3>Room on smaller screens.</h3><p>Download controls stack on narrow phones, long titles wrap, and panels scroll while keeping their close buttons within reach. Shorter windows and enlarged layouts also get more room for navigation and save controls. Reduced-motion settings still keep the services popup instant.</p></section>
-      <section className="update-fixes"><h3>A few fixes, too.</h3><ul>
-        <li>Clearer messages for blocked sources, access restrictions and service outages.</li>
-        <li>Fixed connection failures affecting public links on some networks.</li>
-        <li>Made page and category changes reset the scroll position immediately, removed fade-in delays, and sped up changing labels.</li>
-        <li>Warmed the local converter before its first visit and stopped redrawing it when changing download settings on another page.</li>
+function ServicesUpdate({ header, headingId }: UpdatePresentation) {
+  return <article className="beta-update" id={servicesUpdate.id} aria-labelledby={headingId}>
+    {header}
+    <img className="beta-update-banner" src={servicesBanner} srcSet={`${servicesBannerSmall} 640w, ${servicesBanner} 1280w`} sizes={bannerSizes} decoding="async" fetchPriority="high" alt="mewvi sitting beside a whiteboard with all 15 supported service logos drawn in coloured marker." width="1280" height="720"/>
+    <ReleaseNotes id={servicesUpdate.id}><div className="beta-update-copy">
+      <section><h3>Services and collections</h3><ul>
+        <li>Hover over a service icon for supported links and limits. Keyboard focus and touch show the same details.</li>
+        <li>Open the playlist picker from YouTube links that include a playlist.</li>
+        <li>SoundCloud playlists and Bandcamp albums use audio in Auto mode, with your chosen audio format.</li>
+      </ul><p className="field-note">Bandcamp uses public playback audio. Choose Video only for silent Imgur clips. Support varies by link and region; private and sign-in-required videos remain unsupported.</p></section>
+      <section><h3>Downloads and queue</h3><ul>
+        <li>Clearer progress and source errors, fixes for connection failures, and an Edit link action that keeps your URL.</li>
+        <li>Cancel or retry a job while other queue controls stay available. Fixed browser transfer races and duplicate downloads.</li>
+        <li>Confirmed transfers move into Recent downloads sooner. Partial collections keep failed items available to retry.</li>
+        <li>Closed item results stay closed. Expired files explain how to start again, and interrupted jobs no longer count as active.</li>
       </ul></section>
-    </div>
+      <section><h3>Local conversion</h3><ul>
+        <li>Use Convert again to reuse a file with different settings. The manual-download preference now applies to local results too.</li>
+        <li>Fixed imports getting stuck on video details, invalid saved options, and cancellation errors. Retrying keeps completed files.</li>
+        <li>Clearer progress and completion labels. Lossless formats explain why bitrate controls are disabled.</li>
+      </ul></section>
+      <section><h3>Interface and Settings</h3><ul>
+        <li>Matched button sizes, selected options, icons and panel spacing in light and dark themes.</li>
+        <li>Quicker page changes and a faster first visit to local conversion. Changing download settings no longer redraws the converter.</li>
+        <li>A download-focused Settings overview, grouped advanced options and explanations for incompatible choices.</li>
+        <li>Phone and zoom layouts keep navigation, focused controls and panel close buttons within reach. Reduced-motion settings still apply.</li>
+        <li>Shorter update summaries, grouped details and release titles in the older/newer links.</li>
+      </ul></section>
+    </div></ReleaseNotes>
   </article>
 }
 
-function PolishUpdate() {
-  return <article className="beta-update" id={polishUpdate.id} aria-labelledby="polish-update-title">
-    <header className="beta-update-header"><div className="beta-update-meta"><a className="release-version" href={`#${polishUpdate.id}`} aria-label="Link to this update">{polishUpdate.version}</a><time dateTime={polishUpdate.date}>10 November 2026</time></div><h2 id="polish-update-title" tabIndex={-1}>{polishUpdate.title}</h2></header>
-    <img className="beta-update-banner" src={polishBanner} srcSet={`${polishBannerSmall} 640w, ${polishBanner} 1280w`} sizes="(max-width: 600px) calc(100vw - 40px), (max-width: 1000px) calc(100vw - 152px), 935px" decoding="async" fetchPriority="high" alt="mewvi resting its chin between two rounded paws on a wooden windowsill in warm autumn light." width="1280" height="720"/>
-    <div className="beta-update-copy">
+function PolishUpdate({ header, headingId }: UpdatePresentation) {
+  return <article className="beta-update" id={polishUpdate.id} aria-labelledby={headingId}>
+    {header}
+    <img className="beta-update-banner" src={polishBanner} srcSet={`${polishBannerSmall} 640w, ${polishBanner} 1280w`} sizes={bannerSizes} decoding="async" fetchPriority="high" alt="mewvi resting its chin between two rounded paws on a wooden windowsill in warm autumn light." width="1280" height="720"/>
+    <ReleaseNotes id={polishUpdate.id}><div className="beta-update-copy">
       <p className="update-intro">A small update to make mewvi easier to read and move around, especially on phones and tablets.</p>
       <section><h3>A little more room.</h3><p>On phones, the Downloads button and Beta label now sit in a solid top bar. They stay clear of the text as you scroll. Navigation labels, hints and service descriptions are larger, too.</p><p>Tablets now use the grouped <a href="/settings">Settings menu</a>, with a page for each category. Format and bitrate choices line up in evenly sized rows, with room for their labels.</p></section>
       <section><h3>Fewer things to hunt for.</h3><ul>
@@ -107,15 +203,15 @@ function PolishUpdate() {
         <li>Fixed update links drifting or clipping when changing browser zoom. The arrows now follow the space beside the article, with links below it on narrower layouts.</li>
         <li>Kept release selectors, direct links and browser back and forward navigation in sync.</li>
       </ul></section>
-    </div>
+    </div></ReleaseNotes>
   </article>
 }
 
-function BrowserUpdate() {
-  return <article className="beta-update" id={browserUpdate.id} aria-labelledby="browser-update-title">
-    <header className="beta-update-header"><div className="beta-update-meta"><a className="release-version" href={`#${browserUpdate.id}`} aria-label="Link to this update">{browserUpdate.version}</a><time dateTime={browserUpdate.date}>7 November 2026</time></div><h2 id="browser-update-title" tabIndex={-1}>{browserUpdate.title}</h2></header>
-    <img className="beta-update-banner" src={browserBanner} srcSet={`${browserBannerSmall} 640w, ${browserBanner} 1280w`} sizes="(max-width: 700px) calc(100vw - 40px), 934px" decoding="async" fetchPriority="high" alt="mewvi’s black and orange cat riding a glowing orange paper plane above the city at night." width="1280" height="720"/>
-    <div className="beta-update-copy">
+function BrowserUpdate({ header, headingId }: UpdatePresentation) {
+  return <article className="beta-update" id={browserUpdate.id} aria-labelledby={headingId}>
+    {header}
+    <img className="beta-update-banner" src={browserBanner} srcSet={`${browserBannerSmall} 640w, ${browserBanner} 1280w`} sizes={bannerSizes} decoding="async" fetchPriority="high" alt="mewvi’s black and orange cat riding a glowing orange paper plane above the city at night." width="1280" height="720"/>
+    <ReleaseNotes id={browserUpdate.id}><div className="beta-update-copy">
       <p className="update-intro">Faster checks, more downloads on your device, and a little less waiting between you and your files.</p>
       <section><h3>More work on your device.</h3><p>Compatible SoundCloud, X, Facebook and Instagram downloads can now travel straight to your browser. When audio and video arrive separately, mewvi can combine them on your device without re-encoding. No extra app or browser extension is needed.</p><p>Your queue, progress, cancel and retry controls stay in one place. Browser transfers show their downloaded size and speed, with a separate stage when tracks are being combined. If direct access fails, mewvi falls back to the standard download path in the same queue.</p><p>Link checking still uses the media service. Direct-download files stay in this tab and are not stored in the app cache. Save them before closing or refreshing the page.</p></section>
       <section><h3>Seven favourites. One place.</h3><p>We’re focusing on SoundCloud, YouTube, Spotify links, Instagram, TikTok, X and Facebook. The services panel now puts those seven up front, with no catalog search or extra counter.</p><p>We’ve improved source connections for YouTube, TikTok and Spotify track matches. Spotify track links find matching audio on YouTube, with the source shown in the downloader.</p><p>More services will come over time. We’re taking the time to test and improve each one, from checking a link to saving the finished file. We’d rather have a smaller set that works reliably than a long list of services that barely work. Getting these seven into better shape comes first.</p></section>
@@ -155,16 +251,16 @@ function BrowserUpdate() {
           <li>Kept older update links working when browsing the new release.</li>
         </ul></li>
       </ul></section>
-    </div>
+    </div></ReleaseNotes>
   </article>
 }
 
-function BugFixUpdate() {
+function BugFixUpdate({ header, headingId }: UpdatePresentation) {
   return <>
-    <article className="beta-update" id={bugFixUpdate.id} aria-labelledby="bug-fix-update-title">
-      <header className="beta-update-header"><div className="beta-update-meta"><a className="release-version" href={`#${bugFixUpdate.id}`} aria-label="Link to this bug-fix update">{bugFixUpdate.version}</a><time dateTime={bugFixUpdate.date}>30 October 2026</time></div><h2 id="bug-fix-update-title" tabIndex={-1}>{bugFixUpdate.title}</h2></header>
-      <img className="beta-update-banner" src={updateBanner} srcSet={`${updateBannerSmall} 640w, ${updateBanner} 1280w`} sizes="(max-width: 700px) calc(100vw - 40px), 934px" decoding="async" alt="mewvi’s black and orange cat working on a laptop at night." width="1659" height="948"/>
-      <div className="beta-update-copy">
+    <article className="beta-update" id={bugFixUpdate.id} aria-labelledby={headingId}>
+      {header}
+      <img className="beta-update-banner" src={updateBanner} srcSet={`${updateBannerSmall} 640w, ${updateBanner} 1280w`} sizes={bannerSizes} decoding="async" alt="mewvi’s black and orange cat working on a laptop at night." width="1659" height="948"/>
+      <ReleaseNotes id={bugFixUpdate.id}><div className="beta-update-copy">
         <p className="update-intro">Live transfer details and a few fixes to keep your downloads moving, make link checking clearer, and give the app less work to do when things are quiet.</p>
         <section><h3>More links. One go.</h3><p>Paste up to 20 public media links, one per line, and add them to your queue together. Repeated links are checked once, each link gets its own result, and a failed source won’t stop the rest. You can stop adding the remaining links while keeping downloads already queued.</p><p>Playlists and profiles still need to be opened separately so you can choose their items. If the service asks you to wait, the batch pauses before continuing.</p></section>
         <section><h3>See your speed and time remaining.</h3><p>The queue now shows transfer speed and an estimated time remaining when the source provides them. These figures describe the current source stream being fetched by the media service. Separate audio and video streams can have their own estimates; processing and the final download to your browser take additional time.</p><p>When an estimate is unavailable, the queue says so. If progress stops arriving, it shows that it’s waiting for an update instead of leaving an old speed on screen.</p></section>
@@ -174,16 +270,16 @@ function BugFixUpdate() {
           <li>Reduced idle queue checks and skipped unnecessary updates when nothing changes.</li>
           <li>Fixed Cancel check staying visible after link checking had finished.</li>
         </ul></section>
-      </div>
+      </div></ReleaseNotes>
     </article>
   </>
 }
 
-function BetaUpdate() {
-  return <article className="beta-update" id={update.id} aria-labelledby="beta-update-title">
-    <header className="beta-update-header"><div className="beta-update-meta"><a className="release-version" href={`#${update.id}`} aria-label="Link to this beta update">{update.version}</a><time dateTime={update.date}>29 October 2026</time></div><h2 id="beta-update-title" tabIndex={-1}>{update.title}</h2></header>
-    <img className="beta-update-banner" src={bannerLarge} srcSet={`${bannerSmall} 640w, ${bannerLarge} 1280w`} sizes="(max-width: 700px) calc(100vw - 40px), 900px" decoding="async" alt="mewvi’s black and orange cat, ready for the beta." width="1731" height="909"/>
-    <div className="beta-update-copy">
+function BetaUpdate({ header, headingId }: UpdatePresentation) {
+  return <article className="beta-update" id={update.id} aria-labelledby={headingId}>
+    {header}
+    <img className="beta-update-banner" src={bannerLarge} srcSet={`${bannerSmall} 640w, ${bannerLarge} 1280w`} sizes={bannerSizes} decoding="async" alt="mewvi’s black and orange cat, ready for the beta." width="1731" height="909"/>
+    <ReleaseNotes id={update.id}><div className="beta-update-copy">
       <p className="update-intro">mewvi has a new home, a simpler way to get your media, and a small companion with a very important job: looking busy while the actual work happens.</p>
       <p>We’ve brought public-link downloads and local conversion into one workspace. There’s more room for your files, fewer steps between you and a download, and a little more personality along the way.</p>
       <aside className="beta-callout"><span>β</span><div><strong>We’re in beta. Come kick the tires.</strong><p>mewvi is still being built and tested. Features can change, sources can fail, and there are rough edges to work through. This is a beta update, not a promise that every source or feature works perfectly.</p></div></aside>
@@ -200,6 +296,6 @@ function BetaUpdate() {
       <section><h3>The little details add up.</h3><ul><li>Dedicated Settings, Updates, and About pages, with browser back and forward support.</li><li>Separate audio and video format preferences, saved in your browser.</li><li>A compact services menu with platform icons and full catalog search.</li><li>Light and dark themes, keyboard access, and motion that respects your device preferences.</li><li>Automatic delivery for newly submitted work, with a manual download button if you need it. Refresh won’t repeat the automatic download.</li></ul></section>
       <section><h3>What’s still growing?</h3><p>Provider reliability, collection behavior, and the small details that only show up through use. A provider appearing in the catalog isn’t proof that every link, playlist, or profile works. Public-link processing also requires an available media backend.</p><p>The current free service has limited processing capacity, so inspecting a source or converting a file can take time. Remote files normally expire after 24 hours, and temporary server storage can be cleared during a replacement. Download results you want to keep.</p><p>Keep your original files while trying the beta. Download media you have permission to use; private accounts, authentication barriers, paywalls, and DRM aren’t bypassed.</p><p>If something goes wrong, <a href="/about/community">tell us what happened</a>: your browser, chosen settings and the error shown are a useful start. Leave out private links, personal files and download access links.</p></section>
       <footer className="update-letter-end"><Mascot pose="ready"/><div><p>Thanks for helping us shape mewvi.</p><span>— Clyvora, and the cat.</span></div></footer>
-    </div>
+    </div></ReleaseNotes>
   </article>
 }

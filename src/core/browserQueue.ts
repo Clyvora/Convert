@@ -47,30 +47,39 @@ export class BrowserQueue {
     return { ...job }
   }
   private async run(entry: Entry) {
+    const controller = entry.controller, id = entry.job.id
+    const current = () => this.entries.get(id) === entry && entry.controller === controller
     try {
-      const blob = await downloadInBrowser(entry.plan, entry.controller.signal, (bytes, speed, processing) => {
+      const blob = await downloadInBrowser(entry.plan, controller.signal, (bytes, speed, processing) => {
+        if (!current() || controller.signal.aborted) return
         Object.assign(entry.job, { bytes, transferSpeed: processing ? null : speed, progressUpdatedAt: Date.now(), ...(processing ? { state: 'processing', stage: 'Combining media on your device' } : {}) })
         this.changed()
       })
-      entry.controller.signal.throwIfAborted()
+      if (!current() || controller.signal.aborted) return
       entry.object = URL.createObjectURL(blob); entry.size = blob.size
       Object.assign(entry.job, { state: 'ready', stage: 'Ready in this tab', bytes: blob.size, totalBytes: blob.size, completed: 1, artifactId: entry.job.id, transferSpeed: null })
     } catch {
-      if (entry.controller.signal.aborted) return
+      if (!current() || controller.signal.aborted) return
       Object.assign(entry.job, { state: 'queued', stage: 'Browser access unavailable. Using the standard download path.', transferSpeed: null, bytes: 0 })
       this.changed()
       try {
         const remote = await this.api.create(entry.input, entry.key)
+        // A fallback can finish being created after its local entry was removed or retried.
+        if (!current()) { await this.api.cancel(remote.id); await this.api.remove(remote.id); return }
         entry.fallbackId = remote.id
-        if (entry.controller.signal.aborted) { await this.api.cancel(remote.id); return }
         entry.job = { ...remote, id: entry.job.id }
+        if (controller.signal.aborted) {
+          this.changed()
+          try { const cancelled = await this.api.cancel(remote.id); if (current()) entry.job = { ...cancelled, id } }
+          catch { if (current()) entry.job.stage = 'Cancellation could not be confirmed. Try again.' }
+        }
       } catch {
-        if (!entry.controller.signal.aborted) Object.assign(entry.job, { state: 'failed', stage: 'Download failed', failed: 1, error: { code: 'DOWNLOAD_FAILED', message: 'The browser and standard download paths were unavailable. Try again.', retryable: true } })
+        if (current() && !controller.signal.aborted) Object.assign(entry.job, { state: 'failed', stage: 'Download failed', failed: 1, error: { code: 'DOWNLOAD_FAILED', message: 'The browser and standard download paths were unavailable. Try again.', retryable: true } })
       }
     } finally { this.changed() }
   }
   has(id: string) { return this.entries.has(id) }
-  reconcile(id: string, remote: Job) { const entry = this.entries.get(id)!; entry.controller = new AbortController(); entry.job = { ...remote, id }; this.changed(); return { ...entry.job } }
+  reconcile(id: string, remote: Job) { const entry = this.entries.get(id)!; entry.controller.abort(); entry.controller = new AbortController(); entry.job = { ...remote, id }; this.changed(); return { ...entry.job } }
   remoteId(id: string) { return this.entries.get(id)?.fallbackId || id }
   merge(remote: Page<Job>): Page<Job> {
     for (const entry of this.entries.values()) if (entry.object && entry.job.expires <= Date.now()) {
@@ -87,16 +96,20 @@ export class BrowserQueue {
   }
   access(id: string) {
     const entry = this.entries.get(id)
-    if (!entry?.object || entry.job.state !== 'ready') return null
+    if (!entry?.object || entry.job.state !== 'ready' || entry.job.expires <= Date.now()) return null
     return { url: entry.object, name: entry.plan.filename, expires: entry.job.expires, local: true }
   }
   delivered(id: string) { const entry = this.entries.get(id); if (entry?.object) { entry.job.deliveredAt = Date.now(); this.changed() } }
   async cancel(id: string) {
     const entry = this.entries.get(id)!
+    if (entry.fallbackId) {
+      const cancelled = await this.api.cancel(entry.fallbackId)
+      entry.job = { ...cancelled, id }; this.changed()
+      return { ...entry.job }
+    }
     entry.controller.abort()
     Object.assign(entry.job, { state: 'cancelled', stage: 'Cancelled', transferSpeed: null })
     this.changed()
-    if (entry.fallbackId) await this.api.cancel(entry.fallbackId)
     return { ...entry.job }
   }
   async remove(id: string) {
@@ -105,12 +118,16 @@ export class BrowserQueue {
     entry.controller.abort()
     if (entry.object) URL.revokeObjectURL(entry.object)
     this.entries.delete(id)
+    this.changed()
   }
   async retry(id: string): Promise<Job> {
     const entry = this.entries.get(id)!
     if (entry.fallbackId) throw new Error('Remote retries must use the transport.')
+    entry.controller.abort()
+    entry.controller = new AbortController()
     const next = await this.api.create(entry.input, crypto.randomUUID())
     entry.fallbackId = next.id; entry.job = { ...next, id }
+    this.changed()
     return { ...entry.job }
   }
   items(id: string): Page<Item> {

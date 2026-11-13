@@ -10,7 +10,7 @@ export type QueueAction =
 
 const TRANSITIONS: Record<QueueStatus, readonly QueueStatus[]> = {
   ready: ['loading-engine', 'converting', 'cancelled'],
-  'loading-engine': ['converting', 'failed', 'cancelled'],
+  'loading-engine': ['converting', 'completed', 'failed', 'cancelled'],
   converting: ['completed', 'failed', 'cancelled'],
   completed: ['ready'],
   failed: ['ready'],

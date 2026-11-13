@@ -3,6 +3,11 @@ import { applyCompatibleSettings, mergePreferences, preferenceSubset } from './p
 import { defaultOptions } from './defaults'
 
 describe('media preferences', () => {
+  it('recovers from missing or malformed stored settings', () => {
+    for (const value of [null, [], 'old settings', { wav: null }, { wav: { audioBitrate: 999, audioSampleRate: '44100', audioChannels: 8, videoResolution: -1, videoQuality: 'old' } }]) {
+      expect(mergePreferences('wav', value as never)).toEqual(defaultOptions('wav'))
+    }
+  })
   it('ignores an incompatible remembered output', () => {
     expect(mergePreferences('mp3', { mp3: { outputFormat: 'mp4' } }).outputFormat).toBe('wav')
   })

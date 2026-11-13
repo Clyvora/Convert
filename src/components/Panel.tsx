@@ -1,4 +1,5 @@
 import { useEffect, useRef, type ReactNode } from 'react'
+import { Icon } from './Icon'
 
 export default function Panel({ title, children, onClose, placement = 'drawer', modal = true, active = true, focusOnOpen = true }: { title: string; children: ReactNode; onClose: () => void; placement?: 'drawer' | 'queue' | 'services'; modal?: boolean; active?: boolean; focusOnOpen?: boolean }) {
   const dialog = useRef<HTMLDialogElement>(null), popover = useRef<HTMLDivElement>(null), close = useRef<HTMLButtonElement>(null)
@@ -35,7 +36,7 @@ export default function Panel({ title, children, onClose, placement = 'drawer', 
     }
   }, [modal, active])
   useEffect(() => { if (active && focusOnOpen) close.current?.focus({ preventScroll: true }) }, [active, focusOnOpen])
-  const content = <div className="panel-content"><header className="panel-header"><h2>{title}</h2><button ref={close} className="quiet-button square-button" type="button" onClick={onClose} aria-label={`Close ${title.toLowerCase()}`}><span aria-hidden="true">×</span></button></header><div className="panel-body">{children}</div></div>
+  const content = <div className="panel-content"><header className="panel-header"><h2>{title}</h2><button ref={close} className="quiet-button square-button dismiss-button" type="button" onClick={onClose} aria-label={`Close ${title.toLowerCase()}`}><Icon name="close"/></button></header><div className="panel-body">{children}</div></div>
   return modal ? <dialog className={`side-panel panel-${placement}`} ref={dialog} aria-label={title} aria-modal="true" onCancel={event => { event.preventDefault(); onClose() }} onClick={event => { if (event.target === event.currentTarget) onClose() }}>{content}</dialog>
     : <div className={`side-panel panel-${placement}`} ref={popover} role="dialog" aria-label={title} data-state={active ? 'open' : 'closed'} inert={!active} aria-hidden={!active || undefined}>{content}</div>
 }

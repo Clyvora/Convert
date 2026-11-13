@@ -2,7 +2,7 @@ import { act, renderHook, waitFor } from '@testing-library/react'
 import { afterEach, expect, it, vi } from 'vitest'
 import { useRemoteMedia } from './useRemoteMedia'
 
-const api = vi.hoisted(() => ({ discovery: vi.fn(), discoveryItems: vi.fn(), inspect: vi.fn(), create: vi.fn(), cancel: vi.fn(), jobs: vi.fn(), discoveries: vi.fn() }))
+const api = vi.hoisted(() => ({ discovery: vi.fn(), discoveryItems: vi.fn(), inspect: vi.fn(), create: vi.fn(), cancel: vi.fn(), retry: vi.fn(), remove: vi.fn(), items: vi.fn(), access: vi.fn(), jobs: vi.fn(), discoveries: vi.fn() }))
 vi.mock('./mediaClient', () => ({ remoteMedia: {
   capabilities: () => new Promise(() => {}),
   jobs: (...args: unknown[]) => api.jobs(...args) ?? Promise.resolve({ items: [{ id: 'ready-job', state: 'ready' }] }),
@@ -12,6 +12,10 @@ vi.mock('./mediaClient', () => ({ remoteMedia: {
   inspect: (...args: unknown[]) => api.inspect(...args),
   create: (...args: unknown[]) => api.create(...args),
   cancel: (...args: unknown[]) => api.cancel(...args),
+  retry: (...args: unknown[]) => api.retry(...args),
+  remove: (...args: unknown[]) => api.remove(...args),
+  items: (...args: unknown[]) => api.items(...args),
+  access: (...args: unknown[]) => api.access(...args),
 } }))
 afterEach(() => { vi.useRealTimers(); vi.resetAllMocks() })
 
@@ -130,8 +134,78 @@ it('shows a successful cancellation without waiting for another queue request', 
   const view = renderHook(() => useRemoteMedia())
   await waitFor(() => expect(view.result.current.jobs[0]?.id).toBe(job.id))
   act(() => { void view.result.current.cancel(job.id) })
-  await waitFor(() => expect(view.result.current.busy).toBe(false))
+  await waitFor(() => expect(view.result.current.jobs[0].state).toBe('cancelled'))
   expect(view.result.current.jobs[0].state).toBe('cancelled')
   expect(api.jobs).toHaveBeenCalledOnce()
   view.unmount()
+})
+
+it('lets another job be cancelled during a slow request and prevents duplicate actions on the same job', async () => {
+  const jobs = [{ id: 'one', state: 'downloading' }, { id: 'two', state: 'downloading' }]
+  api.jobs.mockResolvedValue({ items: jobs })
+  let finish!: (job: unknown) => void
+  api.cancel.mockImplementationOnce(() => new Promise(resolve => { finish = resolve }))
+    .mockResolvedValueOnce({ ...jobs[1], state: 'cancelled' })
+  const view = renderHook(() => useRemoteMedia())
+  await waitFor(() => expect(view.result.current.jobs).toHaveLength(2))
+  act(() => { void view.result.current.cancel('one') })
+  await act(async () => { await view.result.current.cancel('one'); await view.result.current.cancel('two') })
+  expect(api.cancel.mock.calls.map(call => call[0])).toEqual(['one', 'two'])
+  expect(view.result.current.jobs[1].state).toBe('cancelled')
+  await act(async () => { finish({ ...jobs[0], state: 'cancelled' }) })
+  view.unmount()
+})
+
+it('counts interrupted work as stopped', async () => {
+  api.jobs.mockResolvedValue({ items: [{ id: 'interrupted', state: 'interrupted' }] })
+  const view = renderHook(() => useRemoteMedia())
+  await waitFor(() => expect(view.result.current.jobs).toHaveLength(1))
+  expect(view.result.current.activeCount).toBe(0)
+  view.unmount()
+})
+
+it('does not reopen item results when a slow request finishes after Close results', async () => {
+  let finish!: (value: unknown) => void
+  api.items.mockImplementation(() => new Promise(resolve => { finish = resolve }))
+  const view = renderHook(() => useRemoteMedia())
+  act(() => { void view.result.current.itemResults('one') })
+  act(() => view.result.current.setResults(null))
+  await act(async () => { finish({ items: [], next: null }) })
+  expect(view.result.current.results).toBeNull()
+  view.unmount()
+})
+
+it('keeps polling other jobs while one cancellation is pending', async () => {
+  vi.useFakeTimers()
+  const one = { id: 'one', state: 'downloading' }, two = { id: 'two', state: 'downloading' }
+  api.jobs.mockResolvedValue({ items: [one, two] })
+  let finish!: (value: unknown) => void
+  api.cancel.mockImplementation(() => new Promise(resolve => { finish = resolve }))
+  const view = renderHook(() => useRemoteMedia())
+  await act(async () => { await vi.advanceTimersByTimeAsync(0) })
+  act(() => { void view.result.current.cancel('one') })
+  api.jobs.mockResolvedValue({ items: [{ ...one, state: 'processing' }, { ...two, state: 'ready' }] })
+  await act(async () => { await vi.advanceTimersByTimeAsync(4000) })
+  expect(view.result.current.jobs.map(job => job.state)).toEqual(['downloading', 'ready'])
+  await act(async () => { finish({ ...one, state: 'cancelled' }) })
+  expect(view.result.current.jobs[0].state).toBe('cancelled')
+  view.unmount()
+})
+
+it('quickly confirms delivery of an idle ready file without claiming a click saved it', async () => {
+  vi.useFakeTimers()
+  const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {})
+  const job = { id: 'ready', state: 'ready', artifactId: 'file' }
+  api.jobs.mockResolvedValue({ items: [job] })
+  api.access.mockResolvedValue({ url: 'https://media.example/file', name: 'file.mp4' })
+  const view = renderHook(() => useRemoteMedia())
+  try {
+    await act(async () => { await vi.advanceTimersByTimeAsync(0) })
+    await act(async () => { await view.result.current.download('file') })
+    expect(view.result.current.queueJobs).toHaveLength(1)
+    expect(view.result.current.recentJobs).toHaveLength(0)
+    api.jobs.mockResolvedValue({ items: [{ ...job, deliveredAt: Date.now() }] })
+    await act(async () => { await vi.advanceTimersByTimeAsync(2000) })
+    expect(view.result.current.recentJobs).toHaveLength(1)
+  } finally { view.unmount(); click.mockRestore() }
 })

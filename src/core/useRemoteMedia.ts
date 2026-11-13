@@ -8,7 +8,7 @@ import { youtubePlaylistURL } from './collectionLinks'
 import { readInterfacePreferences } from './interfacePreferences'
 
 export type Panel = 'settings' | 'queue' | 'services' | 'collection' | 'about' | 'updates' | null
-const terminal = new Set(['ready', 'partial', 'failed', 'cancelled', 'expired'])
+const terminal = new Set(['ready', 'partial', 'failed', 'cancelled', 'interrupted', 'expired'])
 
 export function useRemoteMedia() {
   const [preferences, setPreferences] = useState(loadRemotePreferences)
@@ -24,6 +24,9 @@ export function useRemoteMedia() {
   const [selected, setSelected] = useState<Set<string>>(new Set()), [all, setAll] = useState(false), [excluded, setExcluded] = useState<Set<string>>(new Set())
   const [batchMode, setBatchMode] = useState<Mode>('combined')
   const [results, setResults] = useState<{ id: string; page: Page<Item> } | null>(null)
+  const resultsRevision = useRef(0)
+  const queueLocks = useRef(new Set<string>())
+  const [queueBusy, setQueueBusy] = useState(new Set<string>())
   const [limit, setLimit] = useState(1000), [after, setAfter] = useState(''), [before, setBefore] = useState('')
   const lock = useRef(false), edited = useRef(false), controller = useRef<AbortController | null>(null)
   const currentDiscovery = useRef(discovery), cursor = useRef(''), mounted = useRef(true)
@@ -31,6 +34,7 @@ export function useRemoteMedia() {
   const pendingDownloads = useRef(new Set<string>()), attemptedDownloads = useRef(new Set<string>())
   const deliveryAttempts = useRef(new Map<string, number>()), deliveryTimers = useRef(new Map<string, ReturnType<typeof setTimeout>>())
   const deliveryClickedAt = useRef(new Map<string, number>())
+  const deliveryRequests = useRef(new Map<string, Promise<boolean>>())
   const queueRevision = useRef(0), refreshQueue = useRef<() => void>(() => {})
   const currentJobs = useRef(jobs)
   currentJobs.current = jobs
@@ -38,16 +42,26 @@ export function useRemoteMedia() {
   const activeWork = jobs.some(job => !terminal.has(job.state)) || discovery?.state === 'discovering'
   useEffect(() => { if (activeWork) refreshQueue.current() }, [activeWork])
 
-  const deliver = useCallback(async (artifactId: string, allowed: () => boolean = () => true) => {
-    const access = await remoteMedia.access(artifactId)
-    if (!mounted.current || !allowed()) return
-    const target = new URL(access.url, location.origin)
-    const local = access.local === true && target.protocol === 'blob:' && target.origin === location.origin
-    if (!local && (!['https:', ...(import.meta.env.DEV ? ['http:'] : [])].includes(target.protocol) || target.username || target.password)) throw new Error('The service returned an invalid download address.')
-    const link = document.createElement('a')
-    link.href = target.href; link.rel = 'noreferrer'; link.download = access.name
-    document.body.append(link); link.click(); link.remove()
-    if (local) setStatus('Download sent to your browser. If it did not start, use Download file in the queue.')
+  const deliver = useCallback((artifactId: string, allowed: () => boolean = () => true) => {
+    const existing = deliveryRequests.current.get(artifactId)
+    if (existing) return existing
+    // Manual and automatic requests for the same file share one browser delivery.
+    const request = (async () => {
+      const access = await remoteMedia.access(artifactId)
+      if (!mounted.current || !allowed()) return false
+      const target = new URL(access.url, location.origin)
+      const local = access.local === true && target.protocol === 'blob:' && target.origin === location.origin
+      if (!local && (!['https:', ...(import.meta.env.DEV ? ['http:'] : [])].includes(target.protocol) || target.username || target.password)) throw new Error('The service returned an invalid download address.')
+      const link = document.createElement('a')
+      link.href = target.href; link.rel = 'noreferrer'; link.download = access.name
+      document.body.append(link); link.click(); link.remove()
+      if (local) { remoteMedia.browserDelivered(artifactId); setStatus('Download sent to your browser. If it did not start, use Download again in Recent downloads.') }
+      return true
+    })()
+    deliveryRequests.current.set(artifactId, request)
+    const clear = () => { deliveryRequests.current.delete(artifactId) }
+    void request.then(clear, clear)
+    return request
   }, [])
 
   useEffect(() => {
@@ -58,6 +72,7 @@ export function useRemoteMedia() {
 
   const markDelivery = useCallback((identity: string) => {
     deliveryClickedAt.current.set(identity, Date.now())
+    refreshQueue.current()
     const key = `${identity}:notice`
     clearTimeout(deliveryTimers.current.get(key))
     deliveryTimers.current.set(key, setTimeout(() => {
@@ -84,8 +99,12 @@ export function useRemoteMedia() {
           const queue = await remoteMedia.jobs()
           if (stopped) return
           if (revision === queueRevision.current) {
-            setJobs(current => JSON.stringify(current) === JSON.stringify(queue.items) ? current : queue.items)
-            currentJobs.current = queue.items
+            // Keep an in-flight action's row stable while other jobs continue updating.
+            const previous = currentJobs.current
+            const items = queue.items.map(job => queueLocks.current.has(job.id) ? previous.find(current => current.id === job.id) || job : job)
+            for (const job of previous) if (queueLocks.current.has(job.id) && !items.some(current => current.id === job.id)) items.push(job)
+            setJobs(current => JSON.stringify(current) === JSON.stringify(items) ? current : items)
+            currentJobs.current = items
           }
           if (!restored) {
             restored = true
@@ -110,7 +129,8 @@ export function useRemoteMedia() {
       } catch { /* Reconcile when connectivity returns; explicit actions show their errors. */ }
       finally {
         refreshing = false
-        const active = currentJobs.current.some(job => !terminal.has(job.state)) || currentDiscovery.current?.state === 'discovering'
+        const awaitingDelivery = currentJobs.current.some(job => job.artifactId && !job.deliveredAt && Date.now() - (deliveryClickedAt.current.get(`${job.id}:${job.artifactId}`) ?? -Infinity) < 10000)
+        const active = awaitingDelivery || currentJobs.current.some(job => !terminal.has(job.state)) || currentDiscovery.current?.state === 'discovering'
         const delay = refreshAgain ? 0 : document.hidden ? 30000 : active ? 2000 : 30000
         refreshAgain = false
         if (!stopped) timer = setTimeout(() => void refresh(), delay)
@@ -140,7 +160,7 @@ export function useRemoteMedia() {
         attemptedDownloads.current.add(identity)
         const attempt = (deliveryAttempts.current.get(identity) || 0) + 1
         deliveryAttempts.current.set(identity, attempt)
-        void deliver(job.artifactId, () => pendingDownloads.current.has(job.id)).then(() => markDelivery(identity)).catch(failure => {
+        void deliver(job.artifactId, () => pendingDownloads.current.has(job.id) && currentJobs.current.some(current => current.id === job.id && current.artifactId === job.artifactId && ['ready', 'partial'].includes(current.state))).then(delivered => { if (delivered) markDelivery(identity) }).catch(failure => {
           if (!mounted.current || !pendingDownloads.current.has(job.id)) return
           const retryable = failure instanceof TypeError || failure && typeof failure === 'object' && 'retryable' in failure && failure.retryable === true
           if (retryable && attempt < 3) {
@@ -162,11 +182,23 @@ export function useRemoteMedia() {
   }, [jobs, deliver, deliveryTick, markDelivery])
   useEffect(() => { try { localStorage.setItem(REMOTE_PREFERENCE_KEY, JSON.stringify(preferences)) } catch { /* Optional non-sensitive settings. */ } }, [preferences])
 
-  const action = useCallback(async (work: () => Promise<void>) => {
-    if (lock.current) return
-    queueRevision.current++; lock.current = true; setBusy(true); setError('')
+  const action = useCallback(async (work: () => Promise<void>, key?: string) => {
+    if (key ? queueLocks.current.has(key) : lock.current) return
+    queueRevision.current++
+    if (key) { queueLocks.current.add(key); setQueueBusy(new Set(queueLocks.current)) }
+    else { lock.current = true; setBusy(true) }
+    setError('')
     try { await work() } catch (e) { if (mounted.current) { setError(e instanceof Error ? e.message : 'This operation could not be completed.'); setStatus('') } }
-    finally { queueRevision.current++; lock.current = false; if (mounted.current) { setBusy(false); refreshQueue.current() } }
+    finally {
+      queueRevision.current++
+      if (key) queueLocks.current.delete(key)
+      else lock.current = false
+      if (mounted.current) {
+        if (key) setQueueBusy(new Set(queueLocks.current))
+        else setBusy(false)
+        refreshQueue.current()
+      }
+    }
   }, [])
   function setURL(value: string) { setLinkResults([]); edited.current = true; setURLState(value); setInspection(null); setDiscovery(null); setNeedsChoice(false); setError(''); setStatus('') }
   async function enqueue(input: unknown, openQueue = true) {
@@ -266,20 +298,25 @@ export function useRemoteMedia() {
     await enqueue({ discoveryId: discovery.id, all, itemIds: [...selected], excludedIds: [...excluded], output: outputFor(preferences, undefined, batchMode) })
   })
   const loadPage = (next = '') => action(async () => { if (!discovery) return; cursor.current = next; setPage(await remoteMedia.discoveryItems(discovery.id, next)) })
+  const queueKey = (id: string) => currentJobs.current.find(job => job.artifactId === id)?.id || (results?.page.items.some(item => item.artifactId === id || item.subtitleArtifactId === id) ? results.id : id)
   const download = (id: string) => action(async () => {
-    const job = jobs.find(job => job.artifactId === id)
+    const job = currentJobs.current.find(job => job.id === queueKey(id))
     if (job) attemptedDownloads.current.add(`${job.id}:${id}`)
-    await deliver(id)
-    if (job) markDelivery(`${job.id}:${id}`)
-  })
+    const delivered = await deliver(id, () => !job || currentJobs.current.some(current => current.id === job.id))
+    if (delivered && job) markDelivery(`${job.id}:${id}`)
+  }, queueKey(id))
   const cancel = (id: string) => action(async () => {
     pendingDownloads.current.delete(id)
     const cancelled = await remoteMedia.cancel(id) as Job
     if (mounted.current) setJobs(current => current.map(job => job.id === id ? cancelled : job))
-  })
-  const retry = (id: string) => action(async () => { const job = await remoteMedia.retry(id); if (readInterfacePreferences().autoDownload) pendingDownloads.current.add(id); setJobs(current => [job, ...current.filter(j => j.id !== id)]) })
-  const remove = (id: string) => action(async () => { pendingDownloads.current.delete(id); await remoteMedia.remove(id); setJobs(current => current.filter(j => j.id !== id)); setResults(current => current?.id === id ? null : current) })
-  const itemResults = (id: string, next = '') => action(async () => { setResults({ id, page: await remoteMedia.items(id, next) }) })
+  }, id)
+  const retry = (id: string) => action(async () => { pendingDownloads.current.delete(id); const job = await remoteMedia.retry(id); if (!mounted.current) return; if (readInterfacePreferences().autoDownload) pendingDownloads.current.add(id); setJobs(current => [job, ...current.filter(j => j.id !== id)]); resultsRevision.current++; setResults(current => current?.id === id ? null : current) }, id)
+  const remove = (id: string) => action(async () => { pendingDownloads.current.delete(id); await remoteMedia.remove(id); if (!mounted.current) return; setJobs(current => current.filter(j => j.id !== id)); resultsRevision.current++; setResults(current => current?.id === id ? null : current) }, id)
+  const itemResults = (id: string, next = '') => action(async () => {
+    const revision = ++resultsRevision.current
+    const page = await remoteMedia.items(id, next)
+    if (mounted.current && revision === resultsRevision.current) setResults({ id, page })
+  }, `items:${id}`)
   const paste = () => action(async () => { setURL(await navigator.clipboard.readText()) })
   const cancelDiscovery = () => action(async () => { if (discovery) setDiscovery(await remoteMedia.cancel(discovery.id, true) as Discovery) })
   return {
@@ -288,7 +325,9 @@ export function useRemoteMedia() {
     downloadNeedsAction: new Set(jobs.filter(job => job.artifactId && !job.deliveredAt && (deliveryClickedAt.current.get(`${job.id}:${job.artifactId}`) || Infinity) < Date.now() - 8000).map(job => job.id)),
     preferences, setPreferences, url, setURL, inspection, caps, jobs, panel, setPanel, busy, error, status, needsChoice,
     discovery, page, selected, setSelected, all, setAll, excluded, setExcluded, batchMode, setBatchMode,
-    limit, setLimit, after, setAfter, before, setBefore, results, setResults,
+    limit, setLimit, after, setAfter, before, setBefore, results,
+    setResults: (value: typeof results) => { resultsRevision.current++; setResults(value) },
+    queueBusy: (id: string) => queueBusy.has(queueKey(id)), resultsBusy: queueBusy.has(`items:${results?.id}`),
     submit, openPlaylist, paste, discover, createCollection, loadPage, download, cancel, retry, remove, itemResults, cancelDiscovery,
     cancelCheck: () => controller.current?.abort(), checking, linkResults, addingLinks,
     stopAddingLinks: () => batchController.current?.abort(),

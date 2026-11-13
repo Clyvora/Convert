@@ -5,11 +5,11 @@ import { PageDirectory, SectionHeading } from './PagePrimitives'
 import { useSectionNavigation } from '../core/navigation'
 
 const sections = [
-  { id: 'general', label: 'What’s mewvi?', icon: '✧', group: 0 },
-  { id: 'community', label: 'Community & support', icon: '♧', group: 0 },
-  { id: 'privacy', label: 'Privacy policy', icon: '♙', group: 1 },
-  { id: 'terms', label: 'Terms and ethics', icon: '☑', group: 1 },
-  { id: 'credits', label: 'Thanks & licenses', icon: '♡', group: 1 },
+  { id: 'general', label: 'What’s mewvi?', icon: 'about', group: 0 },
+  { id: 'community', label: 'Community & support', icon: 'instances', group: 0 },
+  { id: 'privacy', label: 'Privacy policy', icon: 'privacy', group: 1 },
+  { id: 'terms', label: 'Terms and ethics', icon: 'metadata', group: 1 },
+  { id: 'credits', label: 'Thanks & licenses', icon: 'check', group: 1 },
 ] as const
 const ids = sections.map(s => s.id)
 function LinkedSections({ children }: { children: ReactNode }): ReactNode {

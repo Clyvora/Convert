@@ -1,12 +1,12 @@
 import { beforeEach, afterEach, expect, it, vi } from 'vitest'
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import RemoteMedia from './RemoteMedia'
 import { useRemoteMedia } from '../core/useRemoteMedia'
 import { remoteMedia } from '../core/mediaClient'
 import type { Inspection, Job } from '../core/mediaClient'
 
-vi.mock('../core/mediaClient', () => ({ remoteMedia: { capabilities: vi.fn(), jobs: vi.fn(), inspect: vi.fn(), create: vi.fn(), preview: vi.fn(), discover: vi.fn(), discoveries: vi.fn(), discovery: vi.fn(), discoveryItems: vi.fn(), access: vi.fn(), cancel: vi.fn(), retry: vi.fn(), remove: vi.fn(), items: vi.fn() } }))
+vi.mock('../core/mediaClient', () => ({ remoteMedia: { capabilities: vi.fn(), jobs: vi.fn(), inspect: vi.fn(), create: vi.fn(), preview: vi.fn(), discover: vi.fn(), discoveries: vi.fn(), discovery: vi.fn(), discoveryItems: vi.fn(), access: vi.fn(), browserDelivered: vi.fn(), cancel: vi.fn(), retry: vi.fn(), remove: vi.fn(), items: vi.fn() } }))
 const inspection: Inspection = { id:'inspection',title:'Example clip',kind:'media',provider:'fixture',mediaId:'1',url:'https://example.com/video',creator:'Author',duration:1,published:null,thumbnail:null,count:null,countConfidence:'unknown',formats:[{id:'av',ext:'mp4',video:'h264',audio:'aac',height:720,width:1280,fps:30,bitrate:100,sampleRate:48000,channels:2,language:'en',size:100,sizeKind:'exact'}],subtitles:[],restrictions:[],expires:Date.now()+60000 }
 const job: Job = { id:'job',state:'queued',created:Date.now(),expires:Date.now()+60000,total:1,completed:0,failed:0,bytes:0,stage:'Queued',output:{mode:'combined',container:'original',preset:'best'} }
 function Harness() {
@@ -33,6 +33,72 @@ it('respects disabled automatic queue opening without disabling background deliv
   await user.type(screen.getByLabelText('Public media link'),'https://example.com/video{Enter}')
   await waitFor(()=>expect(anchorClick).toHaveBeenCalledOnce())
   expect(screen.queryByRole('dialog',{name:'Downloads'})).not.toBeInTheDocument()
+})
+
+it('records automatic browser-file delivery so the queue can move it to Recent downloads', async () => {
+  vi.mocked(remoteMedia.create).mockResolvedValue({ ...job, state: 'ready', artifactId: 'browser-file' })
+  vi.mocked(remoteMedia.access).mockResolvedValue({ url: `blob:${location.origin}/file`, name: 'clip.mp4', expires: Date.now() + 60000, local: true })
+  const user = userEvent.setup(); render(<Harness/>)
+  await user.type(screen.getByLabelText('Public media link'), 'https://example.com/video{Enter}')
+  await waitFor(() => expect(remoteMedia.browserDelivered).toHaveBeenCalledWith('browser-file'))
+  expect(anchorClick).toHaveBeenCalledOnce()
+})
+
+it('keeps unrelated queue controls and the link field usable while cancelling a job', async () => {
+  vi.mocked(remoteMedia.jobs).mockResolvedValue({ items: [{ ...job, title: 'First' }, { ...job, id: 'second', title: 'Second' }], next: null })
+  let finish!: (value: Job) => void
+  vi.mocked(remoteMedia.cancel).mockImplementationOnce(() => new Promise(resolve => { finish = resolve }))
+    .mockResolvedValueOnce({ ...job, id: 'second', state: 'cancelled' })
+  const user = userEvent.setup(); render(<Harness/>)
+  await user.click(screen.getByRole('button', { name: 'Open queue' }))
+  const first = (await screen.findByRole('heading', { name: 'First' })).closest('article')!
+  const second = screen.getByRole('heading', { name: 'Second' }).closest('article')!
+  await user.click(within(first).getByRole('button', { name: 'Cancel' }))
+  expect(within(first).getByRole('button', { name: 'Cancel' })).toBeDisabled()
+  expect(within(second).getByRole('button', { name: 'Cancel' })).toBeEnabled()
+  expect(screen.getByLabelText('Public media link')).toBeEnabled()
+  await user.click(within(second).getByRole('button', { name: 'Cancel' }))
+  expect(remoteMedia.cancel).toHaveBeenCalledWith('second')
+  await act(async () => { finish({ ...job, state: 'cancelled' }) })
+})
+
+it('explains expired files and hides expired item download actions', async () => {
+  vi.mocked(remoteMedia.jobs).mockResolvedValue({ items: [{ ...job, state: 'expired', artifactId: 'old-file' }], next: null })
+  vi.mocked(remoteMedia.items).mockResolvedValue({ items: [{ id: 'item', mediaId: 'media', provider: 'fixture', url: '', title: 'Old file', state: 'ready', artifactId: 'old-file', subtitleArtifactId: 'old-subtitles' }], next: null })
+  const user = userEvent.setup(); render(<Harness/>)
+  await user.click(screen.getByRole('button', { name: 'Open queue' }))
+  expect(await screen.findByText(/Add the original link again/)).toBeVisible()
+  await user.click(screen.getByRole('button', { name: 'Item results' }))
+  expect(await screen.findByText('Old file')).toBeVisible()
+  expect(screen.queryByRole('button', { name: 'Download file' })).not.toBeInTheDocument()
+  expect(screen.queryByRole('button', { name: 'Download subtitles' })).not.toBeInTheDocument()
+})
+
+it('does not send an old partial archive after retry has started', async () => {
+  const partial: Job = { ...job, state: 'partial', total: 2, completed: 1, failed: 1, artifactId: 'old-archive' }
+  vi.mocked(remoteMedia.create).mockResolvedValue(partial)
+  let finish!: (value: { url: string; name: string; expires: number }) => void
+  vi.mocked(remoteMedia.access).mockImplementationOnce(() => new Promise(resolve => { finish = resolve }))
+  vi.mocked(remoteMedia.retry).mockResolvedValue({ ...job, total: 2, completed: 1 })
+  const user = userEvent.setup(); render(<Harness/>)
+  await user.type(screen.getByLabelText('Public media link'), 'https://example.com/video{Enter}')
+  await waitFor(() => expect(remoteMedia.access).toHaveBeenCalledOnce())
+  await user.click(screen.getByRole('button', { name: 'Retry failed items' }))
+  await act(async () => { finish({ url: 'https://media.example/old-archive', name: 'old.zip', expires: Date.now() + 60000 }) })
+  expect(anchorClick).not.toHaveBeenCalled()
+})
+
+it('does not duplicate delivery when Download file is clicked during automatic access', async () => {
+  vi.mocked(remoteMedia.create).mockResolvedValue({ ...job, state: 'ready', artifactId: 'file' })
+  let finish!: (value: { url: string; name: string; expires: number }) => void
+  vi.mocked(remoteMedia.access).mockImplementation(() => new Promise(resolve => { finish = resolve }))
+  const user = userEvent.setup(); render(<Harness/>)
+  await user.type(screen.getByLabelText('Public media link'), 'https://example.com/video{Enter}')
+  await waitFor(() => expect(remoteMedia.access).toHaveBeenCalledOnce())
+  await user.click(screen.getByRole('button', { name: 'Download file' }))
+  expect(remoteMedia.access).toHaveBeenCalledOnce()
+  await act(async () => { finish({ url: 'https://media.example/file', name: 'file.mp4', expires: Date.now() + 60000 }) })
+  expect(anchorClick).toHaveBeenCalledOnce()
 })
 
 it('keeps ready work available for manual delivery when automatic downloading is disabled', async () => {
@@ -256,7 +322,7 @@ it('cancels an active job and retries eligible failures from the queue', async (
   expect(remoteMedia.cancel).toHaveBeenCalledWith('job')
   vi.mocked(remoteMedia.jobs).mockResolvedValue({items:[{...job,state:'failed',failed:1}],next:null})
   await act(async () => { await new Promise(resolve => setTimeout(resolve,2100)) })
-  await user.click(await screen.findByRole('button',{name:'Retry failed items'}))
+  await user.click(await screen.findByRole('button',{name:'Retry download'}))
   expect(remoteMedia.retry).toHaveBeenCalledWith('job')
   expect(await screen.findByRole('button',{name:'Cancel'})).toBeVisible()
 })

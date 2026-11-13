@@ -42,7 +42,7 @@ export interface QueueItem {
   detected: DetectedFile
   options: ConversionOptions
   status: QueueStatus
-  progress: number
+  progress: number | null
   phaseLabel?: string
   outputName?: string
   outputBlob?: Blob

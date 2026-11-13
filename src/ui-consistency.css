@@ -1,0 +1,111 @@
+/* Shared dimensions and states across workspaces, settings and overlays. */
+:root {
+  --ui-control-height:42px;
+  --ui-control-radius:9px;
+  --ui-card-radius:12px;
+  --ui-overlay-radius:16px;
+  --ui-control-text:13px;
+  --ui-note-text:12px;
+  --ui-overlay-shadow:0 18px 60px #0006;
+}
+:root[data-theme='light'] { --ui-overlay-shadow:0 12px 40px #0002; }
+:root[data-theme='light'] .directory-icon { color:var(--muted); }
+:root[data-theme='light'] :is(.directory-icon-appearance,.directory-icon-general) { color:#245ec5; }
+:root[data-theme='light'] :is(.directory-icon-accessibility,.directory-icon-instances,.directory-icon-community) { color:#7950b5; }
+:root[data-theme='light'] :is(.directory-icon-video,.directory-icon-credits) { color:#b44570; }
+:root[data-theme='light'] .directory-icon-audio { color:#966018; }
+:root[data-theme='light'] :is(.directory-icon-metadata,.directory-icon-terms) { color:#2d794d; }
+:root[data-theme='light'] :is(.directory-icon-local,.directory-icon-privacy) { color:#326da8; }
+
+.convert-app :is(.primary-button,.secondary-button,.download-button,.danger-button,.icon-button,.setting-action,.settings-data-actions button) {
+  min-height:var(--ui-control-height);
+  border-radius:var(--ui-control-radius);
+  font-size:var(--ui-control-text);
+  font-weight:500;
+  line-height:1.5;
+}
+.convert-app .quick-action { background:var(--accent); color:var(--accent-ink); }
+.convert-app :is(.mode-switch label,.local-workspace select) { min-height:var(--ui-control-height); }
+.convert-app .mode-switch label { font-size:var(--ui-control-text); }
+.convert-app :is(.local-workspace select,.setting-toggle,.setting-select,.setting-segments) { border-radius:var(--ui-control-radius); }
+.convert-app .local-workspace select { font-size:var(--ui-control-text); }
+.convert-app :is(.field-note,.muted,.dialog-note,.file-details p,.item-status small,.notice,.settings-scope) {
+  font-size:var(--ui-note-text);
+  line-height:1.7;
+}
+.convert-app .field-note { overflow-wrap:anywhere; }
+
+/* Checked choices share the same filled treatment as navigation and Settings. */
+.convert-app .choice-group legend { font-size:var(--ui-control-text); font-weight:500; }
+.convert-app .choice-card { border-radius:var(--ui-control-radius); min-height:var(--ui-control-height); }
+.convert-app .choice-label { font-size:var(--ui-control-text); font-weight:500; }
+.convert-app .choice-description { font-size:var(--ui-note-text); line-height:1.5; }
+.convert-app .choice-card:has(input:checked) { background:var(--accent); color:var(--accent-ink); border-color:var(--accent); }
+.convert-app .choice-card:has(input:checked) .choice-description { color:inherit; }
+.convert-app .choice-card:not(:has(input:checked)):hover { background:var(--raised); border-color:var(--line-bright); }
+.convert-app .choice-group:disabled .choice-card { cursor:not-allowed; }
+.convert-app .choice-group:disabled .choice-card:hover { background:var(--bg); border-color:var(--line); }
+.convert-app .choice-group:disabled .choice-card:has(input:checked) { background:var(--raised); color:var(--muted); border-color:var(--line-bright); }
+
+/* One stroke weight for category, file and dismiss icons. */
+.convert-app :is(.directory-icon,.file-icon) svg { display:block; width:20px; height:20px; }
+.convert-app .dismiss-button {
+  display:inline-grid;
+  place-items:center;
+  flex-shrink:0;
+  width:36px;
+  height:36px;
+  min-height:36px;
+  padding:8px;
+  border:0;
+  border-radius:var(--ui-control-radius);
+  background:transparent;
+  color:var(--muted);
+}
+.convert-app .dismiss-button svg { display:block; width:20px; height:20px; }
+.convert-app .dismiss-button:hover:not(:disabled) { background:var(--raised); color:var(--text); }
+
+/* Header and body padding align between services, downloads and file options. */
+.convert-app :is(.options-dialog,.side-panel.panel-queue,.side-panel.panel-services) { border-radius:var(--ui-overlay-radius); }
+.convert-app :is(.panel-header,.dialog-heading) { padding:16px 20px; gap:12px; }
+.convert-app :is(.panel-header h2,.dialog-heading h2) { font:500 16px/1.5 var(--mono); letter-spacing:-.025em; }
+.convert-app .dialog-heading .eyebrow { font-size:11px; }
+.convert-app :is(.settings-body,.settings-footer) { padding:20px; }
+.convert-app :is(.panel-queue,.panel-services) .panel-body { padding:0 20px 20px; }
+.convert-app .side-panel.panel-queue,.convert-app .options-dialog { box-shadow:var(--ui-overlay-shadow); }
+.convert-app .services-menu .side-panel.panel-services .panel-content { box-shadow:var(--ui-overlay-shadow); }
+.convert-app .side-panel.panel-queue::before { display:none; }
+.convert-app :is(.queue-item,.settings-primary,.community-links>a,.feedback-card) { border-radius:var(--ui-card-radius); }
+.convert-app .workspace-heading h2,.convert-app .settings-home>h2 { font-size:22px; font-weight:500; line-height:1.4; letter-spacing:-.03em; }
+.convert-app .file-details h2 { font-size:var(--ui-control-text); line-height:1.5; }
+
+/* Local and remote jobs use matching status chips and semantic colours. */
+.convert-app .state-badge {
+  display:inline-flex;
+  align-items:center;
+  max-width:100%;
+  padding:4px 8px;
+  border:1px solid var(--line-bright);
+  border-radius:6px;
+  color:var(--muted);
+  font:11px/1.5 var(--mono);
+  overflow-wrap:anywhere;
+}
+.convert-app :is(.state-completed,.state-ready) { color:var(--text); }
+.convert-app .state-failed { color:var(--danger); }
+.convert-app :is(.state-partial,.state-interrupted) { color:var(--warning); }
+.convert-app .local-state { text-align:left; }
+.convert-app .item-status { font-size:var(--ui-note-text); gap:8px; }
+.convert-app .notice-error { background:var(--error-bg); }
+.convert-app .file-details .error-text { color:var(--danger); }
+:root[data-reduce-transparency=true] .dialog-backdrop { backdrop-filter:none; background:var(--bg); }
+
+@media(max-width:600px) {
+  :root { --ui-control-height:44px; }
+  .convert-app .dismiss-button { width:40px; height:40px; min-height:40px; }
+  .convert-app :is(.panel-header,.dialog-heading) { padding:12px 16px; }
+  .convert-app :is(.settings-body,.settings-footer) { padding:16px; }
+  .convert-app :is(.panel-queue,.panel-services) .panel-body { padding:0 16px 16px; }
+  .convert-app .local-empty { padding-inline:20px; }
+  .convert-app .workspace-heading h2 { font-size:22px; }
+}

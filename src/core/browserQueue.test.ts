@@ -69,3 +69,63 @@ it('keeps the twenty-entry limit when many plan requests finish together', async
   expect((await queue.create({ inspectionId: inspection.id, output }, 'key-0'))?.id).toBe(jobs[0]?.id)
   expect(api.plan).toHaveBeenCalledTimes(22)
 })
+
+it('keeps server work visible when cancellation fails, and accepts a file that finished first', async () => {
+  vi.mocked(downloadInBrowser).mockRejectedValue(new TypeError('CORS'))
+  const { queue, api } = setup()
+  const job = (await queue.create({ inspectionId: inspection.id, output }, 'key'))!
+  await vi.waitFor(() => expect(queue.remoteId(job.id)).toBe(remoteJob.id))
+  api.cancel.mockRejectedValueOnce(new Error('Offline'))
+  await expect(queue.cancel(job.id)).rejects.toThrow('Offline')
+  expect(queue.merge({ items: [remoteJob], next: null }).items[0].state).toBe('queued')
+  api.cancel.mockResolvedValueOnce({ ...remoteJob, state: 'ready', artifactId: 'finished' })
+  expect(await queue.cancel(job.id)).toMatchObject({ id: job.id, state: 'ready', artifactId: 'finished' })
+})
+
+it('ignores progress and completion from a cancelled browser transfer after retry', async () => {
+  vi.stubGlobal('URL', class extends URL { static createObjectURL = vi.fn(); static revokeObjectURL = vi.fn() })
+  let finish!: (blob: Blob) => void
+  let progress!: (bytes: number, speed: number, processing?: boolean) => void
+  vi.mocked(downloadInBrowser).mockImplementation((_plan, _signal, update) => {
+    progress = update
+    return new Promise(resolve => { finish = resolve })
+  })
+  const { queue } = setup()
+  const job = (await queue.create({ inspectionId: inspection.id, output }, 'key'))!
+  await queue.cancel(job.id)
+  await queue.retry(job.id)
+  queue.reconcile(job.id, remoteJob)
+  progress(123, 45, true)
+  finish(new Blob(['old file']))
+  await Promise.resolve()
+  expect(queue.merge({ items: [remoteJob], next: null }).items[0]).toMatchObject({ id: job.id, state: 'queued' })
+  expect(URL.createObjectURL).not.toHaveBeenCalled()
+})
+
+it('never offers an expired browser file, even before the next queue refresh', async () => {
+  vi.stubGlobal('URL', class extends URL { static createObjectURL = vi.fn(() => 'blob:http://localhost/file'); static revokeObjectURL = vi.fn() })
+  vi.mocked(downloadInBrowser).mockResolvedValue(new Blob(['audio']))
+  const { queue } = setup()
+  const job = (await queue.create({ inspectionId: inspection.id, output }, 'key'))!
+  await vi.waitFor(() => expect(queue.access(job.id)).not.toBeNull())
+  vi.spyOn(Date, 'now').mockReturnValue(job.expires + 1)
+  try {
+    expect(queue.access(job.id)).toBeNull()
+    expect(queue.merge({ items: [], next: null }).items[0]).toMatchObject({ state: 'expired', artifactId: undefined })
+    expect(URL.revokeObjectURL).toHaveBeenCalledOnce()
+  } finally { vi.restoreAllMocks() }
+})
+
+it('cleans up a fallback created after its cancelled browser entry was removed', async () => {
+  vi.mocked(downloadInBrowser).mockRejectedValue(new TypeError('CORS'))
+  const { queue, api } = setup()
+  let finish!: (job: Job) => void
+  api.create.mockImplementation(() => new Promise(resolve => { finish = resolve }))
+  const job = (await queue.create({ inspectionId: inspection.id, output }, 'key'))!
+  await vi.waitFor(() => expect(api.create).toHaveBeenCalledOnce())
+  await queue.cancel(job.id)
+  await queue.remove(job.id)
+  finish(remoteJob)
+  await vi.waitFor(() => expect(api.cancel).toHaveBeenCalledWith(remoteJob.id))
+  expect(api.remove).toHaveBeenCalledWith(remoteJob.id)
+})

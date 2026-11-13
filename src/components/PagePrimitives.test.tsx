@@ -7,7 +7,7 @@ import AboutPage from './AboutPage'
 afterEach(() => { cleanup(); vi.restoreAllMocks() })
 
 it('reveals an off-screen selected category without scrolling the page', () => {
-  const entries = [{ id: 'first', label: 'First', icon: '', group: 0 }, { id: 'last', label: 'Last', icon: '', group: 0 }]
+  const entries = [{ id: 'first', label: 'First', icon: 'about', group: 0 }, { id: 'last', label: 'Last', icon: 'settings', group: 0 }] as const
   const props = { title: 'Settings', base: '/settings', entries }
   const view = render(<PageDirectory {...props} selected="first"/>)
   const nav = screen.getByRole('navigation')

@@ -1,12 +1,41 @@
-.mobile-settings-menu,.settings-category-header{display:none}
+.mobile-settings-menu{display:none}
+.settings-home{min-width:0}
+.settings-home>h2{margin:0 0 10px;font-size:22px;font-weight:550;line-height:1.4;letter-spacing:-.03em}
+.settings-scope{margin:0 0 24px;color:var(--muted);font:12px/1.8 var(--mono);overflow-wrap:anywhere}
+.settings-primary{display:grid;margin:0 0 28px;border:1px solid var(--line);border-radius:14px;overflow:hidden;background:var(--panel)}
+.settings-primary>a{display:flex;align-items:center;gap:12px;min-height:76px;padding:13px 16px;color:var(--text);text-decoration:none}
+.settings-primary>a+a{border-top:1px solid var(--line)}
+.settings-primary>a:hover{background:var(--raised)}
+.settings-primary>a:focus-visible{outline-offset:-3px}
+.settings-primary>a>span:nth-child(2){min-width:0;overflow-wrap:anywhere}
+.settings-primary strong{display:block;font:500 14px/1.5 var(--mono)}
+.settings-primary small{display:block;margin-top:3px;color:var(--muted);font:12px/1.6 var(--mono)}
+.settings-primary .settings-menu-icon{display:grid;place-items:center;flex-shrink:0;width:36px;height:36px;border-radius:8px;background:var(--raised);color:var(--muted)}
+.settings-primary .settings-menu-icon svg{width:22px;height:22px}
+.settings-primary .settings-menu-chevron{margin-left:auto;color:var(--muted);font-size:24px}
+.settings-home>.setting-block{margin-bottom:20px}
+.settings-home .mobile-settings-menu>h3{margin:28px 0 12px;font:500 16px/1.5 var(--mono)}
+.settings-menu-text{min-width:0;overflow-wrap:anywhere}
+.settings-menu-text small{display:block;color:var(--muted);font:11px/1.6 var(--mono);margin-top:3px}
+.settings-studio:not(.show-explanations) .setting-hint.setting-hint-essential{display:block}
+.settings-category-header{display:flex;align-items:center;gap:10px;margin-bottom:14px}
+.settings-category-header>a{display:grid;place-items:center;flex-shrink:0;width:36px;height:36px;border-radius:8px;color:var(--text);text-decoration:none}
+.settings-category-header>a:hover{background:var(--panel)}
+.settings-category-header>a svg{rotate:180deg}
+.settings-category-header h2{margin:0;font:550 21px/1.4 var(--mono);letter-spacing:-.025em}
+.settings-category-header h2:focus,.settings-home>h2:focus{outline:none}
+.setting-advanced{border-top:1px solid var(--line);margin:24px 0}
+.setting-advanced>summary{min-height:46px;padding:13px 0;color:var(--text);font:13px/1.6 var(--mono);cursor:pointer}
+.setting-advanced>div{padding-top:12px}
+.setting-advanced>div>.setting-block:last-child{margin-bottom:8px}
+.settings-studio .setting-segments label:has(input:disabled){opacity:.6;cursor:default}
+.settings-studio .setting-choices:disabled .setting-segments{opacity:1}
+.setting-dependency-note .text-button{display:inline;min-height:32px;padding:3px 2px;font:inherit;white-space:normal}
 .setting-dependency-note{margin:-10px 0 24px;padding:12px 14px;border:1px solid var(--line);border-radius:9px;background:var(--panel);color:var(--text);font:12px/1.7 var(--mono)}
 @media(max-width:900px){
   .settings-studio.directory-layout{display:block;max-width:576px;margin-inline:auto}
   .settings-studio>.page-directory{display:none}
-  .settings-studio.settings-index>.settings-detail{display:none}
   .settings-studio .mobile-settings-menu{display:block}
-  .mobile-settings-menu>h2{margin:0 44px 28px;text-align:center;font-size:21px;line-height:1.5;font-weight:550;letter-spacing:-.035em}
-  .mobile-settings-menu h2:focus,.settings-category-header h2:focus{outline:none}
   .settings-menu-group{overflow:hidden;border:1px solid var(--line);border-radius:15px;background:var(--panel);margin-bottom:16px}
   .settings-menu-group>a{position:relative;display:flex;align-items:center;gap:12px;min-height:56px;padding:9px 12px;color:var(--text);text-decoration:none;font:500 14px/1.4 var(--mono)}
   .settings-menu-group>a+a:before{position:absolute;content:'';height:1px;top:0;left:56px;right:0;background:var(--line)}
@@ -29,3 +58,4 @@
   .settings-category-header h2{margin:0;text-align:center;font-size:19px;font-weight:550;line-height:1.4;letter-spacing:-.025em}
   .convert-app:has(.settings-studio) .mobile-beta{display:none}
 }
+@media(max-width:600px){:root:has(.settings-studio){scroll-padding-bottom:calc(var(--app-nav-height,0px) + 12px)}}
