@@ -77,11 +77,12 @@ function ServicesUpdate() {
     <div className="beta-update-copy">
       <p className="update-intro">We've added eight more services, bringing the list to 15. The cat needed a bigger whiteboard.</p>
       <section><h3>More links to try.</h3><p>You can now download public Twitch clips, Bluesky video posts, Pinterest video pins, Streamable clips, Dailymotion videos, Bandcamp track audio, and video posts from Imgur and 9GAG.</p><p>Bandcamp uses publicly playable audio. For silent Imgur clips, choose Video only. Availability varies by link and region; private and sign-in-required videos remain unsupported.</p></section>
-      <section><h3>Find the right service.</h3><p>Hover over Supported services to open the list, then move outside it to close. On touch screens, tap the button. Select a platform to see supported links and limits.</p><p>YouTube links that include a playlist now offer a shortcut to choose its items. SoundCloud playlists and Bandcamp albums default to audio when you use Auto, while keeping your chosen audio format.</p></section>
+      <section><h3>Find the right service.</h3><p>The services popup is smaller, with a compact icon grid and a gentle spring when it opens and closes. Hover over an icon to see supported links and limits in a short tooltip, beside the popup when space allows. Keyboard focus shows the same details; on touch screens, tap.</p><p>YouTube links that include a playlist now offer a shortcut to choose its items. SoundCloud playlists and Bandcamp albums default to audio when you use Auto, while keeping your chosen audio format.</p></section>
+      <section><h3>Know what happens next.</h3><p>Checking, downloading, preparing files and ready-to-save results now have clearer status cards and labels. Progress shows a percentage when the download size is known. Errors keep your link and offer an Edit link action; View downloads takes you to your files.</p></section>
+      <section><h3>Room on smaller screens.</h3><p>Download controls stack on narrow phones, long titles wrap, and panels scroll while keeping their close buttons within reach. Shorter windows and enlarged layouts also get more room for navigation and save controls. Reduced-motion settings still keep the services popup instant.</p></section>
       <section className="update-fixes"><h3>A few fixes, too.</h3><ul>
         <li>Clearer messages for blocked sources, access restrictions and service outages.</li>
         <li>Fixed connection failures affecting public links on some networks.</li>
-        <li>Kept the services panel's close button and selected description visible while you scroll.</li>
         <li>Made page and category changes reset the scroll position immediately, removed fade-in delays, and sped up changing labels.</li>
         <li>Warmed the local converter before its first visit and stopped redrawing it when changing download settings on another page.</li>
       </ul></section>

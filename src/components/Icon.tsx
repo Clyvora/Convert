@@ -1,5 +1,7 @@
-export function Icon({ name }: { name: 'download' | 'convert' | 'settings' | 'about' | 'link' | 'arrow' | 'plus' | 'updates' | 'auto' | 'audio' | 'video' | 'appearance' | 'accessibility' | 'metadata' | 'local' | 'instances' | 'privacy' | 'advanced' }) {
+export function Icon({ name }: { name: 'download' | 'convert' | 'settings' | 'about' | 'link' | 'arrow' | 'plus' | 'updates' | 'auto' | 'audio' | 'video' | 'appearance' | 'accessibility' | 'metadata' | 'local' | 'instances' | 'privacy' | 'advanced' | 'check' | 'warning' }) {
   const paths = {
+    check: <><circle cx="12" cy="12" r="9"/><path d="m8 12 3 3 5-6"/></>,
+    warning: <><path d="m12 3 10 18H2L12 3Z"/><path d="M12 9v5m0 3v.1"/></>,
     appearance: <><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M2 12h2m16 0h2M5 5l1.5 1.5m11 11L19 19M5 19l1.5-1.5m11-11L19 5"/></>,
     accessibility: <><circle cx="12" cy="12" r="9"/><circle cx="12" cy="7" r="1"/><path d="m7 10 5 2 5-2m-5 2v3m0 0-3 4m3-4 3 4"/></>,
     metadata: <><path d="M14 3H5v18h14V8l-5-5v5h5M8 12h8m-8 4h5"/></>,

@@ -55,6 +55,9 @@ it('inspects only on Download and preserves failed input', async () => {
   expect(await screen.findByRole('alert')).toHaveTextContent('Source unavailable')
   expect(screen.getByLabelText('Public media link')).toHaveValue('https://example.com/video')
   expect(document.querySelector('.download-companion')).toHaveAttribute('src',expect.stringMatching(/\/confused\.webp$/))
+  await user.click(screen.getByRole('button', { name: 'Edit link' }))
+  expect(screen.getByLabelText('Public media link')).toHaveFocus()
+  expect(remoteMedia.inspect).toHaveBeenCalledOnce()
 })
 it('uses the curious pose while checking, then the running pose for queued work', async () => {
   let resolveInspection: (value: Inspection) => void = () => undefined
@@ -64,9 +67,38 @@ it('uses the curious pose while checking, then the running pose for queued work'
   await user.type(screen.getByLabelText('Public media link'),'https://example.com/video{Enter}')
   await waitFor(() => expect(document.querySelector('.download-companion')).toHaveAttribute('src',expect.stringMatching(/\/curious\.webp$/)))
   expect(screen.getByRole('radio', { name: 'Audio' })).toBeDisabled()
+  expect(screen.getByRole('button', { name: 'Checking…' })).toBeDisabled()
+  expect(screen.getByRole('status')).toHaveTextContent('Looking for available media and formats.')
   await act(async () => resolveInspection(inspection))
   await waitFor(() => expect(document.querySelector('.download-companion')).toHaveAttribute('src',expect.stringMatching(/\/working\.webp$/)))
   expect(screen.getByRole('radio', { name: 'Audio' })).toBeEnabled()
+})
+
+it.each([
+  { state: 'downloading' as const, totalBytes: 100, label: 'Downloading', value: '25', percent: '25%' },
+  { state: 'downloading' as const, totalBytes: undefined, label: 'Downloading', value: null, percent: null },
+  { state: 'processing' as const, totalBytes: 100, label: 'Preparing file', value: null, percent: null },
+  { state: 'packaging' as const, totalBytes: 100, label: 'Packing files', value: null, percent: null },
+])('shows honest progress for $state with total $totalBytes', async ({ state, totalBytes, label, value, percent }) => {
+  vi.mocked(remoteMedia.jobs).mockResolvedValue({ items: [{ ...job, state, bytes: 25, totalBytes, stage: 'Current stage' }], next: null })
+  render(<Harness/>)
+  const progress = await screen.findByRole('progressbar', { name: `${label} progress` })
+  if (value) expect(progress).toHaveAttribute('value', value)
+  else expect(progress).not.toHaveAttribute('value')
+  if (percent) expect(screen.getByText(percent)).toBeVisible()
+  else expect(screen.queryByText(/\d+%/)).not.toBeInTheDocument()
+  expect(screen.getByRole('status')).toHaveTextContent(label)
+})
+
+it('identifies ready files and opens downloads without starting another job', async () => {
+  vi.mocked(remoteMedia.jobs).mockResolvedValue({ items: [{ ...job, state: 'ready', artifactId: 'artifact' }], next: null })
+  const user = userEvent.setup()
+  render(<Harness/>)
+  expect(await screen.findByRole('status')).toHaveTextContent('Ready to save')
+  await user.click(screen.getByRole('button', { name: 'View downloads' }))
+  expect(screen.getByRole('button', { name: 'Download file' })).toBeVisible()
+  expect(remoteMedia.create).not.toHaveBeenCalled()
+  expect(anchorClick).not.toHaveBeenCalled()
 })
 it('Auto submits combined media immediately without a second confirmation', async () => {
   const user = userEvent.setup(); render(<Harness/>)

@@ -4,7 +4,7 @@ import TransferProgress from './TransferProgress'
 import About from './AboutPage'
 export { About }
 import { compatibility, containers } from '../core/remoteContracts'
-import type { Container, Mode, Output } from '../core/remoteContracts'
+import type { Container, Job, Mode, Output, State } from '../core/remoteContracts'
 import type { RemoteController } from '../core/useRemoteMedia'
 import { remoteMedia } from '../core/mediaClient'
 import { formatBytes } from '../core/format'
@@ -16,6 +16,8 @@ import Updates from './Updates'
 import { MorphText } from '../MorphText'
 
 const modeLabels = { auto: 'Auto', audio: 'Audio', video: 'Video only' } as const
+const jobLabels: Record<State, string> = { created: 'Preparing', queued: 'Waiting', downloading: 'Downloading', processing: 'Preparing file', packaging: 'Packing files', ready: 'Ready to save', partial: 'Some items failed', failed: 'Failed', cancelled: 'Cancelled', interrupted: 'Interrupted', expired: 'Expired' }
+const activeStates: State[] = ['created', 'queued', 'downloading', 'processing', 'packaging']
 export default function RemoteMedia({ controller: r, active }: { controller: RemoteController; active: boolean }) {
   return <>
     <section className="download-workspace" hidden={!active} aria-label="Public media downloads">
@@ -25,11 +27,11 @@ export default function RemoteMedia({ controller: r, active }: { controller: Rem
           <label className="sr-only" htmlFor="remote-url">Public media link</label>
           <div className={`url-field ${r.checking ? 'is-checking' : ''}`}><Icon name="link"/><textarea id="remote-url" rows={Math.min(5, Math.max(1, r.url.split('\n').length))} value={r.url} onChange={e => r.setURL(e.target.value)} onKeyDown={event => { if (event.key === 'Enter' && !event.shiftKey && !event.nativeEvent.isComposing) { event.preventDefault(); event.currentTarget.form?.requestSubmit() } }} placeholder="Paste links, one per line" autoComplete="off" spellCheck={false} disabled={r.busy} aria-describedby="download-feedback link-batch-hint" />{r.url && !r.busy && <button type="button" className="clear-input" onClick={() => r.setURL('')} aria-label="Clear link">×</button>}</div>
           <div className="omnibox-actions"><fieldset className="mode-switch" disabled={r.busy}><legend className="sr-only">Download mode</legend>{(['auto', 'audio', 'video'] as const).map(mode => <label key={mode} className={r.preferences.mode === mode ? 'selected' : ''}><input type="radio" name="download-mode" aria-label={modeLabels[mode]} value={mode} checked={r.preferences.mode === mode} onChange={() => r.setPreferences(current => ({ ...current, mode }))} /><span className="mode-symbol" aria-hidden="true"><Icon name={mode}/></span>{modeLabels[mode]}</label>)}</fieldset>
-            <button className="primary-button quick-action" type="submit" disabled={r.busy}><MorphText>{r.busy ? 'Working…' : r.url.trim() ? splitLinks(r.url).length > 1 ? `Download ${splitLinks(r.url).length} links` : 'Download' : 'Paste'}</MorphText><Icon name={r.url.trim() ? 'arrow' : 'link'}/></button></div>
+            <button className="primary-button quick-action" type="submit" disabled={r.busy}><MorphText>{r.addingLinks ? 'Adding links…' : r.checking ? 'Checking…' : r.busy ? 'Working…' : r.url.trim() ? splitLinks(r.url).length > 1 ? `Download ${splitLinks(r.url).length} links` : 'Download' : 'Paste'}</MorphText><Icon name={r.checking ? 'link' : r.url.trim() ? 'arrow' : 'link'}/></button></div>
         </form>
         <p id="link-batch-hint" className="field-note">Up to 20 links · one per line · Shift+Enter for a new line</p>
         {youtubePlaylistURL(r.url) && <p className="field-note playlist-choice">This link includes a playlist. <button type="button" className="text-button" disabled={r.busy} onClick={() => void r.openPlaylist()}>Choose playlist items</button></p>}
-        <div id="download-feedback" className="download-feedback" aria-live="polite">{r.error && <p className="error-message" role="alert">{r.error}</p>}{!r.error && r.status && <p role="status">{r.status}</p>}{r.inspection?.provider === 'YouTube (Spotify match)' && <p className="muted">Audio matched on YouTube from your Spotify link.</p>}{r.checking && !r.addingLinks && <button className="text-button" type="button" onClick={r.cancelCheck}>Cancel check</button>}{r.discovery && r.panel !== 'collection' && <button className="text-button" type="button" onClick={() => r.setPanel('collection')}>Open collection · {r.discovery.count} discovered</button>}</div>
+        <div id="download-feedback" className="download-feedback"><DownloadFeedback controller={r}/>{r.inspection?.provider === 'YouTube (Spotify match)' && <p className="muted">Audio matched on YouTube from your Spotify link.</p>}{r.checking && !r.addingLinks && <button className="text-button" type="button" onClick={r.cancelCheck}>Cancel check</button>}{r.discovery && r.panel !== 'collection' && <button className="text-button" type="button" onClick={() => r.setPanel('collection')}>Open collection · {r.discovery.count} discovered</button>}</div>
         {r.addingLinks && <button type="button" className="text-button" onClick={r.stopAddingLinks}>Stop adding links</button>}
         {r.linkResults.length > 0 && <ul className="link-batch-results" aria-label="Link results">{r.linkResults.map(item => <li key={item.url}><span className="link-batch-url">{item.url}</span><span>{({ waiting: 'Waiting', checking: 'Checking…', queued: 'Added to queue', failed: 'Could not add', cancelled: 'Stopped' })[item.state]}</span>{item.message && <p className="error-message">{item.message}</p>}</li>)}</ul>}
         {r.needsChoice && r.inspection && <div className="choice-preview"><Metadata controller={r}/><p>Adjust your output settings, then choose Download again.</p><button className="secondary-button" type="button" onClick={() => r.setPanel('settings')}>Choose output settings</button></div>}
@@ -41,6 +43,37 @@ export default function RemoteMedia({ controller: r, active }: { controller: Rem
       {r.panel === 'settings' && <Settings controller={r}/>}{r.panel === 'queue' && <Downloads controller={r}/>}{r.panel === 'collection' && <Collection controller={r}/>}{r.panel === 'about' && <About/>}{r.panel === 'updates' && <Updates/>}
     </Panel>}
   </>
+}
+function JobProgress({ job }: { job: Job }) {
+  if (!['downloading', 'processing', 'packaging'].includes(job.state)) return null
+  const measured = job.state === 'downloading' && !!job.totalBytes && job.totalBytes > 0
+  const percent = measured ? Math.min(100, Math.max(0, Math.floor(job.bytes / job.totalBytes! * 100))) : null
+  return <div className="job-progress">
+    <progress aria-label={`${jobLabels[job.state]} progress`} value={measured ? job.bytes : undefined} max={measured ? job.totalBytes : undefined}/>
+    {percent !== null && <span className="job-progress-numbers">{formatBytes(job.bytes)} / {formatBytes(job.totalBytes!)}<span>{percent}%</span></span>}
+  </div>
+}
+function DownloadFeedback({ controller: r }: { controller: RemoteController }) {
+  const working = r.queueJobs.find(job => activeStates.includes(job.state))
+  const ready = r.queueJobs.find(job => ['ready', 'partial'].includes(job.state) && job.artifactId)
+  const sent = r.status.startsWith('Download sent to your browser')
+  if (!r.error && !r.status && !r.checking && !working && !ready) return null
+  const tone = r.error ? 'error' : r.checking ? 'checking' : working ? 'active' : ready ? 'ready' : sent ? 'success' : 'info'
+  const title = r.error ? 'Download needs attention' : r.checking ? r.addingLinks ? 'Checking links' : 'Checking link'
+    : working ? jobLabels[working.state] : ready ? jobLabels[ready.state] : sent ? 'Sent to your browser' : null
+  const message = r.error || (r.checking ? r.status === 'Checking your link…' ? 'Looking for available media and formats.' : r.status
+    : working ? working.stage : ready ? 'Open downloads to save the finished files.' : sent ? 'Check your browser’s downloads for the file.' : r.status)
+  const icon = tone === 'error' ? 'warning' : ['ready', 'success'].includes(tone) ? 'check' : tone === 'checking' ? 'link' : 'download'
+  return <div className={`feedback-card feedback-${tone}`}>
+    <Icon name={icon}/><div className="feedback-content">
+      <div role={r.error ? 'alert' : 'status'} aria-atomic="true">{title && <strong>{title}</strong>}{message && message !== title && <p>{message}</p>}</div>
+      {!r.error && !r.checking && working && <JobProgress job={working}/>}
+      <div className="feedback-actions">
+        {!r.checking && r.jobs.length > 0 && <button type="button" className="text-button" onClick={() => r.setPanel('queue')}>View downloads</button>}
+        {r.error && r.url && !r.busy && <button type="button" className="text-button" onClick={() => { const input = document.getElementById('remote-url') as HTMLTextAreaElement | null; input?.focus(); input?.select() }}>Edit link</button>}
+      </div>
+    </div>
+  </div>
 }
 function Metadata({ controller: r }: { controller: RemoteController }) {
   const i = r.inspection
@@ -95,11 +128,11 @@ function Downloads({ controller: r }: { controller: RemoteController }) {
     {!r.queueJobs.length && <div className="panel-empty"><Mascot pose="sleeping"/><h3>{r.recentJobs.length ? 'All caught up' : 'Nothing here yet'}</h3>{!r.recentJobs.length && <p>Your downloads will appear here, ready when you are.</p>}</div>}
     {r.error && <p className="error-message" role="alert">{r.error}</p>}
     {r.queueJobs.map(job => <article className="download-item" key={job.id}>
-      <div className="job-heading"><h3>{job.title || (job.total === 1 ? 'Media download' : `${job.total} collection items`)}</h3><span className={`state-badge state-${job.state}`}>{job.state}</span></div>
+      <div className="job-heading"><h3>{job.title || (job.total === 1 ? 'Media download' : `${job.total} collection items`)}</h3><span className={`state-badge state-${job.state}`}>{jobLabels[job.state]}</span></div>
       <p role="status"><MorphText>{job.stage}</MorphText></p><p className="muted">{job.output.container.toUpperCase()} · <MorphText>{`${job.completed}/${job.total} completed${job.failed ? ` · ${job.failed} failed` : ''}`}</MorphText></p>
-      {job.bytes > 0 && !['ready','partial','failed','cancelled','expired'].includes(job.state) && <p className="muted">{formatBytes(job.bytes)}{job.totalBytes ? ` / ${formatBytes(job.totalBytes)}` : ''}</p>}
+      {job.bytes > 0 && job.state === 'downloading' && !job.totalBytes && <p className="muted">{formatBytes(job.bytes)} downloaded · total size unknown</p>}
       <TransferProgress job={job}/>
-      {!!job.totalBytes && job.state === 'downloading' && <progress value={job.bytes} max={job.totalBytes} aria-label="Download progress"/>}{job.state === 'processing' && <progress aria-label="Processing media"/>}{job.error && <p className="error-message">{job.error.message}</p>}
+      <JobProgress job={job}/>{job.error && <p className="error-message">{job.error.message}</p>}
       {r.downloadNeedsAction.has(job.id) && <p role="status">If your download did not start, select Download file or allow automatic downloads for mewvi.</p>}
       <div className="job-actions">{job.artifactId && ['ready','partial'].includes(job.state) && (job.total === 1 ? <DownloadFile controller={r} id={job.artifactId}/> : <button type="button" className="primary-button" disabled={r.busy} onClick={() => void r.download(job.artifactId!)}>Download ZIP</button>)}
         {!['ready','partial','failed','cancelled','expired'].includes(job.state) && <button className="secondary-button" type="button" disabled={r.busy} onClick={() => void r.cancel(job.id)}>Cancel</button>}{['failed','partial','cancelled','interrupted'].includes(job.state) && <button className="secondary-button" type="button" disabled={r.busy} onClick={() => void r.retry(job.id)}>Retry failed items</button>}

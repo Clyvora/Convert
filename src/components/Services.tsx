@@ -21,9 +21,16 @@ export default function Services() {
     const panel = active.host.getBoundingClientRect(), anchor = active.anchor.getBoundingClientRect(), tip = tooltip.current.getBoundingClientRect()
     const zoom = active.host.offsetWidth ? panel.width / active.host.offsetWidth : 1
     const gap = 8 * zoom
-    const left = Math.max(panel.left + gap, Math.min(anchor.left + (anchor.width - tip.width) / 2, panel.right - tip.width - gap))
-    const top = anchor.bottom + tip.height + gap > panel.bottom - gap ? anchor.top - tip.height - gap : anchor.bottom + gap
-    setPosition({ left: (left - panel.left) / zoom, top: Math.max(gap, top - panel.top) / zoom })
+    const viewport = window.visualViewport
+    const viewportLeft = viewport?.offsetLeft || 0, viewportTop = viewport?.offsetTop || 0
+    const viewportRight = viewportLeft + (viewport?.width || window.innerWidth), viewportBottom = viewportTop + (viewport?.height || window.innerHeight)
+    const beside = panel.right + tip.width + 2 * gap <= viewportRight ? panel.right + gap
+      : panel.left - tip.width - 2 * gap >= viewportLeft ? panel.left - tip.width - gap : null
+    const left = beside ?? Math.max(panel.left + gap, Math.min(anchor.left + (anchor.width - tip.width) / 2, panel.right - tip.width - gap))
+    const preferredTop = beside !== null ? anchor.top + (anchor.height - tip.height) / 2
+      : anchor.bottom + tip.height + gap > panel.bottom - gap ? anchor.top - tip.height - gap : anchor.bottom + gap
+    const top = Math.max(viewportTop + gap, Math.min(preferredTop, viewportBottom - tip.height - gap))
+    setPosition({ left: (left - panel.left) / zoom, top: (top - panel.top) / zoom })
     const hide = () => setActive(null)
     active.host.addEventListener('scroll', hide, true)
     window.addEventListener('resize', hide)
@@ -43,6 +50,6 @@ export default function Services() {
       <span className="directory-platform-icon" style={{ maskImage: `url(/platforms/${item.icon}.svg)`, WebkitMaskImage: `url(/platforms/${item.icon}.svg)` }} aria-hidden="true"/>
       <span className="directory-platform-name">{item.name}</span>
     </button>)}</div>
-    {active && service && createPortal(<div className="directory-support-tooltip" role="tooltip" id={detailsId} ref={tooltip} style={{ ...position, visibility: position ? 'visible' : 'hidden' }}><strong>{service.name}</strong><span className="directory-link-types">{service.links.join(' · ')}</span><small>{service.detail}</small></div>, active.host)}
+    {active && service && createPortal(<div className="directory-support-tooltip" role="tooltip" id={detailsId} ref={tooltip} style={{ ...position, visibility: position ? 'visible' : 'hidden' }}><span className="directory-link-types">{service.links.join(' · ')}</span><small>{service.detail}</small></div>, active.host)}
   </div>
 }

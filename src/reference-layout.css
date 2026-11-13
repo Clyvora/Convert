@@ -261,3 +261,51 @@ body,.convert-app { font-family:var(--mono); font-size:14px; }
 @media(max-width:600px){.is-batch .omnibox-actions{flex-wrap:wrap}.is-batch .mode-switch{flex:1 0 100%}.is-batch .quick-action{width:100%;justify-content:center}}
 /* Keep touch and keyboard scrolling without permanent mobile scroll tracks. */
 @media(max-width:600px){*{scrollbar-width:none}*::-webkit-scrollbar{display:none;width:0;height:0}}
+
+/* Status stays readable without adding another entrance or loading animation. */
+.feedback-card{display:flex;align-items:flex-start;gap:11px;min-width:0;margin:12px 0;padding:13px 15px;border:1px solid var(--line);border-radius:10px;background:var(--panel);color:var(--text);text-align:left}
+.feedback-card>svg{width:19px;height:19px;flex-shrink:0;margin-top:2px;color:var(--muted)}
+.feedback-content{flex:1;min-width:0;overflow-wrap:anywhere}
+.feedback-content strong{display:block;font-size:12px;font-weight:500;margin-bottom:3px}
+.download-feedback .feedback-content p{margin:0;color:var(--muted);font-size:12px;line-height:1.7}
+.feedback-error{border-color:var(--danger);background:var(--error-bg)}
+.feedback-error>svg,.feedback-error strong{color:var(--danger)}
+.feedback-ready>svg,.feedback-success>svg{color:var(--text)}
+.feedback-actions{display:flex;flex-wrap:wrap;gap:6px 18px;margin-top:6px}
+.feedback-actions:empty{display:none}
+.feedback-actions .text-button{min-height:32px}
+.download-feedback>.text-button{min-height:40px}
+.job-progress{min-width:0;margin-top:12px}
+.job-progress progress{display:block;width:100%;height:5px;accent-color:var(--text)}
+.job-progress-numbers{display:flex;justify-content:space-between;flex-wrap:wrap;gap:4px 12px;margin-top:6px;font:11px/1.6 var(--mono);color:var(--muted);font-variant-numeric:tabular-nums}
+.job-heading{align-items:flex-start;flex-wrap:wrap}
+.job-heading h3{min-width:0;flex:1 1 150px;overflow-wrap:anywhere}
+.state-badge{flex-shrink:0;font-size:10px;line-height:1.5}
+.state-downloading,.state-processing,.state-packaging{color:var(--text);border-color:var(--line-bright)}
+.state-partial,.state-interrupted{color:var(--warning)}
+.download-item,.download-list,.panel-body,.download-stage{min-width:0}
+.panel-body{overflow-wrap:anywhere}
+.panel-queue .panel-content{max-height:inherit;overflow:hidden}
+.panel-queue .panel-header{flex-shrink:0}
+.panel-queue .panel-body{min-height:0;overflow-y:auto;overscroll-behavior:contain}
+.panel-services .panel-body{overscroll-behavior:contain}
+
+@media(max-width:420px){
+  .omnibox-actions{flex-wrap:wrap}
+  .omnibox-actions .mode-switch{flex:1 0 100%}
+  .omnibox-actions .quick-action{width:100%;justify-content:center;min-height:44px}
+  .feedback-card{padding:12px;gap:9px}
+  .feedback-actions .text-button{min-height:40px}
+  .job-actions>*{max-width:100%;white-space:normal}
+  .download-item .job-heading{flex-direction:column;gap:8px}
+  .download-item .job-heading h3{flex:auto;width:100%}
+  .download-item .job-heading .state-badge{order:-1}
+}
+@media(min-width:601px) and (max-height:600px){
+  .app-rail .rail-brand{min-height:48px}
+  .app-rail .rail-brand img{width:32px;height:32px}
+  .app-rail :is(a,button){min-height:44px;padding-block:5px;gap:3px;font-size:10px}
+  .app-rail :is(a,button) svg{width:18px;height:18px}
+  .download-workspace{padding-block:76px 80px}
+  .download-companion{width:112px;height:112px;margin-bottom:16px}
+}
