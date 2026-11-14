@@ -29,7 +29,9 @@ export interface Inspection {
 }
 export interface BrowserStream { url: string; protocol: 'file' | 'hls'; role: 'audio' | 'video' | 'combined'; ext: string }
 export interface BrowserPlan { url: string; filename: string; mime: string; maxBytes: number; expires: number; streams?: BrowserStream[]; container?: string; mode?: Mode }
-export interface Item { id: string; mediaId: string; provider: string; url: string; title: string; published?: string | null; state?: State; error?: ServiceError; artifactId?: string; subtitleArtifactId?: string }
+export type ToolKind = 'instagram-profile' | 'instagram-post' | 'youtube-shorts';
+export interface ToolInput { tool: ToolKind; url: string; scope?: 'all' | 'recent'; limit?: number; mediaType?: 'all' | 'image' | 'video'; after?: string; before?: string }
+export interface Item { id: string; mediaId: string; provider: string; url: string; title: string; mediaType?: 'image' | 'video'; thumbnail?: string; published?: string | null; state?: State; error?: ServiceError; artifactId?: string; subtitleArtifactId?: string }
 export interface ServiceError { code: string; message: string; retryable: boolean; correlationId?: string; retryAfter?: number }
 export interface Job {
   title?: string; deliveredAt?: number;
@@ -38,7 +40,7 @@ export interface Job {
   completed: number; failed: number; bytes: number; totalBytes?: number; stage: string;
   artifactId?: string; error?: ServiceError;
 }
-export interface Discovery { id: string; state: string; count: number; outcome: string; error?: ServiceError; url?: string; lastJobId?: string }
+export interface Discovery { id: string; state: string; count: number; outcome: string; scope?: 'all' | 'recent'; tool?: ToolKind; scanned?: number; error?: ServiceError; url?: string; lastJobId?: string }
 export interface Page<T> { items: T[]; next: string | null }
 export interface Capabilities { apiVersion: number; containers: Container[]; limits: { items: number; itemBytes: number; duration: number }; engine: string; enabledProviders: number; catalogMethod: string }
 

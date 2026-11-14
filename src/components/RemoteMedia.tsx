@@ -14,6 +14,8 @@ import { Icon } from './Icon'
 import Mascot from './Mascot'
 import Updates from './Updates'
 import { MorphText } from '../MorphText'
+import { useState } from 'react'
+import ErrorDetails from './ErrorDetails'
 
 const modeLabels = { auto: 'Auto', audio: 'Audio', video: 'Video only' } as const
 const jobLabels: Record<State, string> = { created: 'Preparing', queued: 'Waiting', downloading: 'Downloading', processing: 'Preparing file', packaging: 'Packing files', ready: 'Ready to save', partial: 'Some items failed', failed: 'Failed', cancelled: 'Cancelled', interrupted: 'Interrupted', expired: 'Expired' }
@@ -72,6 +74,7 @@ function DownloadFeedback({ controller: r }: { controller: RemoteController }) {
         {!r.checking && r.jobs.length > 0 && <button type="button" className="text-button" onClick={() => r.setPanel('queue')}>View downloads</button>}
         {r.error && r.url && !r.busy && <button type="button" className="text-button" onClick={() => { const input = document.getElementById('remote-url') as HTMLTextAreaElement | null; input?.focus(); input?.select() }}>Edit link</button>}
       </div>
+      {r.error && <ErrorDetails area="download" code={r.errorCode} options={{...r.preferences.options,downloadMode:r.preferences.mode,videoContainer:r.preferences.videoContainer,audioContainer:r.preferences.audioContainer}} engine={r.caps?.engine}/>}
     </div>
   </div>
 }
@@ -124,16 +127,26 @@ function DownloadFile({ controller: r, id, again = false }: { controller: Remote
 function Downloads({ controller: r }: { controller: RemoteController }) {
   const resultsExpired = r.jobs.some(job => job.id === r.results?.id && job.state === 'expired')
   return <div className="download-list">
+    {(r.retryableCount > 0 || r.recentCount > 0 || r.queueBatchStatus) && <div className="queue-batch-tools">
+      <div className="job-actions">
+        {r.retryableCount > 0 && <button type="button" className="secondary-button" disabled={Boolean(r.queueBatch)} onClick={() => void r.retryFailed()}>Retry failed downloads</button>}
+        {r.recentCount > 0 && <button type="button" className="text-button" disabled={Boolean(r.queueBatch)} onClick={() => void r.clearRecent()}>Clear recent</button>}
+        {r.queueBatch && <button type="button" className="text-button" onClick={r.stopQueueBatch}>Stop remaining</button>}
+      </div>
+      {r.recentCount > 0 && <p className="field-note">Clear recent removes transferred entries. Files waiting to be saved stay in the queue.</p>}
+      {r.queueBatchStatus && <p role="status" className="field-note">{r.queueBatchStatus}</p>}
+    </div>}
     {r.jobs.some(job => job.id.startsWith('browser-')) && <p className="field-note">Direct browser downloads stay available while this tab is open. Keep it open until your file is saved.</p>}
     {r.queueJobs.length > 0 && <Mascot className="queue-companion" pose={r.activeCount > 0 ? 'working' : r.queueJobs.some(job => ['failed', 'partial', 'interrupted'].includes(job.state)) ? 'confused' : r.queueJobs.some(job => job.state === 'ready') ? 'ready' : 'sleeping'}/>}
     {!r.queueJobs.length && <div className="panel-empty"><Mascot pose="sleeping"/><h3>{r.recentJobs.length ? 'All caught up' : 'Nothing here yet'}</h3>{!r.recentJobs.length && <p>Your downloads will appear here, ready when you are.</p>}</div>}
-    {r.error && <p className="error-message" role="alert">{r.error}</p>}
+    {r.error && <div><p className="error-message" role="alert">{r.error}</p><ErrorDetails area="download" code={r.errorCode} options={{...r.preferences.options,downloadMode:r.preferences.mode,videoContainer:r.preferences.videoContainer,audioContainer:r.preferences.audioContainer}} engine={r.caps?.engine}/></div>}
     {r.queueJobs.map(job => <article className="download-item" key={job.id} aria-busy={r.queueBusy(job.id)}>
       <div className="job-heading"><h3>{job.title || (job.total === 1 ? 'Media download' : `${job.total} collection items`)}</h3><span className={`state-badge state-${job.state}`}>{jobLabels[job.state]}</span></div>
       <p role="status"><MorphText>{job.stage}</MorphText></p><p className="muted">{job.output.container.toUpperCase()} · <MorphText>{`${job.completed}/${job.total} completed${job.failed ? ` · ${job.failed} failed` : ''}`}</MorphText></p>
       {job.bytes > 0 && job.state === 'downloading' && !job.totalBytes && <p className="muted">{formatBytes(job.bytes)} downloaded · total size unknown</p>}
       <TransferProgress job={job}/>
       <JobProgress job={job}/>{job.error && <p className="error-message">{job.error.message}</p>}
+      {['failed','partial','interrupted'].includes(job.state) && <ErrorDetails area="download" code={job.error?.code || (job.state === 'partial' ? 'PARTIAL_FAILURE' : 'DOWNLOAD_INTERRUPTED')} state={job.state} options={job.output} engine={r.caps?.engine}/>}
       {job.state === 'expired' && <p className="field-note">This file is no longer available. Add the original link again to make a new download.</p>}
       {r.downloadNeedsAction.has(job.id) && <p role="status">If your download did not start, select Download file or allow automatic downloads for mewvi.</p>}
       <div className="job-actions">{job.artifactId && ['ready','partial'].includes(job.state) && (job.total === 1 ? <DownloadFile controller={r} id={job.artifactId}/> : <button type="button" className="primary-button" disabled={r.queueBusy(job.id)} onClick={() => void r.download(job.artifactId!)}>Download ZIP</button>)}
@@ -150,15 +163,26 @@ function Downloads({ controller: r }: { controller: RemoteController }) {
   </div>
 }
 function Collection({ controller: r }: { controller: RemoteController }) {
+  const [query, setQuery] = useState('')
+  const visible = r.page.items.filter(item => item.title.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase()))
+  const selectedCount = r.all ? Math.max(0, (r.discovery?.count || 0) - r.excluded.size) : r.selected.size
+  const chooseVisible = (choose: boolean) => {
+    const values = new Set(r.all ? r.excluded : r.selected)
+    for (const item of visible) { if (r.all ? !choose : choose) values.add(item.id); else values.delete(item.id) }
+    if (r.all) r.setExcluded(values); else r.setSelected(values)
+  }
   return <div className="collection-content"><div className="collection-overview"><Mascot pose={r.discovery?.state === 'discovering' ? 'working' : 'curious'}/><Metadata controller={r}/></div><p>Choose the public items you want. Discovery depends on the source.</p>
     <div className="collection-filters"><label>Item limit<input type="number" min="1" max="1000" value={r.limit} onChange={e => r.setLimit(Number(e.target.value))}/></label><label>Published after<input type="date" value={r.after} onChange={e => r.setAfter(e.target.value)}/></label><label>Published before<input type="date" value={r.before} onChange={e => r.setBefore(e.target.value)}/></label></div><p className="field-note">Items without a publication date remain included.</p>
     <button type="button" className="secondary-button" disabled={r.busy || r.discovery?.state === 'discovering'} onClick={() => void r.discover()}>Discover collection</button>
     {r.discovery && <><p role="status">{r.discovery.count} discovered · {r.discovery.outcome}</p>{r.discovery.error && <p className="error-message">{r.discovery.error.message}</p>}{r.discovery.state === 'discovering' && <button type="button" className="text-button" onClick={() => void r.cancelDiscovery()}>Stop discovery</button>}
-      <div className="job-actions"><button type="button" className="text-button" onClick={() => { r.setAll(true); r.setExcluded(new Set()) }}>Select all discovered</button><button type="button" className="text-button" onClick={() => { r.setAll(false); r.setSelected(new Set()); r.setExcluded(new Set()) }}>Deselect all</button></div>
-      <div className="collection-items">{r.page.items.map(item => <label key={item.id} className="collection-row"><input type="checkbox" checked={r.all ? !r.excluded.has(item.id) : r.selected.has(item.id)} onChange={e => { const values = new Set(r.all ? r.excluded : r.selected); if (r.all ? !e.target.checked : e.target.checked) values.add(item.id); else values.delete(item.id); if (r.all) r.setExcluded(values); else r.setSelected(values) }}/><span>{item.title}</span></label>)}</div>
+      <label>Search this page<input type="search" value={query} onChange={event => setQuery(event.target.value)} placeholder="Filter item titles"/></label>
+      <p className="field-note" role="status">{selectedCount} selected across this collection · {visible.length} shown on this page</p>
+      <div className="job-actions"><button type="button" className="text-button" onClick={() => { r.setAll(true); r.setExcluded(new Set()) }}>Select all discovered</button><button type="button" className="text-button" onClick={() => { r.setAll(false); r.setSelected(new Set()); r.setExcluded(new Set()) }}>Deselect all</button><button type="button" className="text-button" disabled={!visible.length} onClick={() => chooseVisible(true)}>Select visible items</button><button type="button" className="text-button" disabled={!visible.length} onClick={() => chooseVisible(false)}>Deselect visible items</button></div>
+      <div className="collection-items">{visible.map(item => <label key={item.id} className="collection-row"><input type="checkbox" checked={r.all ? !r.excluded.has(item.id) : r.selected.has(item.id)} onChange={e => { const values = new Set(r.all ? r.excluded : r.selected); if (r.all ? !e.target.checked : e.target.checked) values.add(item.id); else values.delete(item.id); if (r.all) r.setExcluded(values); else r.setSelected(values) }}/><span>{item.title}</span></label>)}</div>
+      {!visible.length && <p className="field-note">No matching items on this page.</p>}
       <div className="job-actions"><button className="text-button" type="button" onClick={() => void r.loadPage()}>First page / refresh</button>{r.page.next && <button className="text-button" type="button" onClick={() => void r.loadPage(r.page.next!)}>Next page</button>}</div>
       <label>Collection output<select value={r.batchMode} onChange={e => r.setBatchMode(e.target.value as Mode)}><option value="combined">Video + audio</option><option value="audio">Audio</option><option value="video">Video only</option></select></label><p className="field-note">Shared output settings are checked per item. Incompatible items report a failure; completed items remain available.</p>
-      <button className="primary-button" type="button" disabled={r.busy || r.discovery.state === 'discovering' || (!r.all && !r.selected.size)} onClick={() => void r.createCollection()}>Download selected items</button>
+      <button className="primary-button" type="button" disabled={r.busy || r.discovery.state === 'discovering' || selectedCount === 0} onClick={() => void r.createCollection()}>Download selected items</button>
     </>}{r.error && <p className="error-message" role="alert">{r.error}</p>}
   </div>
 }

@@ -2,6 +2,15 @@ import { afterEach, expect, it, vi } from 'vitest'
 
 afterEach(() => { vi.unstubAllGlobals(); vi.resetModules() })
 
+it('does not silently run a video-only scan when the backend does not support Tools',async()=>{
+ const network=vi.fn().mockResolvedValueOnce(Response.json({csrf:'csrf'})).mockResolvedValueOnce(Response.json({error:{code:'NOT_FOUND',message:'Unknown endpoint.',retryable:false}},{status:404}))
+ vi.stubGlobal('fetch',network)
+ const {remoteMedia}=await import('./mediaClient')
+ await expect(remoteMedia.discoverTool({tool:'instagram-post',url:'https://www.instagram.com/p/example/',limit:1})).rejects.toMatchObject({code:'TOOLS_UNAVAILABLE'})
+ expect(network.mock.calls[1][0]).toBe('/api/v1/convert/tools/discoveries')
+ expect(network).toHaveBeenCalledTimes(2)
+})
+
 it('reports an unavailable service instead of exposing a gateway HTML parsing error', async () => {
   const network = vi.fn().mockResolvedValueOnce(new Response('<html>Bad Gateway</html>', { status: 502 }))
   vi.stubGlobal('fetch', network)

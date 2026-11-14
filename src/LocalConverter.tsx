@@ -7,11 +7,14 @@ import { detectFile, FileDetectionError } from './core/detection'
 import { formatBytes } from './core/format'
 import { assessMemoryRisk, formatDuration } from './core/metrics'
 import { outputFilename, uniqueFilename } from './core/naming'
-import { mergePreferences, preferenceSubset } from './core/preferences'
+import { applyCompatibleSettings, mergePreferences, preferenceSubset } from './core/preferences'
 import { readInterfacePreferences } from './core/interfacePreferences'
 import { readVideoMetadata } from './core/localMetadata'
 import type { SavedPreferences } from './core/preferences'
-import { getOutputFormats, isVideoFormat } from './core/registry'
+import { getOutputFormats, isSupportedPair, isVideoFormat } from './core/registry'
+import ErrorDetails from './components/ErrorDetails'
+import LocalPreview from './components/LocalPreview'
+import { canPreview } from './core/preview'
 import { queueReducer } from './core/queue'
 import type { QueueAction } from './core/queue'
 import type {
@@ -94,6 +97,8 @@ function LocalConverter({ active, onShow }: { active: boolean; onShow: () => voi
   const busyRef = useRef(false), importing = useRef<AbortController | null>(null), mounted = useRef(true)
   const [notice, setNotice] = useState<Notice | null>(null)
   const [selectedId, setSelectedId] = useState<string | null>(null)
+  const [previewId, setPreviewId] = useState<string | null>(null)
+  const [appliedCount, setAppliedCount] = useState<number | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const itemsRef = useRef(items)
   const [initialPreferences] = useState(loadPreferences)
@@ -129,7 +134,8 @@ function LocalConverter({ active, onShow }: { active: boolean; onShow: () => voi
   const lossless = selected?.options.outputFormat === 'wav' || selected?.options.outputFormat === 'flac'
   const queueTitle = busy ? 'Converting your files…' : completedCount === items.length && items.length ? `${items.length} ${items.length === 1 ? 'file' : 'files'} complete.` : items.every(item => item.status === 'ready') ? `${items.length} ${items.length === 1 ? 'file' : 'files'} ready.` : 'Your conversion files'
 
-  useEffect(() => { if (!active) setSelectedId(null) }, [active])
+  useEffect(() => { if (!active) { setSelectedId(null); setPreviewId(null) } }, [active])
+  useEffect(() => { setAppliedCount(null) }, [selectedId])
 
   useEffect(() => {
     if (!selectedId) return
@@ -283,19 +289,36 @@ function LocalConverter({ active, onShow }: { active: boolean; onShow: () => voi
   const remove = (item: QueueItem) => {
     if (item.id === activeIdRef.current) return
     if (item.outputUrl) URL.revokeObjectURL(item.outputUrl)
+    if (previewId === item.id) setPreviewId(null)
     apply({ type: 'remove', id: item.id })
   }
 
   const reset = () => {
     if (busyRef.current || importing.current) return
     for (const item of itemsRef.current) if (item.outputUrl) URL.revokeObjectURL(item.outputUrl)
+    setPreviewId(null)
     apply({ type: 'reset' })
   }
 
   const convertAgain = (item: QueueItem) => {
     if (busyRef.current || importing.current) return
     if (item.outputUrl) URL.revokeObjectURL(item.outputUrl)
+    if (previewId === item.id) setPreviewId(null)
     patchItem(item.id, { status: 'ready', progress: 0, outputUrl: undefined, outputBlob: undefined, outputName: undefined, durationMs: undefined, error: undefined })
+  }
+
+  const clearCompleted = () => {
+    if (importing.current) return
+    const completed = itemsRef.current.filter(item => item.status === 'completed')
+    for (const item of completed) if (item.outputUrl) URL.revokeObjectURL(item.outputUrl)
+    if (completed.some(item => item.id === previewId)) setPreviewId(null)
+    apply({ type: 'clearCompleted' })
+  }
+  const compatible = selected ? items.filter(item => item.id !== selected.id && ['ready','failed','cancelled'].includes(item.status) && isSupportedPair(item.detected.format, selected.options.outputFormat)) : []
+  const applyToCompatible = () => {
+    if (!selected || busyRef.current || importing.current) return
+    for (const item of compatible) patchItem(item.id, { options: applyCompatibleSettings(selected.options, item.detected.format, item.options) })
+    setAppliedCount(compatible.length)
   }
 
   return <div className="local-workspace" hidden={!active}>
@@ -334,6 +357,7 @@ function LocalConverter({ active, onShow }: { active: boolean; onShow: () => voi
         </div>
         <button className="secondary-button" type="button" disabled={busy || adding} onClick={() => inputRef.current?.click()}>Add files</button>
         <button className="text-button" type="button" disabled={busy || adding} onClick={reset}>Clear files</button>
+        {completedCount > 0 && <button className="text-button" type="button" disabled={adding} onClick={clearCompleted}>Clear completed</button>}
         <input ref={inputRef} type="file" accept={ACCEPT} multiple hidden onChange={(event) => { void addFiles(Array.from(event.target.files ?? [])); event.currentTarget.value = '' }} />
       </div>
 
@@ -345,6 +369,7 @@ function LocalConverter({ active, onShow }: { active: boolean; onShow: () => voi
             <p>{formatBytes(item.file.size)} · {item.detected.format.toUpperCase()}{item.sourceDurationSeconds ? ` · ${Math.round(item.sourceDurationSeconds)}s` : ''}</p>
             {item.warning && <p className="warning">{item.warning}</p>}
             {item.error && <p className="error-text" role="alert">{item.error}</p>}
+            {item.status === 'failed' && <ErrorDetails area="local" code="LOCAL_CONVERSION_FAILED" state={item.status} options={item.options}/>}
           </div>
           <label className="format-select">
             <span className="sr-only">Output format for {item.file.name}</span>
@@ -359,10 +384,12 @@ function LocalConverter({ active, onShow }: { active: boolean; onShow: () => voi
             {item.status === 'completed' && item.outputUrl && item.outputName && <>
               <small>{formatBytes(item.outputBlob?.size ?? 0)} · {formatDuration(item.durationMs)}</small>
               <button className="download-button" type="button" onClick={() => triggerDownload(item.outputUrl!, item.outputName!)}>Download</button>
+              {canPreview(item.outputBlob) ? <button className="text-button" type="button" aria-expanded={previewId === item.id} onClick={() => setPreviewId(current => current === item.id ? null : item.id)}>{previewId === item.id ? 'Close preview' : 'Preview'}</button> : <small>This browser cannot preview this format.</small>}
               <button className="text-button" type="button" disabled={busy || adding} onClick={() => convertAgain(item)}>Convert again</button>
             </>}
           </div>
           <button className="remove-button dismiss-button" type="button" disabled={item.id === activeIdRef.current} onClick={() => remove(item)} aria-label={`Remove ${item.file.name}`}><Icon name="close"/></button>
+          {previewId === item.id && item.outputUrl && item.outputBlob && <LocalPreview url={item.outputUrl} mime={item.outputBlob.type} name={item.outputName || item.file.name}/>}
         </article>)}
       </div>
 
@@ -427,7 +454,10 @@ function LocalConverter({ active, onShow }: { active: boolean; onShow: () => voi
             </div>
           </details>
         </div>
-        <div className="settings-footer"><p className="dialog-note">Saved automatically on this device.</p>
+        <div className="settings-footer"><div><p className="dialog-note">Saved automatically on this device.</p>
+          {compatible.length > 0 && <button className="text-button" type="button" disabled={busy || adding} onClick={applyToCompatible}>Apply to {compatible.length} compatible {compatible.length === 1 ? 'file' : 'files'}</button>}
+          {appliedCount !== null && <p className="field-note" role="status">Settings applied to {appliedCount} {appliedCount === 1 ? 'file' : 'files'}. Completed files stay unchanged.</p>}
+        </div>
         <button className="primary-button" type="button" onClick={() => setSelectedId(null)}>Done</button></div>
       </div>
     </div>}

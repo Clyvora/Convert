@@ -1,11 +1,11 @@
 import { RenderPathContext } from './renderPath'
 import { useCallback, useContext, useEffect, useState } from 'react'
 
-export type Route = '/' | '/local' | '/settings' | '/updates' | '/about'
-const routes: string[] = ['/', '/local', '/settings', '/updates', '/about']
+export type Route = '/' | '/local' | '/tools' | '/settings' | '/updates' | '/about'
+const routes: string[] = ['/', '/local', '/tools', '/settings', '/updates', '/about']
 function current(initialPath = '/'): Route | 'missing' {
   const path = (typeof window === 'undefined' ? initialPath : window.location.pathname).replace(/\/+$/, '') || '/'
-  if (/^\/(settings|about)\/[a-z-]+$/.test(path)) return `/${path.split('/')[1]}` as Route
+  if (/^\/(settings|about|tools)\/[a-z-]+$/.test(path)) return `/${path.split('/')[1]}` as Route
   return routes.includes(path) ? path as Route : 'missing'
 }
 export function useNavigation() {

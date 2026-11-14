@@ -122,22 +122,6 @@ body,.convert-app { font-family:var(--mono); font-size:14px; }
 .community-links strong { display:flex; justify-content:space-between; font-weight:500; font-size:17px; }
 .community-links>a>span { color:var(--muted); font-size:12px; line-height:1.7; }
 
-/* One full-width beta letter, without a second page heading or card wrapper. */
-.convert-app .content-page:has(.beta-update) { container:updates / inline-size; max-width:1246px; padding:28px 32px 80px; }
-.beta-update { max-width:850px; }
-.beta-update-meta { gap:14px; font-size:12px; }
-.beta-update-meta .release-version { background:var(--accent); color:var(--accent-ink); padding:3px 8px; font-size:16px; line-height:1.4; text-decoration:none; }
-.beta-update-header h2 { font-size:22px; line-height:1.4; letter-spacing:-.04em; margin:8px 0 16px; max-width:none; font-weight:600; }
-.beta-update-banner { display:block; width:100%; height:auto; border-radius:11px; }
-.beta-update-copy,.beta-update-copy .update-intro { font-size:14px; line-height:1.9; letter-spacing:0; }
-.beta-update-copy .update-intro { margin-top:18px; }
-.beta-update-copy>p,.beta-update-copy section>p,.beta-update-copy ul { color:var(--text); }
-.beta-update-copy h3 { font-size:18px; font-weight:500; letter-spacing:-.03em; padding-bottom:5px; margin-bottom:12px; }
-.beta-update-copy section { margin:28px 0; }
-.beta-callout { margin:24px 0; padding:14px 18px; border-radius:9px; }
-.beta-callout p { font-size:12px; }
-.update-cat-cast strong { font-size:11px; }
-.update-letter-end { border:0; }
 .brand-evolution { display:grid; grid-template-columns:minmax(0,1fr) 32px minmax(0,1fr); align-items:center; gap:12px; margin:24px 0; padding:24px 20px; border:1px solid var(--line); border-radius:12px; background:var(--panel); }
 .brand-evolution figure { min-width:0; margin:0; text-align:center; }
 .brand-evolution-image { display:grid; place-items:center; height:160px; }
@@ -232,11 +216,6 @@ body,.convert-app { font-family:var(--mono); font-size:14px; }
   .about-overview { flex-direction:column-reverse; align-items:stretch; gap:16px; }
   .about-overview .mascot { width:180px; height:180px; margin:auto; }
   .community-links { grid-template-columns:1fr; }
-  .convert-app .content-page:has(.beta-update) { padding:24px 20px 32px; }
-  .beta-update-header h2 { font-size:21px; }
-  .beta-update-copy,.beta-update-copy .update-intro { font-size:13px; }
-  .beta-update-meta { font-size:11px; }
-  .beta-update-meta .release-version { font-size:13px; }
   .side-panel.panel-queue,.side-panel.panel-services { inset:calc(var(--app-header-height) + 8px) 12px auto; width:auto; max-height:calc(var(--app-viewport-height) - var(--app-header-height) - var(--app-nav-height) - 16px); }
 }
 @media(max-width:360px){.settings-studio .setting-segments{grid-template-columns:repeat(var(--setting-columns-narrow),minmax(0,1fr))}}

@@ -1,5 +1,6 @@
-export function Icon({ name }: { name: 'download' | 'convert' | 'settings' | 'about' | 'link' | 'arrow' | 'plus' | 'close' | 'updates' | 'auto' | 'audio' | 'video' | 'appearance' | 'accessibility' | 'metadata' | 'local' | 'instances' | 'privacy' | 'advanced' | 'check' | 'warning' }) {
+export function Icon({ name }: { name: 'tools' | 'download' | 'convert' | 'settings' | 'about' | 'link' | 'arrow' | 'plus' | 'close' | 'updates' | 'auto' | 'audio' | 'video' | 'appearance' | 'accessibility' | 'metadata' | 'local' | 'instances' | 'privacy' | 'advanced' | 'check' | 'warning' }) {
   const paths = {
+    tools: <><path d="m14 7 3 3 4-4a6 6 0 0 1-8 8l-6 6a2 2 0 0 1-3-3l6-6a6 6 0 0 1 8-8l-4 4Z"/></>,
     close: <path d="m6 6 12 12M6 18 18 6"/>,
     check: <><circle cx="12" cy="12" r="9"/><path d="m8 12 3 3 5-6"/></>,
     warning: <><path d="m12 3 10 18H2L12 3Z"/><path d="M12 9v5m0 3v.1"/></>,

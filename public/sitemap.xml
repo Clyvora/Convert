@@ -2,6 +2,10 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url><loc>https://mewvi.xyz/</loc></url>
   <url><loc>https://mewvi.xyz/local</loc></url>
+  <url><loc>https://mewvi.xyz/tools</loc></url>
+  <url><loc>https://mewvi.xyz/tools/instagram-post</loc></url>
+  <url><loc>https://mewvi.xyz/tools/instagram-profile</loc></url>
+  <url><loc>https://mewvi.xyz/tools/youtube-shorts</loc></url>
   <url><loc>https://mewvi.xyz/about</loc></url>
   <url><loc>https://mewvi.xyz/about/privacy</loc></url>
   <url><loc>https://mewvi.xyz/about/terms</loc></url>

@@ -6,6 +6,7 @@ const REQUEST_TIMEOUT_MS = 25_000
 import type { Capabilities, Discovery, Inspection, Item, Job, Page, ServiceError } from './remoteContracts'
 import { BrowserQueue } from './browserQueue'
 import type { BrowserPlan } from './remoteContracts'
+import type { ToolInput } from './remoteContracts'
 export type { Capabilities, Discovery, Inspection, Item, Job, Output, Page } from './remoteContracts'
 
 let sessionPromise: Promise<string> | null = null
@@ -77,6 +78,10 @@ export const remoteMedia = {
   capabilities: () => remote<Capabilities>('/capabilities'),
   inspect: async (url: string, signal?: AbortSignal) => { const inspection = checkedInspection(await remote<Inspection>('/inspections', { url }, undefined, signal)); browserQueue.remember(inspection); return inspection },
   discover: (input: { url: string; limit: number; after?: string; before?: string }) => remote<Discovery>('/discoveries', input),
+  discoverTool: async (input: ToolInput, signal?: AbortSignal) => {
+    try{return await remote<Discovery>('/tools/discoveries', input, undefined, signal)}
+    catch(failure){if(failure instanceof FetchError&&failure.code==='NOT_FOUND')throw new FetchError('TOOLS_UNAVAILABLE','Tools need an updated media service. Standard downloads and local conversion are still available.');throw failure}
+  },
   discovery: (id: string) => remote<Discovery>(`/discoveries/${encodeURIComponent(id)}`),
   discoveries: () => remote<Page<Discovery>>('/discoveries'),
   discoveryItems: (id: string, cursor = '') => remote<Page<Item>>(`/discoveries/${encodeURIComponent(id)}/items?cursor=${encodeURIComponent(cursor || '0')}`),

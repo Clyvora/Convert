@@ -16,6 +16,9 @@ export function useRemoteMedia() {
   const [caps, setCaps] = useState<Capabilities | null>(null), [jobs, setJobs] = useState<Job[]>([])
   const [panel, setPanel] = useState<Panel>(null), [busy, setBusy] = useState(false)
   const [error, setError] = useState(''), [status, setStatus] = useState(''), [needsChoice, setNeedsChoice] = useState(false)
+  const [errorCode, setErrorCode] = useState('UNKNOWN_ERROR')
+  const [queueBatch, setQueueBatch] = useState<'retry' | 'clear' | null>(null), [queueBatchStatus, setQueueBatchStatus] = useState('')
+  const queueBatchController = useRef<AbortController | null>(null)
   const [deliveryTick, setDeliveryTick] = useState(0)
   const [checking, setChecking] = useState(false)
   const [linkResults, setLinkResults] = useState<LinkResult[]>([]), [addingLinks, setAddingLinks] = useState(false)
@@ -110,7 +113,7 @@ export function useRemoteMedia() {
             restored = true
             void (async () => {
             const recent = await remoteMedia.discoveries()
-            const unfinished = recent.items.find(d => !d.lastJobId && ['discovering', 'ready', 'failed', 'interrupted'].includes(d.state))
+            const unfinished = recent.items.find(d => !d.tool && !d.lastJobId && ['discovering', 'ready', 'failed', 'interrupted'].includes(d.state))
             if (unfinished && !stopped && !edited.current) { setDiscovery(unfinished); setURLState(unfinished.url || ''); setStatus('A previous collection is available.'); const items = await remoteMedia.discoveryItems(unfinished.id); if (!stopped && !edited.current) setPage(items) }
             })().catch(() => { restored = false })
           }
@@ -146,7 +149,7 @@ export function useRemoteMedia() {
     const visible = () => { if (!document.hidden) reconnect() }
     window.addEventListener('online', reconnect)
     document.addEventListener('visibilitychange', visible)
-    return () => { stopped = true; mounted.current = false; clearTimeout(timer); for (const timeout of timers.values()) clearTimeout(timeout); timers.clear(); request.current?.abort(); batchController.current?.abort(); window.removeEventListener('online', reconnect); document.removeEventListener('visibilitychange', visible) }
+    return () => { stopped = true; mounted.current = false; clearTimeout(timer); for (const timeout of timers.values()) clearTimeout(timeout); timers.clear(); request.current?.abort(); batchController.current?.abort(); queueBatchController.current?.abort(); window.removeEventListener('online', reconnect); document.removeEventListener('visibilitychange', visible) }
   }, [])
 
   useEffect(() => {
@@ -171,12 +174,12 @@ export function useRemoteMedia() {
             }, Math.max(1000 * 2 ** attempt, retryAfter)))
           } else {
             pendingDownloads.current.delete(job.id)
-            setError('Your file is ready. Use Download file in the queue if it did not start.'); setPanel('queue')
+            setError('Your file is ready. Use Download file in the queue if it did not start.'); setErrorCode('DOWNLOAD_DELIVERY_FAILED'); setPanel('queue')
           }
         })
       } else if (terminal.has(job.state)) {
         pendingDownloads.current.delete(job.id)
-        if (job.state === 'failed') setError(job.error?.message || 'The download failed. Open the queue for details and retry options.')
+        if (job.state === 'failed') { setError(job.error?.message || 'The download failed. Open the queue for details and retry options.'); setErrorCode(job.error?.code || 'DOWNLOAD_FAILED') }
       }
     }
   }, [jobs, deliver, deliveryTick, markDelivery])
@@ -187,8 +190,8 @@ export function useRemoteMedia() {
     queueRevision.current++
     if (key) { queueLocks.current.add(key); setQueueBusy(new Set(queueLocks.current)) }
     else { lock.current = true; setBusy(true) }
-    setError('')
-    try { await work() } catch (e) { if (mounted.current) { setError(e instanceof Error ? e.message : 'This operation could not be completed.'); setStatus('') } }
+    setError(''); setErrorCode('UNKNOWN_ERROR')
+    try { await work() } catch (e) { if (mounted.current) { setError(e instanceof Error ? e.message : 'This operation could not be completed.'); setErrorCode(e && typeof e === 'object' && 'code' in e && typeof e.code === 'string' ? e.code : 'UNKNOWN_ERROR'); setStatus('') } }
     finally {
       queueRevision.current++
       if (key) queueLocks.current.delete(key)
@@ -310,8 +313,53 @@ export function useRemoteMedia() {
     const cancelled = await remoteMedia.cancel(id) as Job
     if (mounted.current) setJobs(current => current.map(job => job.id === id ? cancelled : job))
   }, id)
-  const retry = (id: string) => action(async () => { pendingDownloads.current.delete(id); const job = await remoteMedia.retry(id); if (!mounted.current) return; if (readInterfacePreferences().autoDownload) pendingDownloads.current.add(id); setJobs(current => [job, ...current.filter(j => j.id !== id)]); resultsRevision.current++; setResults(current => current?.id === id ? null : current) }, id)
-  const remove = (id: string) => action(async () => { pendingDownloads.current.delete(id); await remoteMedia.remove(id); if (!mounted.current) return; setJobs(current => current.filter(j => j.id !== id)); resultsRevision.current++; setResults(current => current?.id === id ? null : current) }, id)
+  const retryJob = async (id: string, signal?: AbortSignal) => {
+    pendingDownloads.current.delete(id)
+    const job = signal ? await batchRequest(() => remoteMedia.retry(id), signal, () => setQueueBatchStatus('The service is busy. Waiting before retrying the next download…')) : await remoteMedia.retry(id)
+    if (!mounted.current) return
+    if (readInterfacePreferences().autoDownload) pendingDownloads.current.add(id)
+    setJobs(current => [job, ...current.filter(j => j.id !== id)])
+    resultsRevision.current++; setResults(current => current?.id === id ? null : current)
+  }
+  const removeJob = async (id: string, signal?: AbortSignal) => {
+    pendingDownloads.current.delete(id)
+    if (signal) await batchRequest(() => remoteMedia.remove(id), signal, () => setQueueBatchStatus('The service is busy. Waiting before clearing the next entry…'))
+    else await remoteMedia.remove(id)
+    if (!mounted.current) return
+    setJobs(current => current.filter(j => j.id !== id))
+    resultsRevision.current++; setResults(current => current?.id === id ? null : current)
+  }
+  const retry = (id: string) => action(() => retryJob(id), id)
+  const remove = (id: string) => action(() => removeJob(id), id)
+  const retryableJob = (job: Job) => ['failed', 'partial', 'interrupted'].includes(job.state)
+  const recentJob = (job: Job) => ['ready', 'expired'].includes(job.state) && Boolean(job.deliveredAt)
+  const queueBatchAction = async (operation: 'retry' | 'clear') => {
+    if (queueBatchController.current) return
+    const controller = new AbortController(), eligible = operation === 'retry' ? retryableJob : recentJob
+    const candidates = currentJobs.current.filter(job => eligible(job) && !queueLocks.current.has(job.id))
+    if (!candidates.length) return
+    queueBatchController.current = controller; setQueueBatch(operation)
+    let completed = 0, failed = 0, skipped = 0
+    try {
+      for (const [index, job] of candidates.entries()) {
+        if (controller.signal.aborted || !mounted.current) break
+        if (!currentJobs.current.some(current => current.id === job.id && eligible(current)) || queueLocks.current.has(job.id)) { skipped++; continue }
+        setQueueBatchStatus(`${operation === 'retry' ? 'Retrying' : 'Clearing'} ${index + 1} of ${candidates.length}…`)
+        let succeeded = false
+        await action(async () => { if (operation === 'retry') await retryJob(job.id, controller.signal); else await removeJob(job.id, controller.signal); succeeded = true }, job.id)
+        if (succeeded) completed++
+        else if (!controller.signal.aborted) failed++
+      }
+    } finally {
+      queueBatchController.current = null
+      if (mounted.current) {
+        setQueueBatch(null)
+        setQueueBatchStatus(`${completed} ${operation === 'retry' ? `download${completed === 1 ? '' : 's'} retried` : `recent ${completed === 1 ? 'entry' : 'entries'} cleared`}.${failed ? ` ${failed} could not be updated.` : ''}${skipped ? ` ${skipped} already changed or busy.` : ''}${controller.signal.aborted ? ' Remaining entries stopped.' : ''}`)
+        if (failed) { setError('Some entries could not be updated. Their individual controls are still available.'); setErrorCode('BATCH_FAILED') }
+        else if (controller.signal.aborted) setError('')
+      }
+    }
+  }
   const itemResults = (id: string, next = '') => action(async () => {
     const revision = ++resultsRevision.current
     const page = await remoteMedia.items(id, next)
@@ -323,12 +371,15 @@ export function useRemoteMedia() {
     queueJobs: jobs.filter(job => !(['ready','expired'].includes(job.state) && job.deliveredAt)),
     recentJobs: jobs.filter(job => ['ready','expired'].includes(job.state) && job.deliveredAt),
     downloadNeedsAction: new Set(jobs.filter(job => job.artifactId && !job.deliveredAt && (deliveryClickedAt.current.get(`${job.id}:${job.artifactId}`) || Infinity) < Date.now() - 8000).map(job => job.id)),
-    preferences, setPreferences, url, setURL, inspection, caps, jobs, panel, setPanel, busy, error, status, needsChoice,
+    preferences, setPreferences, url, setURL, inspection, caps, jobs, panel, setPanel, busy, error, errorCode, status, needsChoice,
+    retryableCount: jobs.filter(retryableJob).length, recentCount: jobs.filter(recentJob).length,
+    queueBatch, queueBatchStatus, retryFailed: () => queueBatchAction('retry'), clearRecent: () => queueBatchAction('clear'), stopQueueBatch: () => queueBatchController.current?.abort(),
     discovery, page, selected, setSelected, all, setAll, excluded, setExcluded, batchMode, setBatchMode,
     limit, setLimit, after, setAfter, before, setBefore, results,
     setResults: (value: typeof results) => { resultsRevision.current++; setResults(value) },
     queueBusy: (id: string) => queueBusy.has(queueKey(id)), resultsBusy: queueBusy.has(`items:${results?.id}`),
     submit, openPlaylist, paste, discover, createCollection, loadPage, download, cancel, retry, remove, itemResults, cancelDiscovery,
+    addToolCollection: (discoveryId: string, itemIds: string[], selection?: {all:boolean;excludedIds:string[]}) => action(async () => { await enqueue({discoveryId,itemIds,all:selection?.all || false,...(selection?{excludedIds:selection.excludedIds}:{}),output:{mode:'combined',container:'original',preset:'best'}}) }),
     cancelCheck: () => controller.current?.abort(), checking, linkResults, addingLinks,
     stopAddingLinks: () => batchController.current?.abort(),
     activeCount: jobs.filter(j => !terminal.has(j.state)).length,

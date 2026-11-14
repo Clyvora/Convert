@@ -1,3 +1,10 @@
+export const batchUpdate = {
+  id: 'more-in-one-go-2026-11-13',
+  version: '0.5.0-beta.1',
+  date: '2026-11-14',
+  title: 'More in one go.',
+}
+
 export const betaUpdate = {
   id: 'convert-beta',
   version: '0.3.0-beta.1',

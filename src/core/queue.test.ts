@@ -13,6 +13,10 @@ function item(id: string, status: QueueStatus = 'ready'): QueueItem {
 }
 
 describe('queue transitions', () => {
+  it('clears completed conversions without losing cancelled, failed or waiting files', () => {
+    const state = [item('done', 'completed'), item('cancelled', 'cancelled'), item('failed', 'failed'), item('waiting')]
+    expect(queueReducer(state, { type: 'clearCompleted' }).map(row => row.id)).toEqual(['cancelled', 'failed', 'waiting'])
+  })
   it('allows loading, conversion, completion, cancellation and retry', () => {
     expect(canTransition('ready', 'loading-engine')).toBe(true)
     expect(canTransition('loading-engine', 'converting')).toBe(true)

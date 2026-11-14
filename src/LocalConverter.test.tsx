@@ -33,6 +33,48 @@ beforeEach(() => {
   })
 })
 
+it('applies settings to compatible waiting files without changing a completed result', async () => {
+  engine.convert.mockResolvedValueOnce(new Blob(['audio'], { type: 'audio/mpeg' }))
+  engine.convert.mockRejectedValueOnce(new Error('Please retry'))
+  await addFiles([wavFile('done.wav'), wavFile('waiting.wav')])
+  fireEvent.click(screen.getByRole('button', { name: 'Convert 2' }))
+  await screen.findByRole('button', { name: 'Convert 1' })
+  fireEvent.change(screen.getByLabelText('Output format for waiting.wav'), { target: { value: 'flac' } })
+  fireEvent.click(screen.getByRole('button', { name: 'Add files' }))
+  const input = document.querySelector('input[type=file]')!
+  fireEvent.change(input, { target: { files: [wavFile('third.wav')] } })
+  await screen.findByRole('button', { name: 'Convert 2' })
+  fireEvent.click(screen.getByRole('button', { name: 'Options for waiting.wav' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Apply to 1 compatible file' }))
+  expect(screen.getByLabelText('Output format for third.wav')).toHaveValue('flac')
+  expect(screen.getByLabelText('Output format for done.wav')).toHaveValue('mp3')
+})
+
+it('clears only completed files and releases their preview URLs', async () => {
+  engine.convert.mockResolvedValueOnce(new Blob(['audio']))
+  engine.convert.mockRejectedValueOnce(new Error('Please retry'))
+  await addFiles([wavFile('done.wav'), wavFile('retry.wav')])
+  fireEvent.click(screen.getByRole('button', { name: 'Convert 2' }))
+  fireEvent.click(await screen.findByRole('button', { name: 'Clear completed' }))
+  expect(screen.queryByText('done.wav')).not.toBeInTheDocument()
+  expect(screen.getByText('retry.wav')).toBeVisible()
+  expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:local-result')
+})
+
+it('opens supported previews and stops playback when leaving local conversion', async () => {
+  vi.spyOn(HTMLMediaElement.prototype, 'canPlayType').mockReturnValue('probably')
+  const pause = vi.spyOn(HTMLMediaElement.prototype, 'pause').mockImplementation(() => {})
+  vi.spyOn(HTMLMediaElement.prototype, 'load').mockImplementation(() => {})
+  engine.convert.mockResolvedValue(new Blob(['audio'], { type: 'audio/mpeg' }))
+  const view = await addFiles()
+  fireEvent.click(screen.getByRole('button', { name: 'Convert 1' }))
+  fireEvent.click(await screen.findByRole('button', { name: 'Preview' }))
+  expect(screen.getByLabelText('Preview sample.mp3')).toHaveAttribute('src', 'blob:local-result')
+  view.rerender(<LocalConverter active={false} onShow={() => {}}/>)
+  await waitFor(() => expect(screen.queryByLabelText('Preview sample.mp3')).not.toBeInTheDocument())
+  expect(pause).toHaveBeenCalledOnce()
+})
+
 it('honors manual downloads and reports completed files accurately', async () => {
   localStorage.setItem('clyvora-convert-interface-v1', JSON.stringify({ autoDownload: false }))
   await addFiles()

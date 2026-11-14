@@ -11,6 +11,7 @@ import RemoteMedia, { About } from './components/RemoteMedia'
 import SettingsPage from './components/SettingsPage'
 import ServicesMenu from './components/ServicesMenu'
 import Updates from './components/Updates'
+import Tools from './components/Tools'
 import { MorphText } from './MorphText'
 import { MotionPreferenceContext } from './core/motionPreference'
 import { useInterfacePreferences } from './core/interfacePreferences'
@@ -20,7 +21,7 @@ import { useNavigation, type Route } from './core/navigation'
 import './App.css'
 import './polish.css'
 
-const titles = { '/': 'mewvi media downloader and converter', '/local': 'Local conversion', '/settings': 'Settings', '/updates': 'Updates', '/about': 'About mewvi', missing: 'Page not found' }
+const titles = { '/': 'mewvi media downloader and converter', '/local': 'Local conversion', '/tools': 'Tools', '/settings': 'Settings', '/updates': 'Updates', '/about': 'About mewvi', missing: 'Page not found' }
 
 export default function App() {
   const { route, navigate } = useNavigation()
@@ -81,7 +82,7 @@ export default function App() {
     const anchor = (event.target as Element).closest('a[href]') as HTMLAnchorElement | null
     if (!anchor || anchor.target || anchor.hasAttribute('download') || !anchor.getAttribute('href')?.startsWith('/')) return
     const target = new URL(anchor.href)
-    if (target.origin !== location.origin || !/^\/(?:local|settings(?:\/[a-z-]+)?|about(?:\/[a-z-]+)?|updates)?$/.test(target.pathname)) return
+    if (target.origin !== location.origin || !/^\/(?:local|tools(?:\/[a-z-]+)?|settings(?:\/[a-z-]+)?|about(?:\/[a-z-]+)?|updates)?$/.test(target.pathname)) return
     event.preventDefault(); navigate(`${target.pathname}${target.hash}`)
   }}>
     <a className="skip-link" href="#workspace">Skip to workspace</a>
@@ -92,7 +93,7 @@ export default function App() {
     </header>
     <nav className="app-rail" aria-label="mewvi navigation">
       <a className="rail-brand" href="/" onClick={event => visit(event, '/')} aria-label="mewvi home, beta"><img src="/brand-cat-transparent.svg" alt="" width="52" height="52" decoding="async" fetchPriority="high"/><span className="app-beta-label">Beta</span></a>
-      <div className="rail-workspaces">{link('/', 'Download workspace', 'download', 'Download')}{link('/local', 'Local conversion workspace', 'convert', 'Convert')}</div>
+      <div className="rail-workspaces">{link('/', 'Download workspace', 'download', 'Download')}{link('/local', 'Local conversion workspace', 'convert', 'Convert')}{link('/tools', 'Open tools', 'tools', 'Tools')}</div>
       <div className="rail-utilities">{link('/settings', 'Open settings', 'settings', 'Settings')}{link('/updates', 'Open updates', 'updates', 'Updates')}{link('/about', 'About mewvi', 'about', 'About')}</div>
     </nav>
     <main id="workspace" className="app-workspace" tabIndex={-1}>
@@ -101,6 +102,7 @@ export default function App() {
       {(localOpened || route === '/local') && <Suspense fallback={<p role="status">Loading local converter…</p>}><LocalConverter active={route === '/local'} onShow={showLocal}/></Suspense>}
       {infoPage && <div className={`content-page ${route === '/settings' ? 'settings-page' : ''}`}>
         {route === '/settings' && <SettingsPage controller={controller}/>}
+        {route === '/tools' && <Tools controller={controller}/>}
         {route === '/updates' && <Updates/>}{route === '/about' && <About onUpdates={() => navigate('/updates')}/>}
         {route === 'missing' && <p>This page isn’t available. <a href="/" onClick={event => visit(event, '/')}>Return to downloads</a>.</p>}
       </div>}

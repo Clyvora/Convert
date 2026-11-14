@@ -26,6 +26,37 @@ beforeEach(() => {
 })
 afterEach(() => { vi.restoreAllMocks(); vi.useRealTimers() })
 
+it('filters collection pages without losing selections and can exclude only visible items', async () => {
+  vi.mocked(remoteMedia.inspect).mockResolvedValue({ ...inspection, kind: 'playlist', formats: [] })
+  vi.mocked(remoteMedia.discover).mockResolvedValue({ id: 'list', state: 'ready', count: 3, outcome: 'completed' } as never)
+  const one = { id: 'one', mediaId: 'one', provider: 'fixture', url: 'https://example.com/one', title: 'First clip' }
+  const two = { ...one, id: 'two', mediaId: 'two', title: 'Second clip' }
+  const three = { ...one, id: 'three', mediaId: 'three', title: 'Third clip' }
+  vi.mocked(remoteMedia.discoveryItems).mockImplementation(async (_id, cursor) => cursor ? { items: [three], next: null } : { items: [one, two], next: 'next' })
+  const user = userEvent.setup(); render(<Harness/>)
+  fireEvent.change(screen.getByLabelText('Public media link'), { target: { value: 'https://example.com/list' } })
+  await user.click(screen.getByRole('button', { name: 'Download' }))
+  await user.click(await screen.findByRole('button', { name: 'Discover collection' }))
+  await user.type(await screen.findByRole('searchbox', { name: 'Search this page' }), 'First')
+  await user.click(screen.getByRole('button', { name: 'Select visible items' }))
+  expect(screen.queryByLabelText('Second clip')).not.toBeInTheDocument()
+  await user.clear(screen.getByRole('searchbox'))
+  await user.click(screen.getByRole('button', { name: 'Next page' }))
+  await user.click(await screen.findByRole('button', { name: 'Select visible items' }))
+  expect(screen.getByText(/2 selected across this collection/)).toBeVisible()
+  await user.click(screen.getByRole('button', { name: 'Download selected items' }))
+  expect(vi.mocked(remoteMedia.create).mock.calls[0][0]).toMatchObject({ all: false, itemIds: ['one', 'three'] })
+  // Reopen the same picker and verify "all" uses exclusions instead of dropping other pages.
+  fireEvent.change(screen.getByLabelText('Public media link'), { target: { value: 'https://example.com/list' } })
+  await user.click(screen.getByRole('button', { name: 'Download' }))
+  await user.click(await screen.findByRole('button', { name: 'Discover collection' }))
+  await user.click(await screen.findByRole('button', { name: 'Select all discovered' }))
+  await user.type(screen.getByRole('searchbox'), 'Second')
+  await user.click(screen.getByRole('button', { name: 'Deselect visible items' }))
+  await user.click(screen.getByRole('button', { name: 'Download selected items' }))
+  expect(vi.mocked(remoteMedia.create).mock.calls[1][0]).toMatchObject({ all: true, excludedIds: ['two'] })
+})
+
 it('respects disabled automatic queue opening without disabling background delivery', async () => {
   localStorage.setItem('clyvora-convert-interface-v1',JSON.stringify({autoOpenQueue:false}))
   vi.mocked(remoteMedia.create).mockResolvedValue({...job,state:'ready',artifactId:'artifact'})

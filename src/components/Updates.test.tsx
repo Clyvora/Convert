@@ -2,7 +2,7 @@ import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import { act, cleanup, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import Updates from './Updates'
-import { betaUpdate, browserUpdate, bugFixUpdate, polishUpdate, servicesUpdate, convertArchive } from '../core/updates'
+import { batchUpdate, betaUpdate, browserUpdate, bugFixUpdate, polishUpdate, servicesUpdate, convertArchive } from '../core/updates'
 import { version } from '../../package.json'
 
 beforeEach(() => {
@@ -15,12 +15,12 @@ it('navigates releases and the Convert archive in both directions without native
   const user = userEvent.setup()
   render(<Updates/>)
   const pages = within(screen.getByRole('navigation', { name: 'Browse updates' }))
-  expect(screen.getByRole('heading', { name: servicesUpdate.title })).toHaveFocus()
-  expect(servicesUpdate.version).toBe(version)
+  expect(screen.getByRole('heading', { name: batchUpdate.title })).toHaveFocus()
+  expect(batchUpdate.version).toBe(version)
   expect(screen.getByText(version, { selector: '.release-version' })).toBeVisible()
   expect(screen.queryByRole('combobox')).not.toBeInTheDocument()
   expect(screen.queryByRole('link', { name: /Previous page/ })).not.toBeInTheDocument()
-  const releases = [servicesUpdate, polishUpdate, browserUpdate, bugFixUpdate, betaUpdate, ...convertArchive]
+  const releases = [batchUpdate, servicesUpdate, polishUpdate, browserUpdate, bugFixUpdate, betaUpdate, ...convertArchive]
   for (const release of releases.slice(1)) {
     await user.click(pages.getByRole('link', { name: `Next page: ${release.version}` }))
     expect(location.hash).toBe(`#${release.id}`)
@@ -47,7 +47,7 @@ it.each(convertArchive)('opens the $version archive directly without update imag
   expect(container.querySelector('article img')).toBeNull()
 })
 
-it.each([betaUpdate, bugFixUpdate, browserUpdate, polishUpdate])('preserves the existing $version deep link', release => {
+it.each([betaUpdate, bugFixUpdate, browserUpdate, polishUpdate, servicesUpdate])('preserves the existing $version deep link', release => {
   history.replaceState(null, '', `/updates#${release.id}`)
   render(<Updates/>)
   expect(screen.getByRole('heading', { name: release.title })).toBeVisible()
@@ -66,37 +66,39 @@ it('keeps the version label in sync with page links and browser history', async 
   expect(screen.getByRole('heading', { name: betaUpdate.title })).toHaveFocus()
 })
 
-it('starts with highlights, keeps the full notes available, and returns to the latest release', async () => {
+it('shows the full article below the image and returns to the latest release', async () => {
   const user = userEvent.setup()
-  render(<Updates/>)
-  expect(screen.getByRole('heading', { name: 'What’s new' })).toBeVisible()
-  expect(screen.getByText('Services and collections')).not.toBeVisible()
-  await user.click(screen.getByText('Full release notes'))
-  expect(screen.getByRole('heading', { name: 'Services and collections' })).toBeVisible()
-  await user.click(screen.getByRole('link', { name: `Next page: ${polishUpdate.version}` }))
+  const { container } = render(<Updates/>)
+  expect(screen.queryByRole('heading', { name: 'What’s new' })).not.toBeInTheDocument()
+  expect(container.querySelector('details')).toBeNull()
+  const image = container.querySelector('.beta-update-banner')!
+  const notes = container.querySelector('.update-release-notes')!
+  expect(image.nextElementSibling).toBe(notes)
+  expect(screen.getByRole('heading', { name: 'Queue and collections' })).toBeVisible()
+  await user.click(screen.getByRole('link', { name: `Next page: ${servicesUpdate.version}` }))
   await user.click(screen.getByRole('link', { name: 'Go to latest update' }))
-  expect(screen.getByRole('heading', { name: servicesUpdate.title })).toHaveFocus()
-  expect(screen.getByText('Services and collections')).not.toBeVisible()
+  expect(screen.getByRole('heading', { name: batchUpdate.title })).toHaveFocus()
+  expect(screen.getByRole('heading', { name: 'Queue and collections' })).toBeVisible()
 })
 
-it('includes queue and local conversion improvements in the visible summary', () => {
+it('keeps tools, queue and local conversion details visible without duplicated highlights', () => {
   render(<Updates/>)
-  const highlights = within(screen.getByRole('heading', { name: 'What’s new' }).parentElement!)
-  expect(highlights.getByText('Downloads')).toBeVisible()
-  expect(highlights.getByText('Local conversion')).toBeVisible()
-  expect(highlights.getByText(/Convert again, save manually/)).toBeVisible()
-  expect(highlights.getByText(/Safer cancel and retry/)).toBeVisible()
-  expect(screen.getByText('Latest update')).toBeVisible()
+  expect(screen.getByRole('heading', { name: 'Tools' })).toBeVisible()
+  expect(screen.getByRole('heading', { name: 'Queue and collections' })).toBeVisible()
+  expect(screen.getByRole('heading', { name: 'Your local files' })).toBeVisible()
+  expect(screen.getByText(/Apply your current settings/)).toBeVisible()
+  expect(screen.getByText(/Retry failed, partial and interrupted/)).toBeVisible()
+  expect(screen.queryByText('Latest update')).not.toBeInTheDocument()
 })
 
 it('names adjacent releases before opening them', async () => {
   const user = userEvent.setup()
   render(<Updates/>)
   const navigation = within(screen.getByRole('navigation', { name: 'Browse updates' }))
-  expect(navigation.getByText(polishUpdate.title)).toBeVisible()
-  await user.click(navigation.getByRole('link', { name: `Next page: ${polishUpdate.version}` }))
-  expect(navigation.getByText(servicesUpdate.title)).toBeVisible()
-  expect(navigation.getByText(browserUpdate.title)).toBeVisible()
+  expect(navigation.getByRole('link', { name: `Next page: ${servicesUpdate.version}` })).toHaveAttribute('title', servicesUpdate.title)
+  await user.click(navigation.getByRole('link', { name: `Next page: ${servicesUpdate.version}` }))
+  expect(navigation.getByRole('link', { name: `Previous page: ${batchUpdate.version}` })).toHaveAttribute('title', batchUpdate.title)
+  expect(navigation.getByRole('link', { name: `Next page: ${polishUpdate.version}` })).toHaveAttribute('title', polishUpdate.title)
 })
 
 it('copies the selected archive permalink and resets confirmation after navigation', async () => {
@@ -107,7 +109,7 @@ it('copies the selected archive permalink and resets confirmation after navigati
   render(<Updates/>)
   await user.click(screen.getByRole('button', { name: 'Copy update link' }))
   expect(write).toHaveBeenCalledWith(`${location.origin}/updates#${archive.id}`)
-  expect(screen.getByRole('status')).toHaveTextContent('Update link copied.')
+  expect(screen.getByRole('status')).toHaveTextContent('Link copied')
   await user.click(screen.getByRole('link', { name: 'Go to latest update' }))
   expect(screen.getByRole('status')).toBeEmptyDOMElement()
 })
@@ -119,7 +121,7 @@ it('offers a selectable link when the clipboard is unavailable', async () => {
   await user.click(screen.getByRole('button', { name: 'Copy update link' }))
   expect(screen.getByRole('alert')).toHaveTextContent('Copy the update link below.')
   const link = screen.getByRole('textbox', { name: 'Update link' }) as HTMLInputElement
-  expect(link).toHaveValue(`${location.origin}/updates#${servicesUpdate.id}`)
+  expect(link).toHaveValue(`${location.origin}/updates#${batchUpdate.id}`)
   await user.click(link)
   expect(link.selectionEnd! - link.selectionStart!).toBe(link.value.length)
 })
@@ -130,7 +132,7 @@ it('ignores a clipboard response that finishes after changing releases', async (
   vi.spyOn(navigator.clipboard, 'writeText').mockImplementation(() => new Promise<void>(resolve => { finish = resolve }))
   render(<Updates/>)
   await user.click(screen.getByRole('button', { name: 'Copy update link' }))
-  await user.click(screen.getByRole('link', { name: `Next page: ${polishUpdate.version}` }))
+  await user.click(screen.getByRole('link', { name: `Next page: ${servicesUpdate.version}` }))
   await act(async () => finish())
   expect(screen.getByRole('status')).toBeEmptyDOMElement()
 })

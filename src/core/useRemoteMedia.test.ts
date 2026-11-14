@@ -19,6 +19,53 @@ vi.mock('./mediaClient', () => ({ remoteMedia: {
 } }))
 afterEach(() => { vi.useRealTimers(); vi.resetAllMocks() })
 
+it('retries failed and partial downloads once, continues after failure, and leaves cancelled work alone', async () => {
+  api.jobs.mockResolvedValue({ items: [{ id: 'failed', state: 'failed' }, { id: 'partial', state: 'partial' }, { id: 'cancelled', state: 'cancelled' }] })
+  let finish!: () => void
+  api.retry.mockImplementationOnce(() => new Promise((_resolve, reject) => { finish = () => reject(new Error('Source unavailable')) }))
+    .mockResolvedValueOnce({ id: 'partial', state: 'queued' })
+  const view = renderHook(() => useRemoteMedia())
+  await waitFor(() => expect(view.result.current.retryableCount).toBe(2))
+  let batch!: Promise<void>
+  act(() => { batch = view.result.current.retryFailed() })
+  await act(async () => { await view.result.current.retryFailed(); await view.result.current.retry('failed') })
+  expect(api.retry).toHaveBeenCalledOnce()
+  await act(async () => { finish(); await batch })
+  expect(api.retry.mock.calls.map(call => call[0])).toEqual(['failed', 'partial'])
+  expect(view.result.current.queueBatchStatus).toContain('1 could not be updated')
+  expect(view.result.current.jobs.find(job => job.id === 'cancelled')?.state).toBe('cancelled')
+  view.unmount()
+})
+
+it('clears delivered recent entries while preserving unsaved files, partial results and active jobs', async () => {
+  api.jobs.mockResolvedValue({ items: [
+    { id: 'saved', state: 'ready', deliveredAt: 1 }, { id: 'expired', state: 'expired', deliveredAt: 1 },
+    { id: 'unsaved', state: 'ready' }, { id: 'partial', state: 'partial', deliveredAt: 1 }, { id: 'active', state: 'downloading' },
+  ] })
+  api.remove.mockResolvedValue(undefined)
+  const view = renderHook(() => useRemoteMedia())
+  await waitFor(() => expect(view.result.current.recentCount).toBe(2))
+  await act(async () => { await view.result.current.clearRecent() })
+  expect(api.remove.mock.calls.map(call => call[0])).toEqual(['saved', 'expired'])
+  expect(view.result.current.jobs.map(job => job.id)).toEqual(['unsaved', 'partial', 'active'])
+  view.unmount()
+})
+
+it('stops remaining retries without discarding the request already accepted', async () => {
+  api.jobs.mockResolvedValue({ items: [{ id: 'one', state: 'failed' }, { id: 'two', state: 'interrupted' }] })
+  let finish!: (value: unknown) => void
+  api.retry.mockImplementationOnce(() => new Promise(resolve => { finish = resolve }))
+  const view = renderHook(() => useRemoteMedia())
+  await waitFor(() => expect(view.result.current.retryableCount).toBe(2))
+  let batch!: Promise<void>
+  act(() => { batch = view.result.current.retryFailed() })
+  await act(async () => { view.result.current.stopQueueBatch(); finish({ id: 'one', state: 'queued' }); await batch })
+  expect(api.retry).toHaveBeenCalledOnce()
+  expect(view.result.current.jobs.find(job => job.id === 'one')?.state).toBe('queued')
+  expect(view.result.current.queueBatchStatus).toContain('Remaining entries stopped')
+  view.unmount()
+})
+
 it('shows ready downloads while capabilities and history are still pending', async () => {
   const { result, unmount } = renderHook(() => useRemoteMedia())
   await waitFor(() => expect(result.current.jobs[0]?.id).toBe('ready-job'))

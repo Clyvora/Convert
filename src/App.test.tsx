@@ -58,6 +58,15 @@ describe('mewvi', () => {
     expect(screen.queryByText(/png|jpeg|image resizing/i)).not.toBeInTheDocument()
   })
 
+  it('opens Tools from the sidebar and navigates to a tool without reloading',()=>{
+    render(<App/>);fireEvent.click(screen.getByRole('link',{name:'Open tools'}))
+    expect(location.pathname).toBe('/tools')
+    expect(screen.getByRole('heading',{name:'Tools',level:2})).toBeVisible()
+    fireEvent.click(screen.getByRole('link',{name:/Carousel downloader/}))
+    expect(location.pathname).toBe('/tools/instagram-post')
+    expect(screen.getByRole('textbox',{name:'Post link'})).toBeVisible()
+  })
+
   it('resets the scroll position immediately when switching pages and settings categories', async () => {
     const user = userEvent.setup()
     render(<App/>)

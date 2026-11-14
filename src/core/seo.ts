@@ -2,6 +2,10 @@ export const siteOrigin = 'https://mewvi.xyz'
 export const searchPages: Record<string, { title: string; description: string }> = {
   '/': { title: 'mewvi — Free Media Downloader & Online Converter', description: 'Download supported public audio and video links, or convert your own files privately in your browser. No account required. By Clyvora.' },
   '/local': { title: 'Private Audio & Video Converter — mewvi', description: 'Convert MP3, WAV, FLAC, MP4, WebM and more in your browser. Local files stay on your device. Choose formats and download your converted files.' },
+  '/tools': { title: 'Media Tools — mewvi', description: 'Choose photos and videos from accessible public Instagram posts and profiles, or collect a YouTube channel’s Shorts. Review items before downloading.' },
+  '/tools/instagram-post': { title: 'Instagram Carousel Downloader — mewvi', description: 'Review accessible public Instagram post photos and videos, then download selected items in their source format.' },
+  '/tools/instagram-profile': { title: 'Public Instagram Profile Tools — mewvi', description: 'Check available public Instagram posts and select photos or videos. Profile browsing has limited availability; individual post links remain an alternative.' },
+  '/tools/youtube-shorts': { title: 'YouTube Shorts Collection — mewvi', description: 'Check a YouTube channel’s public Shorts tab, review available clips and download your selection.' },
   '/about': { title: 'About mewvi — Media Downloads & Local Conversion', description: 'Learn how mewvi handles public media downloads, private browser-based conversion, supported sources and beta limitations.' },
   '/about/privacy': { title: 'Privacy Policy — mewvi', description: 'How mewvi processes local files, public links, anonymous sessions, preferences and temporary downloads.' },
   '/about/terms': { title: 'Usage & Service Limits — mewvi', description: 'Understand permitted use, source availability, conversion limits and the public-media requirements of mewvi.' },

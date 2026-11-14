@@ -36,7 +36,7 @@ export function queueReducer(state: QueueItem[], action: QueueAction): QueueItem
     case 'cancelQueued':
       return state.map((item) => item.status === 'ready' ? { ...item, status: 'cancelled' } : item)
     case 'clearCompleted':
-      return state.filter((item) => item.status !== 'completed' && item.status !== 'cancelled')
+      return state.filter((item) => item.status !== 'completed')
     case 'reset':
       return []
   }
