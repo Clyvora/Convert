@@ -3,7 +3,7 @@ const SHORT_HOSTS = new Set(['on.soundcloud.com', 'snd.sc'])
 const MAX_DOWNLOAD_BYTES = 256 * 1024 * 1024
 const REQUEST_TIMEOUT_MS = 25_000
 
-import type { Capabilities, Discovery, Inspection, Item, Job, Page, ServiceError } from './remoteContracts'
+import type { Capabilities, Discovery, Inspection, Item, Job, Page, ServiceError, ToolSelection, SelectionSummary } from './remoteContracts'
 import { BrowserQueue } from './browserQueue'
 import type { BrowserPlan } from './remoteContracts'
 import type { ToolInput } from './remoteContracts'
@@ -83,8 +83,9 @@ export const remoteMedia = {
     catch(failure){if(failure instanceof FetchError&&failure.code==='NOT_FOUND')throw new FetchError('TOOLS_UNAVAILABLE','Tools need an updated media service. Standard downloads and local conversion are still available.');throw failure}
   },
   discovery: (id: string) => remote<Discovery>(`/discoveries/${encodeURIComponent(id)}`),
-  discoveries: () => remote<Page<Discovery>>('/discoveries'),
-  discoveryItems: (id: string, cursor = '') => remote<Page<Item>>(`/discoveries/${encodeURIComponent(id)}/items?cursor=${encodeURIComponent(cursor || '0')}`),
+  discoveries: (tool?: ToolInput['tool']) => remote<Page<Discovery>>(`/discoveries${tool?`?tool=${encodeURIComponent(tool)}`:''}`),
+  discoveryItems: (id: string, cursor = '', query = '') => remote<Page<Item>>(`/discoveries/${encodeURIComponent(id)}/items?cursor=${encodeURIComponent(cursor || '0')}${query?`&q=${encodeURIComponent(query)}`:''}`),
+  selectionSummary: (id: string, selection: ToolSelection) => remote<SelectionSummary>(`/discoveries/${encodeURIComponent(id)}/selection`, selection),
   jobs: async () => browserQueue.merge(await remote<Page<Job>>('/jobs')),
   syncBrowserJobs: (jobs: Job[]) => browserQueue.merge({ items: jobs, next: null }).items,
   items: (id: string, cursor = '') => browserQueue.has(id) && browserQueue.remoteId(id) === id ? Promise.resolve(browserQueue.items(id)) : remote<Page<Item>>(`/jobs/${encodeURIComponent(browserQueue.remoteId(id))}/items?cursor=${encodeURIComponent(cursor || '0')}`),

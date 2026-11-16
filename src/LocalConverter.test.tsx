@@ -3,10 +3,13 @@ import userEvent from '@testing-library/user-event'
 import { beforeEach, expect, it, vi } from 'vitest'
 import LocalConverter from './LocalConverter'
 import type { ConversionEngine } from './core/types'
+import {readVideoMetadata} from './core/localMetadata'
 
-const engine = vi.hoisted(() => ({ convert: vi.fn<ConversionEngine['convert']>(), dispose: vi.fn(), cancel: vi.fn() }))
+const engine = vi.hoisted(() => ({ convert: vi.fn<ConversionEngine['convert']>(), prepare:vi.fn(), dispose: vi.fn(), cancel: vi.fn() }))
+vi.mock('./core/localMetadata',()=>({readVideoMetadata:vi.fn()}))
 vi.mock('./engines/audio', () => ({ MediaConversionEngine: class {
   convert = engine.convert
+  prepare = engine.prepare
   dispose = engine.dispose
   cancel = engine.cancel
 } }))
@@ -31,6 +34,56 @@ beforeEach(() => {
     progress(0.2, 'Converting audio')
     return new Blob(['converted audio'])
   })
+  vi.mocked(readVideoMetadata).mockResolvedValue({})
+})
+
+function videoFile(name:string) {
+ const bytes=new Uint8Array(16);bytes.set([0,0,0,16,102,116,121,112,105,115,111,109])
+ return new File([bytes],name,{type:'video/mp4'})
+}
+it('accepts a gigabyte audio file and video above the old limit without reading the whole input',async()=>{
+ const audio=wavFile('large.wav'),video=videoFile('large.mp4')
+ Object.defineProperty(audio,'size',{value:1024**3});Object.defineProperty(video,'size',{value:750*1024**2})
+ const readAudio=vi.spyOn(audio,'arrayBuffer'),readVideo=vi.spyOn(video,'arrayBuffer')
+ await addFiles([audio,video])
+ expect(screen.getByText('large.wav')).toBeVisible();expect(screen.getByText('large.mp4')).toBeVisible()
+ expect(readAudio).not.toHaveBeenCalled();expect(readVideo).not.toHaveBeenCalled()
+ fireEvent.click(screen.getByRole('button',{name:'Convert 2'}))
+ await waitFor(()=>expect(engine.convert).toHaveBeenCalledTimes(2))
+})
+it('rejects files at the browser boundary before inspecting them and still queues valid files',async()=>{
+ const oversized=wavFile('too-large.wav');Object.defineProperty(oversized,'size',{value:2**31})
+ const slice=vi.spyOn(oversized,'slice')
+ const view=render(<LocalConverter active onShow={()=>{}}/>)
+ fireEvent.change(view.container.querySelector('input[type=file]')!,{target:{files:[oversized,wavFile()]}})
+ expect(await screen.findByRole('alert')).toHaveTextContent('smaller than 2 GB')
+ expect(slice).not.toHaveBeenCalled();expect(screen.getByRole('button',{name:'Convert 1'})).toBeEnabled()
+})
+it('queues video files before metadata finishes and keeps readers bounded while conversion starts',async()=>{
+ const pending:Array<{signal?:AbortSignal;resolve:(value:{duration:number})=>void}>=[]
+ vi.mocked(readVideoMetadata).mockImplementation((_file,signal)=>new Promise(resolve=>pending.push({signal,resolve})))
+ const view=await addFiles([videoFile('first.mp4'),videoFile('second.mp4'),videoFile('third.mp4')])
+ expect(readVideoMetadata).toHaveBeenCalledTimes(2)
+ expect(screen.getByRole('button',{name:'Convert 3'})).toBeEnabled()
+ await waitFor(()=>expect(engine.prepare).toHaveBeenCalled())
+ fireEvent.click(screen.getByRole('button',{name:'Convert 3'}))
+ await waitFor(()=>expect(engine.convert).toHaveBeenCalledTimes(3))
+ await act(async()=>pending[0].resolve({duration:5}))
+ await waitFor(()=>expect(readVideoMetadata).toHaveBeenCalledTimes(3))
+ expect(screen.getByText(/MP4 · 5s/)).toBeVisible()
+ view.unmount();expect(pending[1].signal?.aborted).toBe(true);expect(pending[2].signal?.aborted).toBe(true)
+})
+it('does not warm the engine on an empty page or when saving data',async()=>{
+ Object.defineProperty(navigator,'connection',{configurable:true,value:{saveData:true}})
+ try{
+  const view=render(<LocalConverter active onShow={()=>{}}/>)
+  expect(engine.prepare).not.toHaveBeenCalled()
+  fireEvent.change(view.container.querySelector('input[type=file]')!,{target:{files:[wavFile()]}})
+  await screen.findByRole('button',{name:'Convert 1'})
+  expect(engine.prepare).not.toHaveBeenCalled()
+  fireEvent.click(screen.getByRole('button',{name:'Convert 1'}))
+  expect(await screen.findByText('Complete',{exact:true})).toBeVisible()
+ }finally{Object.defineProperty(navigator,'connection',{configurable:true,value:undefined})}
 })
 
 it('applies settings to compatible waiting files without changing a completed result', async () => {

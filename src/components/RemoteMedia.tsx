@@ -24,7 +24,7 @@ export default function RemoteMedia({ controller: r, active }: { controller: Rem
   return <>
     <section className="download-workspace" hidden={!active} aria-label="Public media downloads">
       <div className="download-stage">
-        <Mascot className="download-companion" pose={r.error ? 'confused' : r.checking ? 'curious' : r.activeCount > 0 ? 'working' : r.jobs[0]?.state === 'ready' ? 'ready' : 'sitting'}/>
+        <Mascot className="download-companion" pose={r.error ? 'attention' : r.checking ? 'checking' : r.activeCount > 0 ? 'downloading' : r.jobs[0] && ['failed','partial','interrupted'].includes(r.jobs[0].state) ? 'attention' : r.jobs[0]?.state === 'ready' ? 'complete' : 'sitting'}/>
         <form className={splitLinks(r.url).length > 1 ? "omnibox is-batch" : "omnibox"} onSubmit={event => { event.preventDefault(); if (!r.busy) void (r.url.trim() ? r.submit() : r.paste()) }}>
           <label className="sr-only" htmlFor="remote-url">Public media link</label>
           <div className={`url-field ${r.checking ? 'is-checking' : ''}`}><Icon name="link"/><textarea id="remote-url" rows={Math.min(5, Math.max(1, r.url.split('\n').length))} value={r.url} onChange={e => r.setURL(e.target.value)} onKeyDown={event => { if (event.key === 'Enter' && !event.shiftKey && !event.nativeEvent.isComposing) { event.preventDefault(); event.currentTarget.form?.requestSubmit() } }} placeholder="Paste links, one per line" autoComplete="off" spellCheck={false} disabled={r.busy} aria-describedby="download-feedback link-batch-hint" />{r.url && !r.busy && <button type="button" className="clear-input dismiss-button" onClick={() => r.setURL('')} aria-label="Clear link"><Icon name="close"/></button>}</div>
@@ -137,7 +137,7 @@ function Downloads({ controller: r }: { controller: RemoteController }) {
       {r.queueBatchStatus && <p role="status" className="field-note">{r.queueBatchStatus}</p>}
     </div>}
     {r.jobs.some(job => job.id.startsWith('browser-')) && <p className="field-note">Direct browser downloads stay available while this tab is open. Keep it open until your file is saved.</p>}
-    {r.queueJobs.length > 0 && <Mascot className="queue-companion" pose={r.activeCount > 0 ? 'working' : r.queueJobs.some(job => ['failed', 'partial', 'interrupted'].includes(job.state)) ? 'confused' : r.queueJobs.some(job => job.state === 'ready') ? 'ready' : 'sleeping'}/>}
+    {r.queueJobs.length > 0 && <Mascot className="queue-companion" pose={r.activeCount > 0 ? 'downloading' : r.queueJobs.some(job => ['failed', 'partial', 'interrupted'].includes(job.state)) ? 'attention' : r.queueJobs.some(job => job.state === 'ready') ? 'complete' : 'sleeping'}/>}
     {!r.queueJobs.length && <div className="panel-empty"><Mascot pose="sleeping"/><h3>{r.recentJobs.length ? 'All caught up' : 'Nothing here yet'}</h3>{!r.recentJobs.length && <p>Your downloads will appear here, ready when you are.</p>}</div>}
     {r.error && <div><p className="error-message" role="alert">{r.error}</p><ErrorDetails area="download" code={r.errorCode} options={{...r.preferences.options,downloadMode:r.preferences.mode,videoContainer:r.preferences.videoContainer,audioContainer:r.preferences.audioContainer}} engine={r.caps?.engine}/></div>}
     {r.queueJobs.map(job => <article className="download-item" key={job.id} aria-busy={r.queueBusy(job.id)}>
@@ -171,7 +171,7 @@ function Collection({ controller: r }: { controller: RemoteController }) {
     for (const item of visible) { if (r.all ? !choose : choose) values.add(item.id); else values.delete(item.id) }
     if (r.all) r.setExcluded(values); else r.setSelected(values)
   }
-  return <div className="collection-content"><div className="collection-overview"><Mascot pose={r.discovery?.state === 'discovering' ? 'working' : 'curious'}/><Metadata controller={r}/></div><p>Choose the public items you want. Discovery depends on the source.</p>
+  return <div className="collection-content"><div className="collection-overview"><Mascot pose={r.discovery?.state === 'discovering' ? 'checking' : r.discovery?.state==='ready'&&r.discovery.outcome==='completed' ? 'complete' : 'attention'}/><Metadata controller={r}/></div><p>Choose the public items you want. Discovery depends on the source.</p>
     <div className="collection-filters"><label>Item limit<input type="number" min="1" max="1000" value={r.limit} onChange={e => r.setLimit(Number(e.target.value))}/></label><label>Published after<input type="date" value={r.after} onChange={e => r.setAfter(e.target.value)}/></label><label>Published before<input type="date" value={r.before} onChange={e => r.setBefore(e.target.value)}/></label></div><p className="field-note">Items without a publication date remain included.</p>
     <button type="button" className="secondary-button" disabled={r.busy || r.discovery?.state === 'discovering'} onClick={() => void r.discover()}>Discover collection</button>
     {r.discovery && <><p role="status">{r.discovery.count} discovered · {r.discovery.outcome}</p>{r.discovery.error && <p className="error-message">{r.discovery.error.message}</p>}{r.discovery.state === 'discovering' && <button type="button" className="text-button" onClick={() => void r.cancelDiscovery()}>Stop discovery</button>}

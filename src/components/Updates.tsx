@@ -12,7 +12,9 @@ import servicesBanner from '../assets/updates-services-2026-11-1280.webp'
 import servicesBannerSmall from '../assets/updates-services-2026-11-640.webp'
 import batchBanner from '../assets/updates-batch-2026-11-1280.webp'
 import batchBannerSmall from '../assets/updates-batch-2026-11-640.webp'
-import { batchUpdate, servicesUpdate, polishUpdate, browserUpdate, bugFixUpdate, betaUpdate as update, convertArchive, type ConvertArchiveEntry } from '../core/updates'
+import recoveryBanner from '../assets/updates-recovery-2026-11-1280.webp'
+import recoveryBannerSmall from '../assets/updates-recovery-2026-11-640.webp'
+import { recoveryUpdate, batchUpdate, servicesUpdate, polishUpdate, browserUpdate, bugFixUpdate, betaUpdate as update, convertArchive, type ConvertArchiveEntry } from '../core/updates'
 import Mascot from './Mascot'
 import './Updates.css'
 
@@ -24,13 +26,14 @@ const cast = [
   { pose: 'confused', label: 'A little help?', detail: 'Something needs your attention.' },
 ] as const
 
-const mewviReleases = [batchUpdate, servicesUpdate, polishUpdate, browserUpdate, bugFixUpdate, update]
+const mewviReleases = [recoveryUpdate, batchUpdate, servicesUpdate, polishUpdate, browserUpdate, bugFixUpdate, update]
 const releases = [...mewviReleases, ...convertArchive]
 const latestUpdate = releases[0]
 const updateIds = releases.map(release => release.id)
 const releaseDate = new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' })
 const bannerSizes = '(max-width: 600px) calc(100vw - 24px), (max-width: 1002px) calc(100vw - 152px), 850px'
 const releaseIntroductions: Record<string, string> = {
+  [recoveryUpdate.id]: 'Tools that remember your place, five more services and a faster local converter.',
   [batchUpdate.id]: 'Batch controls for downloads, shared conversion settings and previews for your finished files.',
   [servicesUpdate.id]: 'Eight new services, a more reliable download queue and a smoother local converter.',
 }
@@ -90,7 +93,7 @@ export default function Updates() {
     {shareState === 'failed' && <div className="update-share-fallback"><p role="alert">Copy the update link below.</p><input aria-label="Update link" readOnly value={updateLink()} onFocus={event => event.currentTarget.select()}/></div>}
   </header>
   return <div className="updates-reader" ref={container} onClick={switchUpdate}>
-    {archiveEntry ? <ConvertArchiveUpdate release={archiveEntry} header={header} headingId={headingId}/> : selected === batchUpdate.id ? <BatchUpdate header={header} headingId={headingId}/> : selected === servicesUpdate.id ? <ServicesUpdate header={header} headingId={headingId}/> : selected === polishUpdate.id ? <PolishUpdate header={header} headingId={headingId}/> : selected === browserUpdate.id ? <BrowserUpdate header={header} headingId={headingId}/> : selected === bugFixUpdate.id ? <BugFixUpdate header={header} headingId={headingId}/> : <BetaUpdate header={header} headingId={headingId}/>}
+    {archiveEntry ? <ConvertArchiveUpdate release={archiveEntry} header={header} headingId={headingId}/> : selected === recoveryUpdate.id ? <RecoveryUpdate header={header} headingId={headingId}/> : selected === batchUpdate.id ? <BatchUpdate header={header} headingId={headingId}/> : selected === servicesUpdate.id ? <ServicesUpdate header={header} headingId={headingId}/> : selected === polishUpdate.id ? <PolishUpdate header={header} headingId={headingId}/> : selected === browserUpdate.id ? <BrowserUpdate header={header} headingId={headingId}/> : selected === bugFixUpdate.id ? <BugFixUpdate header={header} headingId={headingId}/> : <BetaUpdate header={header} headingId={headingId}/>}
     <nav className="update-pagination" aria-label="Browse updates">
       {newer && <a className="update-page-link update-page-newer" href={`#${newer.id}`} aria-label={`Previous page: ${newer.version}`} title={newer.title}><span aria-hidden="true">←</span><span>{newer.version}</span></a>}
       {older && <a className="update-page-link update-page-older" href={`#${older.id}`} aria-label={`Next page: ${older.version}`} title={older.title}><span>{older.version}</span><span aria-hidden="true">→</span></a>}
@@ -115,6 +118,42 @@ function ConvertArchiveUpdate({ release, header, headingId }: { release: Convert
       <section><h3>What changed.</h3><ul>{release.changes.map(change => <li key={change}>{change}</li>)}</ul></section>
       <p>Reconstructed from the project’s Git history. These notes describe Convert at the time; today’s features may differ. <a href={`https://github.com/Clyvora/Convert/commit/${release.commit}`} target="_blank" rel="noopener noreferrer">View original changes on GitHub.</a></p>
     </div>
+  </article>
+}
+
+function RecoveryUpdate({ header, headingId }: UpdatePresentation) {
+  return <article className="beta-update" id={recoveryUpdate.id} aria-labelledby={headingId}>
+    {header}
+    <img className="beta-update-banner" src={recoveryBanner} srcSet={`${recoveryBannerSmall} 640w, ${recoveryBanner} 1280w`} sizes={bannerSizes} decoding="async" fetchPriority="high" alt="mewvi sitting on a stool beside a warmly lit media repair desk, with a rewind deck, photo and video cards and a checked repair list." width="1280" height="720"/>
+    <ReleaseNotes id={recoveryUpdate.id}><div className="beta-update-copy">
+      <section><h3>Tools</h3><ul>
+        <li>Restore your scan, filters, results page and selections after a refresh or page change.</li>
+        <li>Search all found items across pages without losing your selection.</li>
+        <li>See photo/video counts, name your ZIP and check whether the scan finished.</li>
+        <li>Load missing thumbnails on later pages. Page controls also move keyboard focus to the results.</li>
+        <li>Stop a scan and save what it found as a partial ZIP. Reload failed results without starting over.</li>
+      </ul><p className="field-note">Search text and ZIP names stay with your tab. Closing it clears saved selections; scans remain available until the session or results expire.</p></section>
+      <section><h3>Downloads &amp; ZIPs</h3><ul>
+        <li>Retry failed items while keeping completed files. Expired files download again when needed.</li>
+        <li>Keep downloading while a profile scan runs in the background.</li>
+        <li>Fixed ZIPs with non-English filenames and replacement archives disappearing after a retry.</li>
+        <li>Keep completed items when an archive reaches its size limit or fails to package.</li>
+        <li>Profile exports include a completion summary and remain ZIPs even with one selected item.</li>
+      </ul></section>
+      <section><h3>Local conversion</h3><p>Audio and video files can now be <strong>under 2 GB each</strong>, up from 300 MB and 500 MB. Files appear sooner, and the converter prepares while you choose settings.</p><ul>
+        <li>Faster setup for mixed audio/video batches, with less memory use between large conversions.</li>
+        <li>Clearer memory errors and a reminder to save and clear large completed results.</li>
+      </ul><p className="field-note">Files stay on your device. Available memory and output size still affect what finishes successfully.</p></section>
+      <section><h3>Five more services</h3><p>20 supported services, now including:</p><ul>
+        <li><strong>Vimeo:</strong> public video and player links.</li>
+        <li><strong>TED:</strong> public talks as video or audio.</li>
+        <li><strong>Audius:</strong> publicly streamable tracks.</li>
+        <li><strong>Internet Archive:</strong> public audio, video and media collections.</li>
+        <li><strong>Wikimedia Commons:</strong> audio/video File pages.</li>
+      </ul><p>Also improved X multi-video posts, Imgur video albums, silent clips in Auto mode and smaller-video selection. Carousel downloads check that photos still match your selection. Service details now point to Instagram and YouTube Shorts tools.</p></section>
+      <section><h3>A little more mewvi</h3><p>Four new still reactions follow checking, downloading, completion and problems. You’ll find mewvi beside Tools results too. About has a shorter introduction, clearer help and detailed privacy, terms and license pages.</p></section>
+      <section><h3>Still in beta</h3><p>Instagram profile archives remain experimental and may stop early. Private, sign-in-required, paid and DRM-protected media remain unsupported. Spotify links use matching YouTube audio.</p><p>Found a problem? <a href="/about/community">Report it</a> with your browser and Copy error details. Leave out private links and personal files.</p></section>
+    </div></ReleaseNotes>
   </article>
 }
 

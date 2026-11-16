@@ -10,6 +10,7 @@ import { outputFilename, uniqueFilename } from './core/naming'
 import { applyCompatibleSettings, mergePreferences, preferenceSubset } from './core/preferences'
 import { readInterfacePreferences } from './core/interfacePreferences'
 import { readVideoMetadata } from './core/localMetadata'
+import { LARGE_LOCAL_FILE_BYTES, validateLocalFileSize } from './core/localLimits'
 import type { SavedPreferences } from './core/preferences'
 import { getOutputFormats, isSupportedPair, isVideoFormat } from './core/registry'
 import ErrorDetails from './components/ErrorDetails'
@@ -33,8 +34,6 @@ const ACCEPT = [
   'audio/mpeg', 'audio/wav', 'audio/ogg', 'video/mp4', 'video/webm',
 ].join(',')
 const PREFERENCE_KEY = 'clyvora-convert-media-preferences-v2'
-const MAX_AUDIO_BYTES = 300 * 1024 * 1024
-const MAX_VIDEO_BYTES = 500 * 1024 * 1024
 const AUDIO_BITRATES: AudioBitrate[] = [96, 128, 192, 256, 320]
 const VIDEO_RESOLUTIONS: Array<{ label: string; value: VideoResolution }> = [
   { label: 'Original', value: 'original' },
@@ -104,6 +103,8 @@ function LocalConverter({ active, onShow }: { active: boolean; onShow: () => voi
   const [initialPreferences] = useState(loadPreferences)
   const preferencesRef = useRef<SavedPreferences>(initialPreferences)
   const mediaEngineRef = useRef<ConversionEngine | null>(null)
+  const metadataPending = useRef<QueueItem[]>([])
+  const metadataReaders = useRef(new Map<string, AbortController>())
   const abortRef = useRef<AbortController | null>(null)
   const activeIdRef = useRef<string | null>(null)
   const cancelledBatchRef = useRef(false)
@@ -118,10 +119,13 @@ function LocalConverter({ active, onShow }: { active: boolean; onShow: () => voi
   }, [notice])
   useEffect(() => {
     mounted.current = true
+    const readers = metadataReaders.current
     return () => {
       mounted.current = false
       cancelledBatchRef.current = true
       importing.current?.abort()
+      metadataPending.current = []
+      for(const reader of readers.values())reader.abort()
       abortRef.current?.abort()
       mediaEngineRef.current?.dispose?.()
       for (const item of itemsRef.current) if (item.outputUrl) URL.revokeObjectURL(item.outputUrl)
@@ -131,6 +135,7 @@ function LocalConverter({ active, onShow }: { active: boolean; onShow: () => voi
   const selected = items.find((item) => item.id === selectedId) ?? null
   const activeCount = items.filter((item) => ['ready', 'failed', 'cancelled'].includes(item.status)).length
   const completedCount = items.filter((item) => item.status === 'completed').length
+  const retainedOutputBytes = items.reduce((total,item)=>total+(item.outputBlob?.size||0),0)
   const lossless = selected?.options.outputFormat === 'wav' || selected?.options.outputFormat === 'flac'
   const queueTitle = busy ? 'Converting your files…' : completedCount === items.length && items.length ? `${items.length} ${items.length === 1 ? 'file' : 'files'} complete.` : items.every(item => item.status === 'ready') ? `${items.length} ${items.length === 1 ? 'file' : 'files'} ready.` : 'Your conversion files'
 
@@ -161,11 +166,42 @@ function LocalConverter({ active, onShow }: { active: boolean; onShow: () => voi
     }
   }, [selectedId])
 
-  const apply = (action: QueueAction) => {
+  const apply = useCallback((action: QueueAction) => {
     itemsRef.current = queueReducer(itemsRef.current, action)
     dispatch(action)
-  }
-  const patchItem = (id: string, patch: Partial<QueueItem>) => apply({ type: 'update', id, patch })
+  }, [])
+  const patchItem = useCallback((id: string, patch: Partial<QueueItem>) => apply({ type: 'update', id, patch }), [apply])
+  const readPendingMetadata = useCallback(function pump() {
+    while(mounted.current && metadataReaders.current.size < 2 && metadataPending.current.length) {
+      const item = metadataPending.current.shift()!
+      if(!itemsRef.current.some(current=>current.id===item.id))continue
+      const controller = new AbortController()
+      metadataReaders.current.set(item.id, controller)
+      void readVideoMetadata(item.file, controller.signal).then(metadata=>{
+        if(mounted.current && !controller.signal.aborted && itemsRef.current.some(current=>current.id===item.id)) {
+          patchItem(item.id, {sourceWidth:metadata.width,sourceHeight:metadata.height,sourceDurationSeconds:metadata.duration})
+        }
+      }).catch(()=>{/* Optional browser details must not block conversion. */}).finally(()=>{
+        metadataReaders.current.delete(item.id)
+        pump()
+      })
+    }
+  }, [patchItem])
+
+  const firstWaiting = items.find(item=>['ready','failed','cancelled'].includes(item.status))
+  useEffect(()=>{
+    if(!active || busy || !firstWaiting)return
+    const connection = (navigator as Navigator & {connection?:{saveData?:boolean;effectiveType?:string}}).connection
+    if(connection?.saveData || ['slow-2g','2g'].includes(connection?.effectiveType || ''))return
+    let stopped = false
+    void import('./engines/audio').then(({MediaConversionEngine})=>{
+      if(stopped || !mounted.current || busyRef.current)return
+      const engine = mediaEngineRef.current ?? new MediaConversionEngine()
+      mediaEngineRef.current = engine
+      return engine.prepare?.(firstWaiting.detected, firstWaiting.options)
+    }).catch(()=>{/* A failed warm-up can be retried by Convert. */})
+    return()=>{stopped=true}
+  }, [active,busy,firstWaiting])
 
   const updateOptions = (item: QueueItem, patch: Partial<ConversionOptions>) => {
     const options = { ...item.options, ...patch }
@@ -186,18 +222,14 @@ function LocalConverter({ active, onShow }: { active: boolean; onShow: () => voi
     for (const file of files) {
       if (controller.signal.aborted) break
       try {
+        validateLocalFileSize(file.size)
         const detected = await detectFile(file)
-        if (controller.signal.aborted) break
-        const limit = detected.kind === 'video' ? MAX_VIDEO_BYTES : MAX_AUDIO_BYTES
-        if (file.size > limit) throw new Error(`${detected.kind === 'video' ? 'Videos' : 'Audio files'} must be ${formatBytes(limit)} or smaller for reliable browser conversion.`)
-        const metadata = detected.kind === 'video' ? await readVideoMetadata(file, controller.signal) : {}
         if (controller.signal.aborted) break
         const risk = assessMemoryRisk(file.size, detected.kind, deviceMemory)
         additions.push({
           id: makeId(), file, detected, options: mergePreferences(detected.format, preferencesRef.current),
           status: 'ready', progress: 0,
           warning: risk.level === 'heavy' ? `${risk.label}: ${risk.detail}` : undefined,
-          sourceWidth: metadata.width, sourceHeight: metadata.height, sourceDurationSeconds: metadata.duration,
         })
       } catch (error) {
         const message = error instanceof FileDetectionError || error instanceof Error ? error.message : 'Could not inspect this file.'
@@ -207,10 +239,14 @@ function LocalConverter({ active, onShow }: { active: boolean; onShow: () => voi
     importing.current = null
     if (mounted.current) setAdding(false)
     if (!mounted.current || controller.signal.aborted) return 0
-    if (additions.length) apply({ type: 'add', items: additions })
+    if (additions.length) {
+      apply({ type: 'add', items: additions })
+      metadataPending.current.push(...additions.filter(item=>item.detected.kind==='video'))
+      readPendingMetadata()
+    }
     if (errors.length) setNotice({ message: errors.join(' '), tone: 'error' })
     return additions.length
-  }, [onShow])
+  }, [onShow,apply,readPendingMetadata])
 
   const runOne = async (id: string, usedNames: Set<string>): Promise<void> => {
     const item = itemsRef.current.find((entry) => entry.id === id)
@@ -226,8 +262,12 @@ function LocalConverter({ active, onShow }: { active: boolean; onShow: () => voi
       if (!mounted.current) return
       const engine = mediaEngineRef.current ?? new MediaConversionEngine()
       mediaEngineRef.current = engine
+      let lastProgressAt = -Infinity, lastLabel: string | undefined
       const blob = await engine.convert(item.file, item.detected, item.options, controller.signal, (progress, label) => {
         if (!mounted.current || controller.signal.aborted) return
+        const now = performance.now()
+        if(label===lastLabel && progress!==null && progress<1 && now-lastProgressAt<100)return
+        lastProgressAt=now;lastLabel=label
         patchItem(id, {
           status: label?.startsWith('Loading') ? 'loading-engine' : 'converting',
           progress: progress !== null && Number.isFinite(progress) ? Math.max(0, Math.min(1, progress)) : null,
@@ -291,6 +331,7 @@ function LocalConverter({ active, onShow }: { active: boolean; onShow: () => voi
     if (item.outputUrl) URL.revokeObjectURL(item.outputUrl)
     if (previewId === item.id) setPreviewId(null)
     apply({ type: 'remove', id: item.id })
+    metadataReaders.current.get(item.id)?.abort()
   }
 
   const reset = () => {
@@ -298,6 +339,8 @@ function LocalConverter({ active, onShow }: { active: boolean; onShow: () => voi
     for (const item of itemsRef.current) if (item.outputUrl) URL.revokeObjectURL(item.outputUrl)
     setPreviewId(null)
     apply({ type: 'reset' })
+    metadataPending.current = []
+    for(const reader of metadataReaders.current.values())reader.abort()
   }
 
   const convertAgain = (item: QueueItem) => {
@@ -346,7 +389,7 @@ function LocalConverter({ active, onShow }: { active: boolean; onShow: () => voi
         <p className="field-note">or drop audio and video here</p>
         <input ref={inputRef} type="file" accept={ACCEPT} multiple hidden onChange={(event) => { void addFiles(Array.from(event.target.files ?? [])); event.currentTarget.value = '' }} />
       </div>
-      <p className="field-note">Audio up to {formatBytes(MAX_AUDIO_BYTES)} · Video up to {formatBytes(MAX_VIDEO_BYTES)}</p>
+      <p className="field-note">Audio &amp; video files under 2 GB each</p>
       <div className="local-explainer"><h3><Icon name="convert"/> A format that fits</h3><p>Convert your audio and video into a format your player or editor supports. Choose output settings after selecting your files.</p><h3><Icon name="about"/> Source quality matters</h3><p>Conversion can change quality. Bigger files and higher bitrates cannot restore detail missing from the original.</p><h3><Icon name="settings"/> On-device processing</h3><p>Your files stay in this browser. The conversion engine loads when needed, and processing speed depends on your device.</p></div>
     </section> : <section className="workspace" aria-labelledby="queue-title">
       <div className="workspace-heading">
@@ -401,6 +444,7 @@ function LocalConverter({ active, onShow }: { active: boolean; onShow: () => voi
         </div>
       </div>
       <p className="field-note">Your files stay on this device. Save converted files before closing or refreshing this tab.</p>
+      {retainedOutputBytes>=LARGE_LOCAL_FILE_BYTES&&<p className="field-note" role="status">Converted files are holding {formatBytes(retainedOutputBytes)} in this tab. Download and clear completed files to free memory before another large conversion.</p>}
     </section>}
 
 

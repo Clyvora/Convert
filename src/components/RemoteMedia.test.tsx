@@ -45,7 +45,7 @@ it('filters collection pages without losing selections and can exclude only visi
   await user.click(await screen.findByRole('button', { name: 'Select visible items' }))
   expect(screen.getByText(/2 selected across this collection/)).toBeVisible()
   await user.click(screen.getByRole('button', { name: 'Download selected items' }))
-  expect(vi.mocked(remoteMedia.create).mock.calls[0][0]).toMatchObject({ all: false, itemIds: ['one', 'three'] })
+  expect(vi.mocked(remoteMedia.create).mock.calls[0][0]).toMatchObject({ all: false, itemIds: ['one', 'three'], allowSilentVideo: true })
   // Reopen the same picker and verify "all" uses exclusions instead of dropping other pages.
   fireEvent.change(screen.getByLabelText('Public media link'), { target: { value: 'https://example.com/list' } })
   await user.click(screen.getByRole('button', { name: 'Download' }))
@@ -151,23 +151,23 @@ it('inspects only on Download and preserves failed input', async () => {
   await user.click(screen.getByRole('button',{name:'Download'}))
   expect(await screen.findByRole('alert')).toHaveTextContent('Source unavailable')
   expect(screen.getByLabelText('Public media link')).toHaveValue('https://example.com/video')
-  expect(document.querySelector('.download-companion')).toHaveAttribute('src',expect.stringMatching(/\/confused\.webp$/))
+  expect(document.querySelector('.download-companion')).toHaveAttribute('src',expect.stringMatching(/\/attention\.webp$/))
   await user.click(screen.getByRole('button', { name: 'Edit link' }))
   expect(screen.getByLabelText('Public media link')).toHaveFocus()
   expect(remoteMedia.inspect).toHaveBeenCalledOnce()
 })
-it('uses the curious pose while checking, then the running pose for queued work', async () => {
+it('uses the attentive pose while checking, then the focused pose for queued work', async () => {
   let resolveInspection: (value: Inspection) => void = () => undefined
   vi.mocked(remoteMedia.inspect).mockImplementationOnce(() => new Promise(resolve => { resolveInspection = resolve }))
   const user = userEvent.setup(); render(<Harness/>)
   expect(document.querySelector('.download-companion')).toHaveAttribute('src',expect.stringMatching(/\/sitting\.webp$/))
   await user.type(screen.getByLabelText('Public media link'),'https://example.com/video{Enter}')
-  await waitFor(() => expect(document.querySelector('.download-companion')).toHaveAttribute('src',expect.stringMatching(/\/curious\.webp$/)))
+  await waitFor(() => expect(document.querySelector('.download-companion')).toHaveAttribute('src',expect.stringMatching(/\/checking\.webp$/)))
   expect(screen.getByRole('radio', { name: 'Audio' })).toBeDisabled()
   expect(screen.getByRole('button', { name: 'Checking…' })).toBeDisabled()
   expect(screen.getByRole('status')).toHaveTextContent('Looking for available media and formats.')
   await act(async () => resolveInspection(inspection))
-  await waitFor(() => expect(document.querySelector('.download-companion')).toHaveAttribute('src',expect.stringMatching(/\/working\.webp$/)))
+  await waitFor(() => expect(document.querySelector('.download-companion')).toHaveAttribute('src',expect.stringMatching(/\/downloading\.webp$/)))
   expect(screen.getByRole('radio', { name: 'Audio' })).toBeEnabled()
 })
 
@@ -244,6 +244,21 @@ it('uses the saved audio format for selected Bandcamp album tracks in Auto mode'
   await user.click(screen.getByRole('button', { name: 'Download selected items' }))
   await waitFor(() => expect(remoteMedia.create).toHaveBeenCalledOnce())
   expect(vi.mocked(remoteMedia.create).mock.calls[0][0]).toMatchObject({ discoveryId: 'album', all: false, itemIds: ['track-one'], output: { mode: 'audio', container: 'mp3' } })
+})
+
+it('keeps explicit Audio collection downloads strict instead of opting into silent video',async()=>{
+ localStorage.setItem('clyvora-convert-remote-preferences-v2',JSON.stringify({mode:'audio',videoContainer:'mp4',audioContainer:'mp3',options:{preset:'best'}}))
+ vi.mocked(remoteMedia.inspect).mockResolvedValue({...inspection,kind:'playlist',formats:[]})
+ vi.mocked(remoteMedia.discover).mockResolvedValue({id:'silent-album',state:'ready',count:1,outcome:'completed'})
+ vi.mocked(remoteMedia.discoveryItems).mockResolvedValue({items:[{id:'silent',provider:'Imgur',mediaId:'silent',url:'https://imgur.com/example',title:'Silent clip'}],next:null})
+ const user=userEvent.setup();render(<Harness/>)
+ fireEvent.change(screen.getByLabelText('Public media link'),{target:{value:'https://imgur.com/a/example'}})
+ await user.click(screen.getByRole('button',{name:'Download'}))
+ await user.click(await screen.findByRole('button',{name:'Discover collection'}))
+ await user.click(await screen.findByRole('checkbox',{name:'Silent clip'}))
+ await user.click(screen.getByRole('button',{name:'Download selected items'}))
+ expect(vi.mocked(remoteMedia.create).mock.calls[0][0]).toMatchObject({output:{mode:'audio',container:'mp3'}})
+ expect(vi.mocked(remoteMedia.create).mock.calls[0][0]).not.toHaveProperty('allowSilentVideo')
 })
 it('Auto detects audio-only and silent video without inventing streams', async () => {
   const user = userEvent.setup();vi.mocked(remoteMedia.inspect).mockResolvedValueOnce({...inspection,formats:[{...inspection.formats[0],video:null}]})

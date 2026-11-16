@@ -1,3 +1,10 @@
+export const recoveryUpdate = {
+  id: 'pick-up-where-you-left-off-2026-11-16',
+  version: '0.5.0-beta.2',
+  date: '2026-11-16',
+  title: 'Pick up where you left off.',
+}
+
 export const batchUpdate = {
   id: 'more-in-one-go-2026-11-13',
   version: '0.5.0-beta.1',

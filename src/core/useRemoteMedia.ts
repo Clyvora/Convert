@@ -298,7 +298,7 @@ export function useRemoteMedia() {
   })
   const createCollection = () => action(async () => {
     if (!discovery) return
-    await enqueue({ discoveryId: discovery.id, all, itemIds: [...selected], excludedIds: [...excluded], output: outputFor(preferences, undefined, batchMode) })
+    await enqueue({ discoveryId: discovery.id, all, itemIds: [...selected], excludedIds: [...excluded], ...(preferences.mode==='auto'?{allowSilentVideo:true}:{}), output: outputFor(preferences, undefined, batchMode) })
   })
   const loadPage = (next = '') => action(async () => { if (!discovery) return; cursor.current = next; setPage(await remoteMedia.discoveryItems(discovery.id, next)) })
   const queueKey = (id: string) => currentJobs.current.find(job => job.artifactId === id)?.id || (results?.page.items.some(item => item.artifactId === id || item.subtitleArtifactId === id) ? results.id : id)
@@ -379,7 +379,7 @@ export function useRemoteMedia() {
     setResults: (value: typeof results) => { resultsRevision.current++; setResults(value) },
     queueBusy: (id: string) => queueBusy.has(queueKey(id)), resultsBusy: queueBusy.has(`items:${results?.id}`),
     submit, openPlaylist, paste, discover, createCollection, loadPage, download, cancel, retry, remove, itemResults, cancelDiscovery,
-    addToolCollection: (discoveryId: string, itemIds: string[], selection?: {all:boolean;excludedIds:string[]}) => action(async () => { await enqueue({discoveryId,itemIds,all:selection?.all || false,...(selection?{excludedIds:selection.excludedIds}:{}),output:{mode:'combined',container:'original',preset:'best'}}) }),
+    addToolCollection: (discoveryId: string, itemIds: string[], selection?: {all?:boolean;excludedIds?:string[];archiveName?:string}) => action(async () => { await enqueue({discoveryId,itemIds,all:selection?.all || false,...(selection?.excludedIds?{excludedIds:selection.excludedIds}:{}),...(selection?.archiveName?{archiveName:selection.archiveName}:{}),output:{mode:'combined',container:'original',preset:'best'}}) }),
     cancelCheck: () => controller.current?.abort(), checking, linkResults, addingLinks,
     stopAddingLinks: () => batchController.current?.abort(),
     activeCount: jobs.filter(j => !terminal.has(j.state)).length,

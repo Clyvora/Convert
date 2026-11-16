@@ -1,6 +1,6 @@
 import { useId, useLayoutEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { services } from '../core/services'
+import { services, serviceIconPath } from '../core/services'
 import './services.css'
 
 export default function Services() {
@@ -47,7 +47,7 @@ export default function Services() {
       onPointerLeave={() => setActive(null)} onFocus={event => showDetails(item.id, event.currentTarget)} onBlur={() => setActive(null)}
       onClick={event => showDetails(item.id, event.currentTarget)}
     >
-      <span className="directory-platform-icon" style={{ maskImage: `url(/platforms/${item.icon}.svg)`, WebkitMaskImage: `url(/platforms/${item.icon}.svg)` }} aria-hidden="true"/>
+      <span className="directory-platform-icon" style={{ maskImage: `url(${serviceIconPath(item.icon)})`, WebkitMaskImage: `url(${serviceIconPath(item.icon)})` }} aria-hidden="true"/>
       <span className="directory-platform-name">{item.name}</span>
     </button>)}</div>
     {active && service && createPortal(<div className="directory-support-tooltip" role="tooltip" id={detailsId} ref={tooltip} style={{ ...position, visibility: position ? 'visible' : 'hidden' }}><span className="directory-link-types">{service.links.join(' · ')}</span><small>{service.detail}</small></div>, active.host)}

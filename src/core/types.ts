@@ -56,6 +56,7 @@ export interface QueueItem {
 }
 
 export interface ConversionEngine {
+  prepare?(detected: DetectedFile, options: ConversionOptions): Promise<void>
   convert(
     file: File,
     detected: DetectedFile,

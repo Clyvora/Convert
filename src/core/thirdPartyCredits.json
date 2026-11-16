@@ -1,0 +1,144 @@
+{
+  "runtime": [
+    {
+      "name": "@ffmpeg/core",
+      "version": "0.12.10",
+      "license": "GPL-2.0-or-later",
+      "url": "https://github.com/ffmpegwasm/ffmpeg.wasm"
+    },
+    {
+      "name": "@ffmpeg/core-mt",
+      "version": "0.12.10",
+      "license": "GPL-2.0-or-later",
+      "url": "https://github.com/ffmpegwasm/ffmpeg.wasm"
+    },
+    {
+      "name": "@ffmpeg/ffmpeg",
+      "version": "0.12.15",
+      "license": "MIT",
+      "url": "https://github.com/ffmpegwasm/ffmpeg.wasm"
+    },
+    {
+      "name": "@ffmpeg/types",
+      "version": "0.12.4",
+      "license": "MIT",
+      "url": "https://github.com/ffmpegwasm/ffmpeg.wasm"
+    },
+    {
+      "name": "@fontsource/ibm-plex-mono",
+      "version": "5.3.0",
+      "license": "OFL-1.1",
+      "url": "https://fontsource.org/fonts/ibm-plex-mono"
+    },
+    {
+      "name": "react",
+      "version": "19.2.8",
+      "license": "MIT",
+      "url": "https://react.dev/"
+    },
+    {
+      "name": "react-dom",
+      "version": "19.2.8",
+      "license": "MIT",
+      "url": "https://react.dev/"
+    },
+    {
+      "name": "scheduler",
+      "version": "0.27.0",
+      "license": "MIT",
+      "url": "https://react.dev/"
+    },
+    {
+      "name": "torph",
+      "version": "0.1.3",
+      "license": "MIT",
+      "url": "https://torph.lochie.me"
+    }
+  ],
+  "tooling": [
+    {
+      "name": "@testing-library/jest-dom",
+      "version": "7.0.1",
+      "license": "MIT",
+      "url": "https://github.com/testing-library/jest-dom"
+    },
+    {
+      "name": "@testing-library/react",
+      "version": "16.3.2",
+      "license": "MIT",
+      "url": "https://github.com/testing-library/react-testing-library"
+    },
+    {
+      "name": "@testing-library/user-event",
+      "version": "14.6.4",
+      "license": "MIT",
+      "url": "https://github.com/testing-library/user-event"
+    },
+    {
+      "name": "@types/node",
+      "version": "24.13.3",
+      "license": "MIT",
+      "url": "https://github.com/DefinitelyTyped/DefinitelyTyped/tree/master/types/node"
+    },
+    {
+      "name": "@types/react",
+      "version": "19.2.18",
+      "license": "MIT",
+      "url": "https://github.com/DefinitelyTyped/DefinitelyTyped/tree/master/types/react"
+    },
+    {
+      "name": "@types/react-dom",
+      "version": "19.2.4",
+      "license": "MIT",
+      "url": "https://github.com/DefinitelyTyped/DefinitelyTyped/tree/master/types/react-dom"
+    },
+    {
+      "name": "@vitejs/plugin-react",
+      "version": "6.0.5",
+      "license": "MIT",
+      "url": "https://github.com/vitejs/vite-plugin-react/tree/main/packages/plugin-react"
+    },
+    {
+      "name": "@vitest/browser-playwright",
+      "version": "4.1.12",
+      "license": "MIT",
+      "url": "https://vitest.dev/config/browser/playwright"
+    },
+    {
+      "name": "jsdom",
+      "version": "30.0.1",
+      "license": "MIT",
+      "url": "https://github.com/jsdom/jsdom"
+    },
+    {
+      "name": "oxlint",
+      "version": "1.78.0",
+      "license": "MIT",
+      "url": "https://oxc.rs/docs/guide/usage/linter"
+    },
+    {
+      "name": "playwright",
+      "version": "1.55.1",
+      "license": "Apache-2.0",
+      "url": "https://playwright.dev"
+    },
+    {
+      "name": "typescript",
+      "version": "6.0.3",
+      "license": "Apache-2.0",
+      "url": "https://www.typescriptlang.org/"
+    },
+    {
+      "name": "vite",
+      "version": "8.2.4",
+      "license": "MIT",
+      "url": "https://vite.dev"
+    },
+    {
+      "name": "vitest",
+      "version": "4.1.12",
+      "license": "MIT",
+      "url": "https://vitest.dev"
+    }
+  ]
+}

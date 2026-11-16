@@ -14,7 +14,7 @@ export function assessMemoryRisk(bytes: number, kind: 'audio' | 'video', deviceM
   const moderateThreshold = kind === 'video' ? 100 * 1024 ** 2 : 60 * 1024 ** 2
 
   if (bytes >= heavyThreshold || ratio >= 0.2) {
-    return { level: 'heavy', label: 'Heavy', detail: 'May approach this browser tab’s memory limit.' }
+    return { level: 'heavy', label: 'Large file', detail: 'Conversion depends on available memory and output size. Large WAV or high-resolution video results may exceed this browser’s memory.' }
   }
   if (bytes >= moderateThreshold || ratio >= 0.08) {
     return { level: 'moderate', label: 'Moderate', detail: 'Should work, but keep other large tabs closed.' }

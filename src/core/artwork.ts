@@ -6,8 +6,12 @@ import sleeping from '../assets/mascot/sleeping.webp'
 import local from '../assets/mascot/local.webp'
 import curious from '../assets/mascot/curious.webp'
 import pounce from '../assets/mascot/pounce.webp'
+import checking from '../assets/mascot/checking.webp'
+import downloading from '../assets/mascot/downloading.webp'
+import complete from '../assets/mascot/complete.webp'
+import attention from '../assets/mascot/attention.webp'
 
-export const mascotImages = { sitting, working, confused, ready, sleeping, local, curious, pounce }
+export const mascotImages = { sitting, working, confused, ready, sleeping, local, curious, pounce, checking, downloading, complete, attention }
 
 /** Start after the first page load, away from the critical rendering path. */
 export function warmMascotImages() {

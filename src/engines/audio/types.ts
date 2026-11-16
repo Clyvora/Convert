@@ -54,6 +54,8 @@ export type LocalMediaConversionErrorCode =
   | 'engine-load-failed'
   | 'invalid-options'
   | 'conversion-failed'
+  | 'memory-limit'
+  | 'file-too-large'
 
 export type AudioConversionErrorCode = LocalMediaConversionErrorCode
 

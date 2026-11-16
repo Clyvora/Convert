@@ -40,8 +40,17 @@ export interface Job {
   completed: number; failed: number; bytes: number; totalBytes?: number; stage: string;
   artifactId?: string; error?: ServiceError;
 }
-export interface Discovery { id: string; state: string; count: number; outcome: string; scope?: 'all' | 'recent'; tool?: ToolKind; scanned?: number; error?: ServiceError; url?: string; lastJobId?: string }
-export interface Page<T> { items: T[]; next: string | null }
+export interface Discovery { id: string; state: string; count: number; outcome: string; scope?: 'all' | 'recent'; tool?: ToolKind; scanned?: number; error?: ServiceError; url?: string; lastJobId?: string; mediaType?: 'all'|'image'|'video'; after?: string; before?: string }
+export interface Page<T> { items: T[]; next: string | null; total?: number }
+export interface ToolSelection { all?: boolean; itemIds?: string[]; excludedIds?: string[] }
+export interface SelectionSummary { total: number; photos: number; videos: number; other: number; found: number; sourceComplete: boolean }
+/** A basename only. The service supplies the extension and any partial marker. */
+export function archiveBasename(value: unknown): string {
+  if(typeof value!=='string'||value.length>120||/[<>:"/\\|?*]/.test(value)||[...value].some(char=>char.charCodeAt(0)<32||char.charCodeAt(0)===127))throw new Error('Use up to 120 characters, without slashes or filename symbols.');
+  const name=value.normalize('NFC').trim().replace(/\.zip$/i,'').replace(/^[. ]+|[. ]+$/g,'');
+  if(!name)throw new Error('Enter a ZIP name or leave the field empty for an automatic name.');
+  return /^(con|prn|aux|nul|com\d|lpt\d)(\.|$)/i.test(name)?`_${name}`:name;
+}
 export interface Capabilities { apiVersion: number; containers: Container[]; limits: { items: number; itemBytes: number; duration: number }; engine: string; enabledProviders: number; catalogMethod: string }
 
 export const compatibility: Record<Exclude<Container, 'original'>, { kind: 'audio' | 'video'; video: string[]; audio: string[]; encoder: string; mime: string }> = {

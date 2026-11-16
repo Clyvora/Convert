@@ -1,4 +1,4 @@
-import { cleanup, render, screen, waitFor } from '@testing-library/react'
+import { cleanup, render, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, expect, it, vi } from 'vitest'
 import { PageDirectory } from './PagePrimitives'
 import userEvent from '@testing-library/user-event'
@@ -33,4 +33,30 @@ it('opens About sections from the compact picker and restores deep links through
   history.back()
   await waitFor(() => expect(picker).toHaveValue('privacy'))
   expect(screen.getByRole('article', { name: 'Privacy policy' })).toBeVisible()
+})
+
+it('returns the About overview to its canonical address and focuses the new section heading',async()=>{
+  history.replaceState(null,'','/about/community')
+  const user=userEvent.setup()
+  render(<AboutPage/>)
+  const navigation=screen.getByRole('navigation',{name:'About categories'})
+  await user.click(within(navigation).getByRole('link',{name:'What’s mewvi?'}))
+  expect(location.pathname).toBe('/about')
+  expect(screen.getByRole('heading',{name:'Meet mewvi.',level:2})).toHaveFocus()
+  const workspaces=screen.getByRole('navigation',{name:'Choose a workspace'})
+  expect(within(workspaces).getByRole('link',{name:/Download media/})).toHaveAttribute('href','/')
+  expect(within(workspaces).getByRole('link',{name:/Convert your files/})).toHaveAttribute('href','/local')
+  expect(within(workspaces).getByRole('link',{name:/Collect with Tools/})).toHaveAttribute('href','/tools')
+  expect(workspaces.querySelector('a button')).toBeNull()
+})
+
+it('keeps heading permalinks while preserving the About document hierarchy',async()=>{
+  history.replaceState(null,'','/about/privacy#local-files')
+  Element.prototype.scrollIntoView=vi.fn()
+  render(<AboutPage/>)
+  const article=screen.getByRole('article',{name:'Privacy policy'})
+  expect(await within(article).findByRole('heading',{name:'What stays here. What goes online.',level:2})).toHaveAttribute('id','what-stays-here-what-goes-online')
+  expect(within(article).getByRole('heading',{name:'Local files',level:3})).toBeVisible()
+  expect(document.getElementById('local-files')).not.toBeNull()
+  expect(Element.prototype.scrollIntoView).toHaveBeenCalledWith({block:'start',behavior:'instant'})
 })

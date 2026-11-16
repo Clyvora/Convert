@@ -26,3 +26,4 @@ for (const [source, destination] of assets) {
 }
 
 console.log('Prepared self-hosted FFmpeg runtime assets.')
+await import('../prepare-notices.mjs')

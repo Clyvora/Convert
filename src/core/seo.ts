@@ -10,11 +10,12 @@ export const searchPages: Record<string, { title: string; description: string }>
   '/about/privacy': { title: 'Privacy Policy — mewvi', description: 'How mewvi processes local files, public links, anonymous sessions, preferences and temporary downloads.' },
   '/about/terms': { title: 'Usage & Service Limits — mewvi', description: 'Understand permitted use, source availability, conversion limits and the public-media requirements of mewvi.' },
   '/about/community': { title: 'Help & Community — mewvi', description: 'Report a problem, contribute to mewvi, find the source code and follow product development.' },
-  '/about/credits': { title: 'Credits & Open Source — mewvi', description: 'The projects, libraries and contributors behind mewvi, an audio and video tool by Clyvora.' },
+  '/about/credits': { title: 'Credits & Licenses — mewvi', description: 'The projects, libraries, contributors and licenses behind mewvi, an audio and video tool by Clyvora.' },
   '/updates': { title: 'Product Updates — mewvi', description: 'Read the latest mewvi beta release notes, interface improvements, media features and known limitations.' },
 }
 export function pageSEO(path: string) {
   path = path.replace(/\/+$/, '') || '/'
+  if(path==='/about/general')path='/about'
   const page = searchPages[path]
   return { ...(page || { title: path.startsWith('/settings') ? 'Settings — mewvi' : 'Page Not Found — mewvi', description: 'Manage your mewvi preferences for audio and video downloads and local file conversion.' }), canonical: siteOrigin + path, robots: page ? 'index, follow, max-image-preview:large, max-snippet:-1' : 'noindex, follow' }
 }

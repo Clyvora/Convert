@@ -26,7 +26,9 @@ const titles = { '/': 'mewvi media downloader and converter', '/local': 'Local c
 export default function App() {
   const { route, navigate } = useNavigation()
   const [localOpened, setLocalOpened] = useState(false)
+  const [toolsOpened, setToolsOpened] = useState(false)
   useEffect(() => { if (route === '/local') setLocalOpened(true) }, [route])
+  useEffect(() => { if (route === '/tools') setToolsOpened(true) }, [route])
   useEffect(() => {
     if (localOpened || route === '/local') return
     if (typeof window.requestIdleCallback === 'function') {
@@ -100,9 +102,9 @@ export default function App() {
       <h1 ref={heading} tabIndex={-1} className="sr-only">{titles[route]}</h1>
       <RemoteMedia active={route === '/'} controller={controller}/>
       {(localOpened || route === '/local') && <Suspense fallback={<p role="status">Loading local converter…</p>}><LocalConverter active={route === '/local'} onShow={showLocal}/></Suspense>}
-      {infoPage && <div className={`content-page ${route === '/settings' ? 'settings-page' : ''}`}>
+      {(toolsOpened || route === '/tools') && <div className="content-page" hidden={route !== '/tools'}><Tools active={route === '/tools'} controller={controller}/></div>}
+      {infoPage && route !== '/tools' && <div className={`content-page ${route === '/settings' ? 'settings-page' : ''}`}>
         {route === '/settings' && <SettingsPage controller={controller}/>}
-        {route === '/tools' && <Tools controller={controller}/>}
         {route === '/updates' && <Updates/>}{route === '/about' && <About onUpdates={() => navigate('/updates')}/>}
         {route === 'missing' && <p>This page isn’t available. <a href="/" onClick={event => visit(event, '/')}>Return to downloads</a>.</p>}
       </div>}

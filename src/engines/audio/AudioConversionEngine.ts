@@ -2,8 +2,12 @@ import type { ConversionEngine, ConversionOptions, DetectedFile } from '../../co
 import { LocalMediaFfmpegEngine } from './AudioFfmpegEngine'
 
 export class MediaConversionEngine implements ConversionEngine {
-  private readonly audioEngine = new LocalMediaFfmpegEngine()
-  private readonly videoEngine = new LocalMediaFfmpegEngine()
+  // The local queue is sequential; audio and video can share the loaded worker.
+  private readonly engine = new LocalMediaFfmpegEngine()
+
+  prepare(detected: DetectedFile, options: ConversionOptions): Promise<void> {
+    return this.engine.prepare(detected.format, options.outputFormat)
+  }
 
   async convert(
     file: File,
@@ -12,8 +16,7 @@ export class MediaConversionEngine implements ConversionEngine {
     signal: AbortSignal,
     onProgress: (progress: number | null, label?: string) => void,
   ): Promise<Blob> {
-    const engine = detected.kind === 'video' ? this.videoEngine : this.audioEngine
-    const result = await engine.convert(file, detected.format, {
+    const result = await this.engine.convert(file, detected.format, {
       outputFormat: options.outputFormat,
       audioBitrate: options.audioBitrate,
       audioChannels: options.audioChannels,
@@ -27,8 +30,8 @@ export class MediaConversionEngine implements ConversionEngine {
     return result.blob
   }
 
-  cancel(): void { this.audioEngine.cancel(); this.videoEngine.cancel() }
-  dispose(): void { this.audioEngine.dispose(); this.videoEngine.dispose() }
+  cancel(): void { this.engine.cancel() }
+  dispose(): void { this.engine.dispose() }
 }
 
 export { MediaConversionEngine as AudioConversionEngine }

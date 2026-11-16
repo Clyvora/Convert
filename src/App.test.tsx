@@ -67,6 +67,17 @@ describe('mewvi', () => {
     expect(screen.getByRole('textbox',{name:'Post link'})).toBeVisible()
   })
 
+  it('keeps a tool draft when visiting another page and returning',()=>{
+    render(<App/>);fireEvent.click(screen.getByRole('link',{name:'Open tools'}))
+    fireEvent.click(screen.getByRole('link',{name:/Carousel downloader/}))
+    fireEvent.change(screen.getByRole('textbox',{name:'Post link'}),{target:{value:'https://www.instagram.com/p/draft/'}})
+    fireEvent.click(screen.getByRole('link',{name:'Open settings'}))
+    expect(screen.queryByRole('textbox',{name:'Post link'})).not.toBeInTheDocument()
+    fireEvent.click(screen.getByRole('link',{name:'Open tools'}))
+    fireEvent.click(screen.getByRole('link',{name:/Carousel downloader/}))
+    expect(screen.getByRole('textbox',{name:'Post link'})).toHaveValue('https://www.instagram.com/p/draft/')
+  })
+
   it('resets the scroll position immediately when switching pages and settings categories', async () => {
     const user = userEvent.setup()
     render(<App/>)
